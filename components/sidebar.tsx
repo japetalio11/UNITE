@@ -18,7 +18,7 @@ export default function Sidebar() {
     const router = useRouter();
     
     const links = [
-        { href: "/dashboard", icon: Ticket },
+        { href: "/dashboard/sysadmin/campaign", icon: Ticket },
         { href: "/inventory", icon: Calendar },
         { href: "/requests", icon: UsersRound },
         { href: "/campaign", icon: ContactRound },
@@ -36,7 +36,7 @@ export default function Sidebar() {
             variant="light"
             className={`w-10 h-10 !p-0 flex items-center justify-center rounded-full transition-colors duration-200 ${
                 isActive
-                ? "bg-red-600 text-white"
+                ? "bg-danger text-white"
                 : "text-black border border-gray-300 hover:bg-gray-100"
             }`}
             >

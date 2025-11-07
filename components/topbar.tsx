@@ -51,7 +51,7 @@ export default function Topbar({
     }, []);
     
     return (
-        <div className="w-full bg-white border-b border-gray-200">
+        <div className="w-full bg-white border-gray-200">
         <div className="flex items-center justify-between px-6 py-3">
             {/* Left side - User Profile */}
             <div className="flex items-center gap-3">
@@ -112,10 +112,10 @@ export default function Topbar({
                 </div>
                 }
                 classNames={{
-                base: "w-full",
-                mainWrapper: "h-full",
-                input: "text-sm",
-                inputWrapper: "h-10 bg-gray-50 border-gray-200 hover:bg-gray-100 group-data-[focused=true]:bg-white"
+                    base: "w-full",
+                    mainWrapper: "h-full",
+                    input: "text-sm",
+                    inputWrapper: "h-10 bg-gray-50 border-gray-200 hover:bg-gray-100 group-data-[focused=true]:bg-white"
                 }}
             />
             </div>
