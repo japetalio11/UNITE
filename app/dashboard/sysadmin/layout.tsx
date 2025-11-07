@@ -15,10 +15,15 @@ export default function SysAdminDashboardLayout({
             <Sidebar
                 role="sysadmin"
                 userInfo={{
-                name: "John Doe",
-                email: "john@example.com",
+                    name: "John Doe",
+                    email: "john@example.com",
                 }}
             />
+            
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-y-auto">
+                {children}
+            </main>
         </div>   
     );
 }
