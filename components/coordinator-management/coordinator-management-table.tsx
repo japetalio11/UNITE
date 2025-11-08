@@ -147,3 +147,5 @@ export default function CoordinatorTable({
     </div>
   )
 }
+
+//[FCM-003] Feature: Added coordinator management table component
