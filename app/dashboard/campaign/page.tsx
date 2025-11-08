@@ -479,6 +479,32 @@ export default function CampaignPage() {
       return true;
     });
   }, [requests, selectedTab, searchQuery, quickFilterCategory, advancedFilter]);
+
+  // derive approved events for the calendar (only events with Approved status)
+  const approvedEvents = useMemo(() => {
+    return requests
+      .map((req) => ({ req, event: req.event || {} }))
+      .filter(({ req, event }) => {
+        const statusRaw = (event.Status || req.Status || '').toString();
+        const status = statusRaw.includes('Reject') ? 'Rejected' : (statusRaw.includes('Approve') ? 'Approved' : 'Pending');
+        return status === 'Approved';
+      })
+      .map(({ event, req }) => {
+        const rawCategory = (event.Category || event.categoryType || event.category || '').toString().toLowerCase();
+        let categoryKey = 'other';
+        if (rawCategory.includes('blood')) categoryKey = 'blood';
+        else if (rawCategory.includes('training')) categoryKey = 'training';
+        else if (rawCategory.includes('advocacy')) categoryKey = 'advocacy';
+
+        return {
+          Request_ID: req.Request_ID || req.RequestId || req._id || req.RequestId,
+          Event_ID: event.Event_ID || event._id || event.EventId,
+          Start_Date: event.Start_Date || event.start || event.date,
+          Title: event.Event_Title || event.title || '',
+          Category: categoryKey
+        };
+      });
+  }, [requests]);
   
   return (
     <div className="min-h-screen bg-white">
@@ -508,7 +534,11 @@ export default function CampaignPage() {
       {/* Main Content Area */}
       <div className="px-6 py-6 flex gap-4">
         {/* Calendar Section */}
-        <CampaignCalendar />
+        <CampaignCalendar
+          events={approvedEvents}
+          selectedDate={selectedDate}
+          onDateSelect={handleDateSelect}
+        />
 
         {/* Event / Request Cards Section - Scrollable */}
         <div className="flex-1 h-[calc(106vh-300px)] overflow-y-auto pr-2">
