@@ -53,14 +53,14 @@ export default function SignUp() {
         <Link href="/auth/signin" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to login
         </Link>
-        <h1 className="text-2xl font-semibold text-red-600">Sign Up</h1>
+        <h1 className="text-2xl font-semibold text-danger-600">Sign Up</h1>
         <p className="text-sm text-gray-600">Enter your details to get started</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="name" className="text-sm font-medium text-gray-700 block mb-1.5">
-            Name <span className="text-red-500">*</span>
+            Name <span className="text-danger-500">*</span>
           </label>
           <Input
             id="name"
@@ -79,7 +79,7 @@ export default function SignUp() {
         
         <div>
           <label htmlFor="contactNumber" className="text-sm font-medium text-gray-700 block mb-1.5">
-            Contact Number <span className="text-red-500">*</span>
+            Contact Number <span className="text-danger-500">*</span>
           </label>
           <Input
             id="contactNumber"
@@ -98,7 +98,7 @@ export default function SignUp() {
         
         <div>
           <label htmlFor="accountType" className="text-sm font-medium text-gray-700 block mb-1.5">
-            Account Type <span className="text-red-500">*</span>
+            Account Type <span className="text-danger-500">*</span>
           </label>
           <select
             id="accountType"
@@ -116,7 +116,7 @@ export default function SignUp() {
 
         <div>
           <label htmlFor="email" className="text-sm font-medium text-gray-700 block mb-1.5">
-            Email Address <span className="text-red-500">*</span>
+            Email Address <span className="text-danger-500">*</span>
           </label>
           <Input
             id="email"
@@ -135,7 +135,7 @@ export default function SignUp() {
 
         <div>
           <label htmlFor="password" className="text-sm font-medium text-gray-700 block mb-1.5">
-            Create Password <span className="text-red-500">*</span>
+            Create Password <span className="text-danger-500">*</span>
           </label>
           <Input
             id="password"
@@ -168,7 +168,7 @@ export default function SignUp() {
 
         <div>
           <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 block mb-1.5">
-            Confirm Password <span className="text-red-500">*</span>
+            Confirm Password <span className="text-danger-500">*</span>
           </label>
           <Input
             id="confirmPassword"
@@ -201,7 +201,7 @@ export default function SignUp() {
         <div className="flex items-center justify-center p-4 border border-gray-200 rounded-lg">
           <div className="flex items-center space-x-2">
             <input type="checkbox" id="captcha" required 
-              className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+              className="w-4 h-4 text-danger-600 border-gray-300 rounded focus:ring-danger-500"
             />
             <label htmlFor="captcha" className="text-sm font-medium text-gray-700">
               I'm not a robot
@@ -214,7 +214,7 @@ export default function SignUp() {
             type="submit"
             size="md"
             color="primary"
-            className="w-full bg-red-600 hover:bg-red-700 text-white"
+            className="w-full bg-danger-600 hover:bg-danger-700 text-white"
             isLoading={isLoading}
           >
             Let's get you started
@@ -224,7 +224,7 @@ export default function SignUp() {
 
       <div className="mt-6 text-center text-sm text-gray-600">
         Already have an account?{' '}
-        <Link href="/auth/signin" className="text-red-600 hover:underline font-medium">
+        <Link href="/auth/signin" className="text-danger-600 hover:underline font-medium">
           Sign in
         </Link>
       </div>
