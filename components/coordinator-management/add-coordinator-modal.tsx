@@ -310,3 +310,5 @@ export default function AddCoordinatorModal({
     </Modal>
   )
 }
+
+//[FCM-004] Feature: Added coordinator management add coordinator modal
