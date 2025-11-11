@@ -11,19 +11,21 @@ import {
     DropdownItem,
 } from "@heroui/dropdown";
 import { 
-    Search, 
-    ChevronDown, 
-    ChevronLeft,
-    ChevronRight,
-    LogOut, 
-    Download, 
-    Clock,
-    Ticket,
-    Calendar,
-    CalendarDays,
-    SlidersHorizontal,
-    Filter
+  Search, 
+  ChevronDown, 
+  ChevronLeft,
+  ChevronRight,
+  LogOut, 
+  Download, 
+  Clock,
+  Ticket,
+  Calendar,
+  CalendarDays,
+  SlidersHorizontal,
+  Filter
 } from "lucide-react";
+import Topbar from "@/components/topbar";
+import CampaignToolbar from "@/components/campaign/campaign-toolbar";
 
 export default function CalendarPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -36,6 +38,8 @@ export default function CalendarPage() {
   const [weekEventsByDate, setWeekEventsByDate] = useState<Record<string, any[]>>({});
   const [monthEventsByDate, setMonthEventsByDate] = useState<Record<string, any[]>>({});
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [isDateTransitioning, setIsDateTransitioning] = useState(false);
   const [isViewTransitioning, setIsViewTransitioning] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
@@ -58,6 +62,27 @@ export default function CalendarPage() {
   // Set initial event type in useEffect to ensure it only runs on the client
   useEffect(() => {
     setSelectedEventType(new Set(["blood-drive"]));
+  }, []);
+
+  // Load current user display name/email for topbar
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('unite_user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        const first = u.First_Name || u.FirstName || u.first_name || u.firstName || u.First || '';
+        const middle = u.Middle_Name || u.MiddleName || u.middle_name || u.middleName || u.Middle || '';
+        const last = u.Last_Name || u.LastName || u.last_name || u.lastName || u.Last || '';
+        const parts = [first, middle, last].map((p: any) => (p || '').toString().trim()).filter(Boolean);
+        const full = parts.join(' ');
+        const email = u.Email || u.email || u.Email_Address || u.emailAddress || '';
+        if (full) setCurrentUserName(full);
+        else if (u.name) setCurrentUserName(u.name);
+        if (email) setCurrentUserEmail(email);
+      }
+    } catch (err) {
+      // ignore malformed localStorage
+    }
   }, []);
 
   const handleLogout = () => {
@@ -398,80 +423,26 @@ export default function CalendarPage() {
         <div className="px-8 py-7">
           <h1 className="text-2xl font-semibold text-gray-900">Calendar</h1>
           
-          {/* Profile and Search Bar Section */}
+          {/* Profile and Campaign Toolbar (reused from Campaign page) */}
           <div className="space-y-6">
-            <div className="flex justify-between items-center mt-12">
-              {/* Profile Info with Dropdown */}
-              <div className="relative" ref={dropdownRef} style={{ minHeight: '52px' }}>
-                <div 
-                  className="flex items-center cursor-pointer group"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                >
-                  <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
-                    <img 
-                      src="/Avatar.png" 
-                      alt="Profile" 
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div className="pl-3 pr-3 flex-1">
-                    <p className="text-[15px] font-medium text-gray-900 leading-none">Bicol Medical Center</p>
-                    <p className="text-[13px] text-gray-500">bmc@gmail.com</p>
-                  </div>
-                  <ChevronDown 
-                    className={`h-5 w-5 text-gray-500 transition-all duration-200 ${
-                      isDropdownOpen ? 'transform rotate-180' : ''
-                    } group-hover:text-gray-700`} 
-                  />
-                </div>
-                
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -5, scale: 0.98 }}
-                      transition={{ duration: 0.18, ease: "easeOut" }}
-                      className="absolute right-0 top-[calc(100%+4px)] bg-white rounded-md shadow-lg z-50 border border-gray-200 overflow-hidden"
-                    >
-                      <motion.button
-                        whileHover={{ backgroundColor: '#f9fafb' }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 flex items-center whitespace-nowrap"
-                      >
-                        <motion.span 
-                          className="flex items-center"
-                          whileHover={{ x: 2 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <LogOut className="h-4 w-4 mr-2.5 text-gray-500" />
-                          <span>Log out</span>
-                        </motion.span>
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              
-              {/* Search Bar */}
-              <div className="relative">
-                <div className="relative bg-gray-100 rounded-lg border border-gray-300">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search files..."
-                    className="pl-9 pr-20 py-2 w-[200px] text-[13px] border-2 border-transparent bg-transparent rounded-lg focus:outline-none focus:border-gray-900 focus:ring-0 focus:shadow-sm placeholder-gray-400 h-8 transition-all duration-200"
-                  />
-                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200">
-                    <kbd className="text-[10px] font-mono text-gray-500">Win</kbd>
-                    <span className="text-[10px] text-gray-400">+</span>
-                    <kbd className="text-[10px] font-mono text-gray-500">K</kbd>
-                  </div>
-                </div>
-              </div>
+            <div className="flex justify-between items-center mt-6">
+              <Topbar
+                userName={currentUserName || 'Bicol Medical Center'}
+                userEmail={currentUserEmail || 'bmc@gmail.com'}
+                onSearch={(q: string) => console.log('topbar search', q)}
+                onUserClick={() => setIsDropdownOpen(prev => !prev)}
+              />
             </div>
 
+            {/* Campaign Toolbar provides Export / Quick Filter / Advanced Filter / Create Event UI */}
+            <CampaignToolbar
+              onExport={() => console.log('export')}
+              onQuickFilter={(f: any) => console.log('quick filter', f)}
+              onAdvancedFilter={(f: any) => console.log('advanced filter', f)}
+              onCreateEvent={(type: string, data: any) => { handleCreateEvent(); }}
+              onTabChange={() => {}}
+              defaultTab="all"
+            />
             {/* Calendar Toolbar with View Toggle and Actions */}
             <div className="w-full bg-white">
               <div className="flex items-center justify-between px-6 py-3">
@@ -528,81 +499,8 @@ export default function CalendarPage() {
                     </div>
                   </div>
 
-                  {/* Right side - Action Buttons */}
-                  <div className="flex items-center gap-2">
-
-                  {/* Export Button */}
-                  <Button
-                    variant="faded"
-                    startContent={<Download className="w-4 h-4" />}
-                    radius="md"
-                    size="sm"
-                  >
-                    Export
-                  </Button>
-
-                  {/* Quick Filter Button */}
-                  <Button
-                    variant="faded"
-                    startContent={<Filter className="w-4 h-4" />}
-                    endContent={<ChevronDown className="w-4 h-4"/>}
-                    radius="md"
-                    size="sm"
-                  >
-                    Quick Filter
-                  </Button>
-
-                  {/* Advanced Filter Button */}
-                  <Button
-                    variant="faded"
-                    startContent={<SlidersHorizontal className="w-4 h-4" />}
-                    endContent={<ChevronDown className="w-4 h-4"/>}
-                    radius="md"
-                    size="sm"
-                  >
-                    Advanced Filter
-                  </Button>
-
-                  {/* Create Event Button Group with Dropdown */}
-                  <ButtonGroup 
-                    variant="solid"
-                    radius="md"
-                    size="sm"
-                  >
-                    <Button
-                      onPress={handleCreateEvent}
-                      color="primary"
-                      startContent={<Ticket className="w-4 h-4" />}
-                    >
-                      {selectedEventTypeValue ? eventLabelsMap[selectedEventTypeValue] : 'Create Event'}
-                    </Button>
-                    <Dropdown placement="bottom-end">
-                      <DropdownTrigger>
-                        <Button isIconOnly color="primary">
-                          <ChevronDown className="w-4 h-4"/>
-                        </Button>
-                      </DropdownTrigger>
-                      <DropdownMenu
-                        disallowEmptySelection
-                        aria-label="Event type options"
-                        className="max-w-2xl"
-                        selectedKeys={selectedEventType || new Set()}
-                        selectionMode="single"
-                        onSelectionChange={handleSelectionChange}
-                      >
-                        <DropdownItem key="blood-drive" description={eventDescriptionsMap["blood-drive"]}>
-                          {eventLabelsMap["blood-drive"]}
-                        </DropdownItem>
-                        <DropdownItem key="training" description={eventDescriptionsMap["training"]}>
-                          {eventLabelsMap["training"]}
-                        </DropdownItem>
-                        <DropdownItem key="advocacy" description={eventDescriptionsMap["advocacy"]}>
-                          {eventLabelsMap["advocacy"]}
-                        </DropdownItem>
-                      </DropdownMenu>
-                    </Dropdown>
-                  </ButtonGroup>
-                </div>
+                  {/* Right side - Action Buttons are provided by CampaignToolbar above (keep empty here) */}
+                  <div className="flex items-center gap-2" />
               </div>
             </div>
 
