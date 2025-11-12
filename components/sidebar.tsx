@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
+import { getUserInfo } from "../utils/getUserInfo"
     
 interface SidebarProps {
     role?: string;
@@ -25,27 +26,38 @@ export default function Sidebar({ role, userInfo }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     
-    // Determine role from prop or localStorage when not provided
-    let resolvedRole = role
-    if (!resolvedRole && typeof window !== 'undefined') {
-        try {
-            const raw = localStorage.getItem('unite_user')
-            if (raw) {
-                const parsed = JSON.parse(raw)
-                resolvedRole = parsed.staff_type || parsed.role || parsed.type || resolvedRole
-            }
-        } catch (e) {
-            // ignore
-        }
-    }
+    // Determine role from prop or centralized helper
+    const info = getUserInfo()
+    try { console.debug('[Sidebar] getUserInfo:', info) } catch (e) {}
+
+    let resolvedRole = role || (info && info.role) || null
+
+    // Extra logging to help debug why Coordinator link may be hidden
+    try {
+        // isSystemAdmin: role string contains system indicator + admin (e.g. 'sysadmin')
+        const isSystemAdmin = !!(info && info.isAdmin) || (resolvedRole && String(resolvedRole).toLowerCase().includes('sys') && String(resolvedRole).toLowerCase().includes('admin'))
+
+        // extract explicit StaffType from the parsed raw user object (prefer explicit StaffType fields)
+        const raw = info?.raw || null
+        const staffType = raw?.StaffType || raw?.Staff_Type || raw?.staff_type || raw?.staffType || (raw?.user && (raw.user.StaffType || raw.user.staff_type || raw.user.staffType)) || null
+        const isStaffAdmin = !!staffType && String(staffType).toLowerCase() === 'admin'
+
+        console.log('[Sidebar] resolvedRole=', resolvedRole, 'staffType=', staffType, 'isSystemAdmin=', isSystemAdmin, 'isStaffAdmin=', isStaffAdmin)
+        if (isSystemAdmin) console.log('[Sidebar] resolvedRole appears to be a system-admin role')
+        if (isStaffAdmin) console.log('[Sidebar] staffType indicates Admin — Coordinator link will be shown')
+    } catch (e) { /* ignore logging errors */ }
 
     const links = [
         { href: "/dashboard/campaign", icon: Ticket },
         { href: "/dashboard/calendar", icon: Calendar },
     ];
 
-    // Only show coordinator management link for system admins
-    if (resolvedRole && String(resolvedRole).toLowerCase() === 'admin') {
+    // Only show coordinator management link for users whose StaffType is explicitly 'Admin'
+    // This prevents other roles (including system-level roles) from accidentally seeing the coordinator page.
+    const raw = info?.raw || null
+    const staffType = raw?.StaffType || raw?.Staff_Type || raw?.staff_type || raw?.staffType || (raw?.user && (raw.user.StaffType || raw.user.staff_type || raw.user.staffType)) || null
+    const isStaffAdmin = !!staffType && String(staffType).toLowerCase() === 'admin'
+    if (isStaffAdmin) {
         links.push({ href: "/dashboard/coordinator-management", icon: UsersRound })
     }
 

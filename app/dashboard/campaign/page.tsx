@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Topbar from "@/components/topbar";
+import { getUserInfo } from '../../../utils/getUserInfo'
 import CampaignToolbar from "@/components/campaign/campaign-toolbar";
 import CampaignCalendar from "@/components/campaign/campaign-calendar";
 import EventCard from "@/components/campaign/event-card";
@@ -103,19 +104,11 @@ export default function CampaignPage() {
     // load requests and also initialize the displayed user name/email for the topbar
     fetchRequests();
     try {
-      const raw = localStorage.getItem('unite_user');
-      if (raw) {
-        const u = JSON.parse(raw);
-        const first = u.First_Name || u.FirstName || u.first_name || u.firstName || u.First || '';
-        const middle = u.Middle_Name || u.MiddleName || u.middle_name || u.middleName || u.Middle || '';
-        const last = u.Last_Name || u.LastName || u.last_name || u.lastName || u.Last || '';
-        const parts = [first, middle, last].map(p => (p || '').toString().trim()).filter(Boolean);
-        const full = parts.join(' ');
-        const email = u.Email || u.email || u.Email_Address || u.emailAddress || '';
-        if (full) setCurrentUserName(full);
-        else if (u.name) setCurrentUserName(u.name);
-        if (email) setCurrentUserEmail(email);
-      }
+      const info = getUserInfo()
+      try { console.debug('[Campaign] getUserInfo:', info) } catch (e) {}
+      if (info?.displayName) setCurrentUserName(info.displayName)
+      else if (info?.raw?.name) setCurrentUserName(info.raw.name)
+      if (info?.email) setCurrentUserEmail(info.email)
     } catch (err) {
       // ignore malformed localStorage entry
     }

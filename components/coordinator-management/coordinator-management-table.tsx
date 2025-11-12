@@ -41,6 +41,7 @@ export default function CoordinatorTable({
   isAdmin,
 }: CoordinatorTableProps) {
   const [/*unused*/, setUnused] = useState(false)
+  try { console.log('[CoordinatorTable] isAdmin prop=', isAdmin) } catch (e) {}
   // Filter coordinators based on search query
   const filteredCoordinators = coordinators.filter(
     (coordinator) => {

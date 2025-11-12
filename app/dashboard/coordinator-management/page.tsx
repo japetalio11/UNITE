@@ -9,6 +9,7 @@ import AddCoordinatorModal from "@/components/coordinator-management/add-coordin
 import QuickFilterModal from "@/components/coordinator-management/quick-filter-modal"
 import EditCoordinatorModal from "@/components/coordinator-management/coordinator-edit-modal"
 import DeleteCoordinatorModal from "@/components/coordinator-management/delete-coordinator-modal"
+import { getUserInfo } from '../../../utils/getUserInfo'
 
 
 interface CoordinatorFormData {
@@ -41,17 +42,29 @@ export default function CoordinatorManagement() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deletingCoordinator, setDeletingCoordinator] = useState<{ id: string; name: string } | null>(null)
 
-  const rawUserNow = (typeof window !== 'undefined') ? (localStorage.getItem('unite_user') || null) : null
-  const parsedUser = rawUserNow ? JSON.parse(rawUserNow) : null
-  const isAdmin = !!(parsedUser && ((parsedUser.staff_type && parsedUser.staff_type.toLowerCase() === 'admin') || (parsedUser.role && parsedUser.role.toLowerCase() === 'admin') || (parsedUser.type && parsedUser.type.toLowerCase() === 'admin')))
+  const userInfo = getUserInfo()
+
+  // derive explicit staffType and system-admin flag; require BOTH to allow coordinator actions
+  const rawUser = userInfo?.raw || null
+  const staffType = rawUser?.StaffType || rawUser?.Staff_Type || rawUser?.staff_type || rawUser?.staffType || (rawUser?.user && (rawUser.user.StaffType || rawUser.user.staff_type || rawUser.user.staffType)) || null
+  const isStaffAdmin = !!staffType && String(staffType).toLowerCase() === 'admin'
+
+  // Resolve role string and compute system-admin flag similarly to Sidebar
+  const resolvedRole = userInfo?.role || null
+  const roleLower = resolvedRole ? String(resolvedRole).toLowerCase() : ''
+  const isSystemAdmin = !!userInfo?.isAdmin || (roleLower.includes('sys') && roleLower.includes('admin'))
+
+  // Allow management when user has StaffType='Admin' and either is a system admin OR has an 'admin' role
+  const canManageCoordinators = !!(isStaffAdmin && (isSystemAdmin || roleLower === 'admin'))
 
   // derive display name and email for Topbar (match campaign page behavior)
-  const first = parsedUser?.First_Name || parsedUser?.FirstName || parsedUser?.first_name || parsedUser?.First || parsedUser?.first || ''
-  const middle = parsedUser?.Middle_Name || parsedUser?.MiddleName || parsedUser?.middle_name || parsedUser?.middleName || parsedUser?.Middle || ''
-  const last = parsedUser?.Last_Name || parsedUser?.LastName || parsedUser?.last_name || parsedUser?.lastName || parsedUser?.Last || parsedUser?.last || ''
-  const nameParts = [first, middle, last].map((p) => (p || '').toString().trim()).filter(Boolean)
-  const displayName = nameParts.join(' ') || parsedUser?.name || parsedUser?.Name || 'Bicol Medical Center'
-  const displayEmail = parsedUser?.Email || parsedUser?.email || parsedUser?.Email_Address || parsedUser?.emailAddress || parsedUser?.EmailAddress || 'bmc@gmail.com'
+  const displayName = userInfo?.displayName || 'Bicol Medical Center'
+  const displayEmail = userInfo?.email || 'bmc@gmail.com'
+
+  // Debug: surface permission flags so we can see why actions may be hidden
+  try {
+    console.log('[CoordinatorPage] userInfo=', userInfo, 'staffType=', staffType, 'isSystemAdmin=', isSystemAdmin, 'isStaffAdmin=', isStaffAdmin, 'canManageCoordinators=', canManageCoordinators)
+  } catch (e) { /* ignore */ }
 
 
   const handleSearch = (query: string) => {
@@ -234,8 +247,8 @@ export default function CoordinatorManagement() {
 
   // Instead of immediate delete, show confirm modal that requires typing full name
   const handleDeleteCoordinator = (id: string, name?: string) => {
-    if (!isAdmin) {
-      alert('Only system admin can delete coordinators')
+    if (!canManageCoordinators) {
+      alert('Only system administrators with StaffType=Admin can delete coordinators')
       return
     }
     setDeletingCoordinator({ id, name: name || '' })
@@ -290,15 +303,19 @@ export default function CoordinatorManagement() {
     try {
       // Use NEXT_PUBLIC_API_URL from .env.local (inlined at build time)
       const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
-      // get logged-in user and token from local/session storage
-      let rawUser = null
-      try { rawUser = localStorage.getItem('unite_user'); } catch (e) { rawUser = null }
-      const user = rawUser ? JSON.parse(rawUser) : null
-      const token = (typeof window !== 'undefined') ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null
+    // get logged-in user and token from local/session storage
+    let rawUser = null
+    try { rawUser = localStorage.getItem('unite_user'); } catch (e) { rawUser = null }
+    const user = rawUser ? JSON.parse(rawUser) : null
+    const token = (typeof window !== 'undefined') ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null
 
-      // choose admin-managed endpoint when the logged-in user is a System Admin
-      const adminId = user?.id || user?.ID || user?.Staff_ID || user?.StaffId || user?.Admin_ID || user?.adminId || null
-      const isAdmin = (user && ((user.staff_type && user.staff_type.toLowerCase() === 'admin') || (user.role && user.role.toLowerCase() === 'admin') || (user.type && user.type.toLowerCase() === 'admin')))
+  // choose admin-managed endpoint only when the logged-in user is BOTH a system admin and has StaffType 'Admin'
+  const adminId = user?.id || user?.ID || user?.Staff_ID || user?.StaffId || user?.Admin_ID || user?.adminId || null
+  const fetchIsSystemAdmin = !!userInfo?.isAdmin
+  const fetchRaw = user || null
+  const fetchStaffType = fetchRaw?.StaffType || fetchRaw?.Staff_Type || fetchRaw?.staff_type || fetchRaw?.staffType || (fetchRaw?.user && (fetchRaw.user.StaffType || fetchRaw.user.staff_type || fetchRaw.user.staffType)) || null
+  const fetchIsStaffAdmin = !!fetchStaffType && String(fetchStaffType).toLowerCase() === 'admin'
+  const useAdminEndpoint = !!(fetchIsSystemAdmin && fetchIsStaffAdmin && adminId)
 
       // attach filters as query params when present
       const params = new URLSearchParams()
@@ -308,8 +325,8 @@ export default function CoordinatorManagement() {
       if (af.province) params.set('province', String(af.province))
 
       const url = base
-        ? (isAdmin && adminId ? `${base}/api/admin/${encodeURIComponent(adminId)}/coordinators?${params.toString()}` : `${base}/api/coordinators?${params.toString()}`)
-        : (isAdmin && adminId ? `/api/admin/${encodeURIComponent(adminId)}/coordinators?${params.toString()}` : `/api/coordinators?${params.toString()}`)
+        ? (useAdminEndpoint ? `${base}/api/admin/${encodeURIComponent(adminId)}/coordinators?${params.toString()}` : `${base}/api/coordinators?${params.toString()}`)
+        : (useAdminEndpoint ? `/api/admin/${encodeURIComponent(adminId)}/coordinators?${params.toString()}` : `/api/coordinators?${params.toString()}`)
 
       const headers: any = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
@@ -397,7 +414,8 @@ export default function CoordinatorManagement() {
           onUpdateCoordinator={handleUpdateCoordinator}
           onDeleteCoordinator={handleDeleteCoordinator}
           searchQuery={searchQuery}
-          isAdmin={isAdmin}
+          // Pass true only when user is both a system admin and has StaffType='Admin'
+          isAdmin={canManageCoordinators}
         />
       </div>
 
