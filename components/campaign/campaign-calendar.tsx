@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '@heroui/button';
 import { Card, CardBody, CardHeader, CardFooter } from '@heroui/card';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -29,8 +29,16 @@ interface CampaignCalendarProps {
         selectedDate,
         events = []
     }) => {
-    const [currentDate, setCurrentDate] = useState(initialDate);
-    const [currentTime, setCurrentTime] = useState(new Date());
+    // Keep currentDate nullable and set it after hydration to avoid calling
+    // `new Date()` during server render which can differ from the client and
+    // cause hydration mismatches. If a parent supplied `initialDate` we use
+    // that immediately; otherwise we set the real current date on mount.
+    const [currentDate, setCurrentDate] = useState<Date | null>(initialDate ?? null);
+    // Don't initialize currentTime on the server (new Date() on server vs client
+    // will differ and cause hydration mismatches). Start the clock only after
+    // hydration by using a `mounted` flag and initializing time inside an effect.
+    const [mounted, setMounted] = useState(false);
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
     // map events by YYYY-MM-DD for quick lookup when rendering dots
     const eventsByDate = useMemo(() => {
@@ -47,19 +55,28 @@ interface CampaignCalendarProps {
         return map;
     }, [events]);
     
-    // Update time every second
+    // Start the clock and initialize currentDate after hydration to avoid
+    // SSR/CSR mismatches (server new Date() vs client new Date()).
     React.useEffect(() => {
+        setMounted(true);
+        // initialize current date if parent did not provide one
+        if (!currentDate) setCurrentDate(initialDate ?? new Date());
+
+        const initial = new Date();
+        setCurrentTime(initial);
         const timer = setInterval(() => {
-        setCurrentTime(new Date());
+            setCurrentTime(new Date());
         }, 1000);
         return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     
     // Day labels
     const dayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     
-    // Generate calendar days for the current month
+    // Generate calendar days for the current month (guard when currentDate not set)
     const calendarDays = useMemo(() => {
+        if (!currentDate) return [] as Array<any>;
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         
@@ -109,10 +126,12 @@ interface CampaignCalendarProps {
     
     // Navigation handlers
     const goToPreviousMonth = () => {
+        if (!currentDate) return;
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
     };
     
     const goToNextMonth = () => {
+        if (!currentDate) return;
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
     };
     
@@ -129,6 +148,7 @@ interface CampaignCalendarProps {
     
     // Check if date is today
     const isToday = (date: Date) => {
+        if (!mounted) return false; // avoid server/client mismatch before mount
         const today = new Date();
         return date.getDate() === today.getDate() &&
             date.getMonth() === today.getMonth() &&
@@ -144,19 +164,20 @@ interface CampaignCalendarProps {
     };
     
     // Format month and year
-    const monthYear = currentDate.toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
-    });
+    const monthYear = currentDate ? currentDate.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric'
+    }) : '';
     
     // Format time
     const formatTime = () => {
+        if (!currentTime) return ' - : - : - ';
         const hours = currentTime.getHours();
         const minutes = currentTime.getMinutes().toString().padStart(2, '0');
         const seconds = currentTime.getSeconds().toString().padStart(2, '0');
         const ampm = hours >= 12 ? 'PM' : 'AM';
         const displayHours = hours % 12 || 12;
-        
+
         return `${displayHours} : ${minutes} : ${seconds} ${ampm}`;
     };
     
@@ -274,7 +295,13 @@ interface CampaignCalendarProps {
     // Example usage / exported component
     export default function CampaignCalendar(props: CampaignCalendarProps) {
         // if parent supplies selectedDate/onDateSelect, prefer them; otherwise keep internal state
-        const [internalSelectedDate, setInternalSelectedDate] = useState<Date | undefined>(props.selectedDate ?? new Date());
+        // Avoid calling `new Date()` during module evaluation — initialize on mount.
+        const [internalSelectedDate, setInternalSelectedDate] = useState<Date | undefined>(props.selectedDate ?? undefined);
+
+        useEffect(() => {
+            if (!internalSelectedDate) setInternalSelectedDate(props.selectedDate ?? new Date());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
 
         const handleDateSelect = (date: Date) => {
             setInternalSelectedDate(date);

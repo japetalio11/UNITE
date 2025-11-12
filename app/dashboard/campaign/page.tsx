@@ -16,7 +16,13 @@ import { Modal } from "@heroui/modal";
  */
 
 export default function CampaignPage() {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  // Defer initializing selectedDate to after hydration to avoid any
+  // server/client time differences during initial render.
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  useEffect(() => {
+    if (!selectedDate) setSelectedDate(new Date());
+  }, []);
     
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
