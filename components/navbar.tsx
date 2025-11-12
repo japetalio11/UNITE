@@ -79,11 +79,10 @@ export const Navbar = () => {
         </NavbarItem>
         <NavbarItem className="hidden md:flex">
           <Button
-            isExternal
             as={Link}
             className="text-white"
             color="danger"
-            href={siteConfig.links.sponsor}
+            href="/auth/signup"
             variant="solid"
           >
             Sign Up
@@ -108,7 +107,7 @@ export const Navbar = () => {
 
           <Button
             as={Link}
-            href={siteConfig.links.sponsor}
+            href="/auth/signup"
             color="danger"
             variant="solid"
             className="text-white"

@@ -34,11 +34,15 @@ export default function CoordinatorTable({
 }: CoordinatorTableProps) {
   // Filter coordinators based on search query
   const filteredCoordinators = coordinators.filter(
-    (coordinator) =>
-      coordinator.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coordinator.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coordinator.province.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coordinator.district.toLowerCase().includes(searchQuery.toLowerCase()),
+    (coordinator) => {
+      const q = searchQuery.toLowerCase()
+      return (
+        (coordinator.name || '').toLowerCase().includes(q) ||
+        (coordinator.email || '').toLowerCase().includes(q) ||
+        (coordinator.province || '').toLowerCase().includes(q) ||
+        (coordinator.district || '').toLowerCase().includes(q)
+      )
+    },
   )
 
 

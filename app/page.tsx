@@ -22,13 +22,13 @@ export default function Home() {
             <div className="flex gap-3 mt-8">
             <Button
                 as={Link}
-                href="/get-started"
+                href="/auth/signup"
                 color="danger"
                 className="text-white"
                 variant="solid"
                 size="md"
             >
-                Get Started
+                Sign up
             </Button>
             <Button as={Link} href="/learn-more" variant="bordered" size="md">
                 Learn more
