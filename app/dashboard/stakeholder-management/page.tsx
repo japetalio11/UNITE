@@ -12,6 +12,7 @@ import EditStakeholderModal from "@/components/stakeholder-management/stakeholde
 import DeleteStakeholderModal from "@/components/stakeholder-management/delete-stakeholder-modal"
 import GenerateCodeModal from "@/components/stakeholder-management/generate-code-modal"
 import { getUserInfo } from '../../../utils/getUserInfo'
+import { debug, warn } from '@/utils/devLogger'
 
 
 interface StakeholderFormData {
@@ -116,12 +117,12 @@ export default function StakeholderManagement() {
 
 
 	const handleUserClick = () => {
-		console.log("User profile clicked")
+		debug("User profile clicked")
 	}
 
 
 	const handleExport = () => {
-		console.log("Exporting data...")
+		debug("Exporting data...")
 	}
 
 
@@ -185,11 +186,9 @@ export default function StakeholderManagement() {
 				uid = r?.District_ID || r?.DistrictId || r?.districtId || (r?.District && (r.District.District_ID || r.District.DistrictId)) || null
 			}
 
-			setUserDistrictId(uid || null)
-			// eslint-disable-next-line no-console
-			console.log('[StakeholderManagement] handleAddStakeholder parsed user object:', parsed)
-			// eslint-disable-next-line no-console
-			console.log('[StakeholderManagement] handleAddStakeholder computed userDistrictId:', uid)
+				setUserDistrictId(uid || null)
+				debug('[StakeholderManagement] handleAddStakeholder parsed user object:', parsed)
+				debug('[StakeholderManagement] handleAddStakeholder computed userDistrictId:', uid)
 		} catch (e) {
 			// ignore
 		}
@@ -420,19 +419,18 @@ export default function StakeholderManagement() {
 				? (useAdminEndpoint ? `${base}/api/admin/${encodeURIComponent(adminId)}/stakeholders?${params.toString()}` : `${base}/api/stakeholders?${params.toString()}`)
 				: (useAdminEndpoint ? `/api/admin/${encodeURIComponent(adminId)}/stakeholders?${params.toString()}` : `/api/stakeholders?${params.toString()}`)
 			// Debug: log computed request details so we can verify coordinator filtering
-			try {
-				// eslint-disable-next-line no-console
-				console.log('[fetchStakeholders] request debug', {
-					userInfo: userInfo && Object.keys(userInfo).length ? { displayName: userInfo.displayName, role: userInfo.role, isAdmin: userInfo.isAdmin } : null,
-					storedUserPreview: user ? ({ id: user.id || user.ID || user.Stakeholder_ID || null, staffType: user.StaffType || user.staff_type || user.staffType || null, role_data: user.role_data || null }) : null,
-					canManageStakeholders,
-					fetchIsCoordinator,
-					userDistrictId,
-					params: params.toString(),
-					url,
-					tokenPresent: !!token,
-				})
-			} catch (e) { }
+				try {
+					debug('[fetchStakeholders] request debug', {
+						userInfo: userInfo && Object.keys(userInfo).length ? { displayName: userInfo.displayName, role: userInfo.role, isAdmin: userInfo.isAdmin } : null,
+						storedUserPreview: user ? ({ id: user.id || user.ID || user.Stakeholder_ID || null, staffType: user.StaffType || user.staff_type || user.staffType || null, role_data: user.role_data || null }) : null,
+						canManageStakeholders,
+						fetchIsCoordinator,
+						userDistrictId,
+						params: params.toString(),
+						url,
+						tokenPresent: !!token,
+					})
+				} catch (e) { }
 			
 			const headers: any = {}
 			if (token) headers['Authorization'] = `Bearer ${token}`
@@ -457,8 +455,7 @@ export default function StakeholderManagement() {
 						// Debug: log which district IDs are present in the response
 						try {
 							const returnedDistricts = Array.from(new Set(items.map((it: any) => it.District_ID || it.district_id || it.DistrictId || it.districtId || it.District || it.District_Name || it.District_Name || ''))).filter(Boolean)
-							// eslint-disable-next-line no-console
-							console.log('[fetchStakeholders] response districts:', returnedDistricts, 'itemsCount:', items.length)
+							debug('[fetchStakeholders] response districts:', returnedDistricts, 'itemsCount:', items.length)
 						} catch (e) { /* ignore */ }
 			const mapped = items.map((s: any) => {
 				const fullName = [s.First_Name, s.Middle_Name, s.Last_Name].filter(Boolean).join(' ')
@@ -552,12 +549,10 @@ export default function StakeholderManagement() {
 							keys: Object.keys(s || {}).slice(0, 20),
 							raw: s,
 						}))
-						// eslint-disable-next-line no-console
-						console.warn('[fetchStakeholders] stakeholders missing organization (diagnostics):', diag)
+                        			warn('[fetchStakeholders] stakeholders missing organization (diagnostics):', diag)
 					}
 					// Also log the first few mapped items for inspection
-					// eslint-disable-next-line no-console
-					console.log('[fetchStakeholders] mapped sample (first 5):', mapped.slice(0, 5))
+                    		debug('[fetchStakeholders] mapped sample (first 5):', mapped.slice(0, 5))
 
 					// Fallback: if some mapped items still have empty organization, attempt to fetch
 					// full stakeholder details for those items (limited to first 10) — some list

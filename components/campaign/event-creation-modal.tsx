@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { debug } from '@/utils/devLogger'
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
@@ -1184,7 +1185,7 @@ export default function EventCreationModalsDemo() {
         isOpen={trainingOpen}
         onClose={() => setTrainingOpen(false)}
         onConfirm={(data) => {
-          console.log("Training Event Created:", data);
+          debug("Training Event Created:", data);
         }}
       />
 
@@ -1192,7 +1193,7 @@ export default function EventCreationModalsDemo() {
         isOpen={bloodDriveOpen}
         onClose={() => setBloodDriveOpen(false)}
         onConfirm={(data) => {
-          console.log("Blood Drive Event Created:", data);
+          debug("Blood Drive Event Created:", data);
         }}
       />
 
@@ -1200,7 +1201,7 @@ export default function EventCreationModalsDemo() {
         isOpen={advocacyOpen}
         onClose={() => setAdvocacyOpen(false)}
         onConfirm={(data) => {
-          console.log("Advocacy Event Created:", data);
+          debug("Advocacy Event Created:", data);
         }}
       />
     </div>

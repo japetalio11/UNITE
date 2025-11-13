@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Topbar from "@/components/topbar";
 import { getUserInfo } from '../../../utils/getUserInfo'
+import { debug } from '@/utils/devLogger'
 import CampaignToolbar from "@/components/campaign/campaign-toolbar";
 import CampaignCalendar from "@/components/campaign/campaign-calendar";
 import EventCard from "@/components/campaign/event-card";
@@ -26,7 +27,7 @@ export default function CampaignPage() {
     
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    console.log('Selected date:', date.toLocaleDateString());
+    debug('Selected date:', date.toLocaleDateString());
   };
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -123,7 +124,7 @@ export default function CampaignPage() {
     })();
     try {
       const info = getUserInfo()
-      try { console.debug('[Campaign] getUserInfo:', info) } catch (e) {}
+      try { debug('[Campaign] getUserInfo:', info) } catch (e) {}
       if (info?.displayName) setCurrentUserName(info.displayName)
       else if (info?.raw?.name) setCurrentUserName(info.raw.name)
       if (info?.email) setCurrentUserEmail(info.email)
@@ -207,23 +208,23 @@ export default function CampaignPage() {
   // Handler for search functionality
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    console.log("Searching for:", query);
+    debug("Searching for:", query);
   };
   
   // Handler for user profile click
   const handleUserClick = () => {
-    console.log("User profile clicked");
+    debug("User profile clicked");
   };
   
   // Handler for tab changes
   const handleTabChange = (tab: string) => {
     setSelectedTab(tab);
-    console.log("Tab changed to:", tab);
+    debug("Tab changed to:", tab);
   };
   
   // Handler for export action
   const handleExport = () => {
-    console.log("Exporting data...");
+    debug("Exporting data...");
   };
   
   // Handler for quick filter
@@ -341,12 +342,12 @@ export default function CampaignPage() {
   // Open view modal by fetching full request details from the API
   const handleOpenView = async (r: any) => {
     if (!r) return;
-    // debug: log the incoming request object received from the card click
-    console.log('[Campaign] handleOpenView called with request (card-level):', r);
+  // debug: log the incoming request object received from the card click
+  debug('[Campaign] handleOpenView called with request (card-level):', r);
     const requestId = r.Request_ID || r.RequestId || r._id || r.RequestId;
     if (!requestId) {
       // fallback: if the request object is already enriched, open it
-      console.log('[Campaign] No explicit requestId found on card object, opening with provided object:', r);
+  debug('[Campaign] No explicit requestId found on card object, opening with provided object:', r);
       setViewRequest(r);
       setViewModalOpen(true);
       return;
@@ -354,20 +355,20 @@ export default function CampaignPage() {
 
     setViewLoading(true);
     try {
-      console.log('[Campaign] fetching request details for id:', requestId);
+  debug('[Campaign] fetching request details for id:', requestId);
       const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(`${API_URL}/api/requests/${requestId}`, { headers });
       const body = await res.json();
-      // debug: log raw response body from the API
-      console.log('[Campaign] GET /api/requests/%s response body:', requestId, body);
+  // debug: log raw response body from the API
+  debug('[Campaign] GET /api/requests/%s response body:', requestId, body);
       if (!res.ok) throw new Error(body.message || 'Failed to fetch request details');
 
       // controller returns { success, data: request }
       const data = body.data || body.request || null;
-      console.log('[Campaign] parsed view request data:', data);
+  debug('[Campaign] parsed view request data:', data);
       setViewRequest(data || body);
       setViewModalOpen(true);
     } catch (err: any) {

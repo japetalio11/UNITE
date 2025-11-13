@@ -28,9 +28,10 @@ export default function SignIn() {
     try {
       // Try staff/admin/coordinator login first
   // Note: backend mounts auth routes at /api (not /api/auth)
-  let res = await fetch(`${API_URL}/api/login`, {
+      let res = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -38,9 +39,10 @@ export default function SignIn() {
 
       // If staff login failed, try stakeholder login
       if (!res.ok || body.success === false) {
-  res = await fetch(`${API_URL}/api/stakeholders/login`, {
+        res = await fetch(`${API_URL}/api/stakeholders/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: 'include',
           body: JSON.stringify(payload),
         });
         body = await res.json().catch(() => ({}));
@@ -80,8 +82,24 @@ export default function SignIn() {
         // swallow any client storage errors
       }
 
-      // Redirect to dashboard (single landing for all roles)
-      router.push("/dashboard");
+      // Emit an in-window event to notify client-side components of an
+      // auth change (useful for SPA flows where storage events don't fire
+      // in the same window). Then navigate to dashboard. For maximum
+      // reliability we still perform a full navigation so SSR can read
+      // HttpOnly cookies when present.
+      try {
+        if (typeof window !== 'undefined') {
+          try { window.dispatchEvent(new CustomEvent('unite:auth-changed', { detail: { role: data?.role, isAdmin: data?.isAdmin } })); } catch (e) {}
+        }
+      } catch (e) {}
+
+      // Use a full navigation so the browser sends the HttpOnly cookie and
+      // the Next.js server-layout can read it during SSR.
+      if (typeof window !== 'undefined') {
+        window.location.assign('/dashboard');
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       console.error("Sign in error:", err);
       setError("An unexpected error occurred. Please try again.");

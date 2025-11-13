@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
 import { getUserInfo } from "../utils/getUserInfo"
+import { debug } from '@/utils/devLogger'
     
 interface SidebarProps {
     role?: string;
@@ -21,9 +22,12 @@ interface SidebarProps {
         name?: string;
         email?: string;
     };
+    // Server-provided initial visibility flags (preferred when provided)
+    initialShowCoordinator?: boolean;
+    initialShowStakeholder?: boolean;
 }
 
-export default function Sidebar({ role, userInfo }: SidebarProps) {
+export default function Sidebar({ role, userInfo, initialShowCoordinator, initialShowStakeholder }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     
@@ -73,17 +77,68 @@ export default function Sidebar({ role, userInfo }: SidebarProps) {
         serverStaffType && String(serverStaffType).toLowerCase() === 'coordinator'
     ) || (serverRoleFromResolved && serverRoleFromResolved.includes('coordinator'));
 
-    // Determine initial coordinator visibility from server-provided data only.
-    // IMPORTANT: only system admins should see the coordinator link. Do NOT
-    // grant visibility based on StaffType (staff-level Admin) to avoid
-    // non-system Admins seeing the coordinator management link.
-    const initialShowCoordinator = serverIsSystemAdmin;
-    const [showCoordinatorLink, setShowCoordinatorLink] = useState<boolean>(initialShowCoordinator);
-    // Stakeholder page should be visible to both system admins and coordinators.
-    const initialShowStakeholder = Boolean(serverIsSystemAdmin || serverIsCoordinator);
-    const [showStakeholderLink, setShowStakeholderLink] = useState<boolean>(initialShowStakeholder);
+    // Determine initial coordinator visibility from server-provided data only
+    // unless explicit props were passed from a server layout. Prefer the
+    // explicit `initialShow*` props when provided to make the component
+    // deterministic during SSR and avoid hydration flashes.
+    const computedInitialShowCoordinator = serverIsSystemAdmin;
+    const computedInitialShowStakeholder = Boolean(serverIsSystemAdmin || serverIsCoordinator);
+
+    const [showCoordinatorLink, setShowCoordinatorLink] = useState<boolean>(
+        initialShowCoordinator ?? computedInitialShowCoordinator
+    );
+    const [showStakeholderLink, setShowStakeholderLink] = useState<boolean>(
+        initialShowStakeholder ?? computedInitialShowStakeholder
+    );
 
     useEffect(() => {
+        // dev: log server/client initial snapshot on mount
+        try {
+            debug('[sidebar] mount snapshot', {
+                serverInfo: serverInfo || null,
+                initialShowCoordinator,
+                initialShowStakeholder,
+                computedInitialShowCoordinator,
+                computedInitialShowStakeholder,
+                resolvedRole: resolvedRole || null,
+            })
+        } catch (e) {}
+
+        // Listen for in-window auth-change events (dispatched after login)
+        const onAuthChanged = (ev?: any) => {
+            try {
+                debug('[sidebar] auth-change event received', ev?.detail || null)
+                const loaded = getUserInfo()
+                if (loaded) setInfo(loaded as any)
+
+                // Recompute visibility from loaded client info. We allow client-side
+                // updates after initial render so SPA logins can update the UI.
+                const roleFromLoaded = loaded?.role ? String(loaded.role).toLowerCase() : ''
+                const rawLoaded = loaded?.raw || loaded || null
+                const staffTypeLoaded = rawLoaded?.StaffType || rawLoaded?.Staff_Type || rawLoaded?.staff_type || rawLoaded?.staffType || (rawLoaded?.user && (rawLoaded.user.StaffType || rawLoaded.user.staff_type || rawLoaded.user.staffType)) || null
+                const loadedIsSystemAdmin = !!(loaded && loaded.isAdmin) || (roleFromLoaded.includes('sys') && roleFromLoaded.includes('admin'))
+                const loadedIsCoordinator = (!!staffTypeLoaded && String(staffTypeLoaded).toLowerCase() === 'coordinator') || (roleFromLoaded.includes('coordinator'))
+
+                // Update visibility based on loaded info
+                if (loadedIsSystemAdmin && !showCoordinatorLink) setShowCoordinatorLink(true)
+                if ((loadedIsCoordinator || loadedIsSystemAdmin) && !showStakeholderLink) setShowStakeholderLink(true)
+                // If loaded indicates removal of privileges, update accordingly
+                if (!loadedIsSystemAdmin && showCoordinatorLink && typeof initialShowCoordinator === 'undefined') setShowCoordinatorLink(false)
+                if (!loadedIsCoordinator && !loadedIsSystemAdmin && showStakeholderLink && typeof initialShowStakeholder === 'undefined') setShowStakeholderLink(false)
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        window.addEventListener('unite:auth-changed', onAuthChanged as EventListener)
+        // storage event fires in other windows/tabs; listen to update from those
+        const onStorage = (e: StorageEvent) => {
+            try {
+                debug('[sidebar] storage event', { key: e.key, newValue: e.newValue })
+                onAuthChanged({ detail: null })
+            } catch (err) {}
+        }
+        window.addEventListener('storage', onStorage)
         // Load client-only user info only when we don't have serverInfo.
         // This prevents client-only data from changing the initial render and
         // causing hydration mismatches. If the server didn't already indicate
@@ -97,19 +152,12 @@ export default function Sidebar({ role, userInfo }: SidebarProps) {
 
                 // small development-only diagnostics + fallback checks. These
                 // do not run in production to avoid leaking sensitive info.
-                if (process.env.NODE_ENV !== 'production') {
-                    try {
-                        const rawLocal = typeof window !== 'undefined' ? window.localStorage.getItem('unite_user') : null;
-                        const rawSession = typeof window !== 'undefined' ? window.sessionStorage.getItem('unite_user') : null;
-                        const altUser = typeof window !== 'undefined' ? window.localStorage.getItem('user') : null;
-                        // eslint-disable-next-line no-console
-                        console.debug('[sidebar][debug] getUserInfo ->', loaded, '\n rawLocal ->', rawLocal, '\n rawSession ->', rawSession, '\n altUser ->', altUser);
-                    } catch (e) {
-                        // ignore dev logging errors
-                    }
-                }
+                // developer-only debug logging removed
 
-                if (!initialShowCoordinator) {
+                // Only attempt client-side elevation when the server did NOT
+                // provide an explicit initialShowCoordinator prop. If the
+                // server supplied a value, treat it as authoritative.
+                if (typeof initialShowCoordinator === 'undefined') {
                     // Only allow the client-loaded data to enable the coordinator
                     // link if the loaded user is a system admin (isAdmin flag or
                     // role that contains both 'sys'/'system' and 'admin').
@@ -129,9 +177,7 @@ export default function Sidebar({ role, userInfo }: SidebarProps) {
                                 const fbRole = parsedFallback?.role || parsedFallback?.StaffType || parsedFallback?.staff_type || parsedFallback?.staffType || null;
                                 const fbLower = fbRole ? String(fbRole).toLowerCase() : '';
                                 loadedIsSystemAdmin = loadedIsSystemAdmin || ((/sys|system/.test(fbLower) && /admin/.test(fbLower)) || !!parsedFallback?.isAdmin);
-                                if (process.env.NODE_ENV !== 'production') {
-                                    try { console.debug('[sidebar][debug] fallback parsed ->', parsedFallback, 'derivedIsAdmin ->', loadedIsSystemAdmin); } catch (e) {}
-                                }
+                                // dev-only debug removed
                             }
                         } catch (e) {
                             // ignore fallback parse errors
@@ -142,7 +188,9 @@ export default function Sidebar({ role, userInfo }: SidebarProps) {
                 }
                 // If the stakeholder link isn't already visible from server, allow
                 // the client-loaded info to enable it for coordinators or system admins.
-                if (!initialShowStakeholder) {
+                // Same for stakeholder visibility: only allow client-side
+                // changes if the server didn't provide an explicit prop.
+                if (typeof initialShowStakeholder === 'undefined') {
                     const roleFromLoaded2 = loaded?.role ? String(loaded.role).toLowerCase() : '';
                     const rawLoaded = loaded?.raw || loaded || null;
                     const staffTypeLoaded = rawLoaded?.StaffType || rawLoaded?.Staff_Type || rawLoaded?.staff_type || rawLoaded?.staffType || (rawLoaded?.user && (rawLoaded.user.StaffType || rawLoaded.user.staff_type || rawLoaded.user.staffType)) || null;
@@ -155,6 +203,10 @@ export default function Sidebar({ role, userInfo }: SidebarProps) {
             } catch (e) {
                 // ignore client-only read errors
             }
+        }
+        return () => {
+            try { window.removeEventListener('unite:auth-changed', onAuthChanged as EventListener) } catch (e) {}
+            try { window.removeEventListener('storage', onStorage) } catch (e) {}
         }
     }, [serverInfo]);
 
