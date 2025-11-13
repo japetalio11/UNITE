@@ -9,15 +9,19 @@ interface EditStakeholderModalProps {
   isOpen: boolean;
   onClose: () => void;
   coordinator: any | null; // stakeholder object returned from backend
+  isSysAdmin?: boolean;
+  userDistrictId?: string | null;
   onSaved?: () => void;
 }
 
-export default function EditStakeholderModal({ isOpen, onClose, coordinator, onSaved }: EditStakeholderModalProps) {
+export default function EditStakeholderModal({ isOpen, onClose, coordinator, isSysAdmin = false, userDistrictId = null, onSaved }: EditStakeholderModalProps) {
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [cityMunicipality, setCityMunicipality] = useState("");
 
   const [districts, setDistricts] = useState<any[]>([]);
   const [districtId, setDistrictId] = useState<string | null>(null);
@@ -31,12 +35,22 @@ export default function EditStakeholderModal({ isOpen, onClose, coordinator, onS
   useEffect(() => {
     if (!coordinator) return;
     // stakeholder may have nested fields
-    const staff = coordinator.Staff || coordinator.staff || coordinator.staffData || {};
-    setFirstName(staff.First_Name || staff.FirstName || staff.firstName || "");
-    setMiddleName(staff.Middle_Name || staff.MiddleName || staff.middleName || "");
-    setLastName(staff.Last_Name || staff.LastName || staff.lastName || "");
-    setEmail(staff.Email || staff.email || "");
-    setPhoneNumber(staff.Phone_Number || staff.Phone_Number || staff.phoneNumber || staff.phone || "");
+      const staff = coordinator.Staff || coordinator.staff || coordinator.staffData || {};
+
+      // Prefer top-level values then fallback to staff object
+      setFirstName(
+        coordinator.First_Name || coordinator.FirstName || coordinator.firstName || staff.First_Name || staff.FirstName || staff.firstName || ""
+      );
+      setMiddleName(
+        coordinator.Middle_Name || coordinator.MiddleName || coordinator.middleName || staff.Middle_Name || staff.MiddleName || staff.middleName || ""
+      );
+      setLastName(
+        coordinator.Last_Name || coordinator.LastName || coordinator.lastName || staff.Last_Name || staff.LastName || staff.lastName || ""
+      );
+      setEmail(coordinator.Email || coordinator.email || staff.Email || staff.email || "");
+      setPhoneNumber(
+        coordinator.Phone_Number || coordinator.PhoneNumber || coordinator.phoneNumber || staff.Phone_Number || staff.Phone_Number || staff.phoneNumber || staff.phone || ""
+      );
 
     const dist = coordinator.District || coordinator.District_ID || coordinator.DistrictId || coordinator.District || coordinator.district || null;
     const dId = coordinator.District_ID || coordinator.DistrictId || coordinator.District?.District_ID || dist;
@@ -44,6 +58,10 @@ export default function EditStakeholderModal({ isOpen, onClose, coordinator, onS
 
     const prov = (coordinator.District && (coordinator.District.Province_Name || coordinator.District.Province)) || coordinator.Province_Name || coordinator.province || "";
     setProvince(prov || "");
+
+    // organization and city
+    setOrganization(coordinator.Organization_Institution || coordinator.Organization || coordinator.organization || coordinator.OrganizationName || coordinator.Organization_Name || "");
+    setCityMunicipality(coordinator.City_Municipality || coordinator.City || coordinator.city || coordinator.city_municipality || "");
   }, [coordinator]);
 
   useEffect(() => {
@@ -90,8 +108,12 @@ export default function EditStakeholderModal({ isOpen, onClose, coordinator, onS
       if (lastName) payload.Last_Name = lastName;
       if (email) payload.Email = email;
       if (phoneNumber) payload.Phone_Number = phoneNumber;
-      if (districtId) payload.District_ID = districtId;
+  // Only include District_ID when the actor is a system admin. Coordinators cannot change district here.
+  if (isSysAdmin && districtId) payload.District_ID = districtId;
       if (province !== undefined) payload.Province_Name = province;
+      // include organization and city/municipality
+      if (organization !== undefined) payload.Organization_Institution = organization || null;
+      if (cityMunicipality !== undefined) payload.City_Municipality = cityMunicipality || null;
 
       const res = await fetch(`${API_URL}/api/stakeholders/${coordId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       const text = await res.text();
@@ -143,6 +165,17 @@ export default function EditStakeholderModal({ isOpen, onClose, coordinator, onS
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="text-sm font-medium">Organization / Institution</label>
+                <Input type="text" value={organization} onChange={(e) => setOrganization((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">City / Municipality</label>
+                <Input type="text" value={cityMunicipality} onChange={(e) => setCityMunicipality((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="text-sm font-medium">Contact Email</label>
                 <Input type="email" value={email} onChange={(e) => setEmail((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
               </div>
@@ -164,6 +197,7 @@ export default function EditStakeholderModal({ isOpen, onClose, coordinator, onS
                     const pick = districts.find((d) => String(d.District_ID) === String(id) || String(d.id) === String(id) || String(d._id) === String(id))
                     if (pick) setProvince(pick.Province_Name || pick.Province || pick.province || "")
                   }}
+                  disabled={!isSysAdmin}
                 >
                   {(districts || []).map((d) => (
                     <SelectItem key={d.District_ID || d.id || d._id}>

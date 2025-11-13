@@ -128,48 +128,43 @@ export default function StakeholderTable({
                   {coordinator.district}
                 </td>
                 <td className="px-6 py-4">
-                  {/** Only show actions to admins. Non-admins get no action menu. */}
-                  {isAdmin ? (
-                    <Dropdown>
-                      <DropdownTrigger>
-                        <Button
-                          isIconOnly
-                          variant="light"
-                          size="sm"
-                          aria-label={`Actions for ${coordinator.name}`}
-                          className="text-gray-400 hover:text-gray-600"
+                  <Dropdown>
+                    <DropdownTrigger>
+                      <Button
+                        isIconOnly
+                        variant="light"
+                        size="sm"
+                        aria-label={`Actions for ${coordinator.name}`}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <MoreHorizontal size={18} />
+                      </Button>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Stakeholder actions" variant="faded">
+                      <DropdownSection title="Actions">
+                        <DropdownItem
+                          key="update"
+                          description="Edit the stakeholder's details"
+                          startContent={<Edit3 />}
+                          onPress={() => { if (onUpdateCoordinator) onUpdateCoordinator(coordinator.id) }}
                         >
-                          <MoreHorizontal size={18} />
-                        </Button>
-                      </DropdownTrigger>
-                      <DropdownMenu aria-label="Stakeholder actions" variant="faded">
-                        <DropdownSection title="Actions">
-                          <DropdownItem
-                            key="update"
-                            description="Edit the stakeholder's details"
-                            startContent={<Edit3 />}
-                            onPress={() => { if (onUpdateCoordinator) onUpdateCoordinator(coordinator.id) }}
-                          >
-                            Update stakeholder
-                          </DropdownItem>
-                        </DropdownSection>
-                        <DropdownSection title="Danger zone">
-                          <DropdownItem
-                            key="delete"
-                            className="text-danger"
-                            color="danger"
-                            description="Permanently remove this stakeholder"
-                            startContent={<Trash2 className="text-xl text-danger pointer-events-none shrink-0" />}
-                            onPress={() => { if (onDeleteCoordinator) onDeleteCoordinator(coordinator.id, coordinator.name) }}
-                          >
-                            Delete stakeholder
-                          </DropdownItem>
-                        </DropdownSection>
-                      </DropdownMenu>
-                    </Dropdown>
-                  ) : (
-                    <span className="text-xs text-gray-400">—</span>
-                  )}
+                          Update stakeholder
+                        </DropdownItem>
+                      </DropdownSection>
+                      <DropdownSection title="Danger zone">
+                        <DropdownItem
+                          key="delete"
+                          className="text-danger"
+                          color="danger"
+                          description="Permanently remove this stakeholder"
+                          startContent={<Trash2 className="text-xl text-danger pointer-events-none shrink-0" />}
+                          onPress={() => { if (onDeleteCoordinator) onDeleteCoordinator(coordinator.id, coordinator.name) }}
+                        >
+                          Delete stakeholder
+                        </DropdownItem>
+                      </DropdownSection>
+                    </DropdownMenu>
+                  </Dropdown>
                 </td>
               </tr>
             ))}

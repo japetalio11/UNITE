@@ -329,10 +329,6 @@ export default function StakeholderManagement() {
 
 	// Instead of immediate delete, show confirm modal that requires typing full name
 	const handleDeleteStakeholder = (id: string, name?: string) => {
-		if (!canManageStakeholders) {
-			alert('Only system administrators with StaffType=Admin can delete stakeholders')
-			return
-		}
 		setDeletingStakeholder({ id, name: name || '' })
 		setIsDeleteModalOpen(true)
 	}
@@ -683,6 +679,8 @@ export default function StakeholderManagement() {
 				isOpen={isEditModalOpen}
 				onClose={() => { setIsEditModalOpen(false); setEditingStakeholder(null); }}
 				coordinator={editingStakeholder}
+				isSysAdmin={canManageStakeholders}
+				userDistrictId={userDistrictId}
 				onSaved={async () => { await fetchStakeholders(); setIsEditModalOpen(false); setEditingStakeholder(null); }}
 			/>
 

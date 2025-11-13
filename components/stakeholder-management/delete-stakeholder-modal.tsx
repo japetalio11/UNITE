@@ -55,7 +55,7 @@ export default function DeleteStakeholderModal({ isOpen, onClose, coordinatorId,
         <ModalHeader className="flex items-center gap-3 pb-2">
           <div>
             <h2 className="text-lg font-semibold">Confirm delete</h2>
-            <p className="text-xs text-default-500">Type the full name of the stakeholder to confirm deletion.</p>
+            <p className="text-xs text-default-500">Type <span className="font-semibold">{coordinatorName || 'the stakeholder'}</span> to confirm deletion.</p>
           </div>
         </ModalHeader>
 
@@ -63,7 +63,7 @@ export default function DeleteStakeholderModal({ isOpen, onClose, coordinatorId,
           <div className="space-y-3">
             <div>
               <p className="text-sm">Stakeholder</p>
-              <div className="text-sm font-medium text-gray-900">{coordinatorName || '—'}</div>
+              <div className="text-sm font-semibold text-gray-900">{coordinatorName || '—'}</div>
             </div>
 
             <div className="p-3 bg-danger-50 border border-danger-200 rounded">
@@ -72,8 +72,8 @@ export default function DeleteStakeholderModal({ isOpen, onClose, coordinatorId,
             </div>
 
             <div>
-              <label className="text-sm font-medium">Type full name to confirm</label>
-              <Input value={typedName} onChange={(e) => setTypedName((e.target as HTMLInputElement).value)} placeholder="Full name" variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+              <label className="text-sm font-medium">Type <span className="font-semibold">{coordinatorName || 'full name'}</span> to confirm</label>
+              <Input autoFocus value={typedName} onChange={(e) => setTypedName((e.target as HTMLInputElement).value)} placeholder={coordinatorName || 'Full name'} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
             </div>
 
             {error && <div className="text-sm text-danger">{error}</div>}
@@ -82,7 +82,16 @@ export default function DeleteStakeholderModal({ isOpen, onClose, coordinatorId,
 
         <ModalFooter>
           <Button variant="bordered" onPress={onClose}>Cancel</Button>
-          <Button color="danger" onPress={handleDelete} disabled={!matches() || isDeleting} className="bg-red-600 text-white">
+          <Button
+            onPress={handleDelete}
+            disabled={!matches() || isDeleting}
+            aria-disabled={!matches() || isDeleting}
+            className={
+              (!matches() || isDeleting)
+                ? 'bg-gray-200 text-gray-600 cursor-not-allowed'
+                : 'bg-red-600 text-white hover:bg-red-700'
+            }
+          >
             {isDeleting ? 'Deleting...' : 'Delete stakeholder'}
           </Button>
         </ModalFooter>
