@@ -14,6 +14,8 @@ import {
 import { Button } from "@heroui/button";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { MoreVertical, Eye, Edit, Clock, Trash2, Check, X, Users } from "lucide-react";
+import { Spinner } from '@heroui/spinner';
+import ManageStaffModal from '../manage-staff-modal';
 
 interface EventCardProps {
   title: string;
@@ -67,12 +69,7 @@ const EventCard: React.FC<EventCardProps> = ({
   const [manageStaffOpen, setManageStaffOpen] = useState(false);
 
   // Manage staff state
-  const [staffMembers, setStaffMembers] = useState<Array<{ FullName: string; Role: string }>>([]);
-  const [newFullName, setNewFullName] = useState('');
-  const [newRole, setNewRole] = useState('');
-  const [staffSaving, setStaffSaving] = useState(false);
-  const [staffError, setStaffError] = useState<string | null>(null);
-  const [staffLoading, setStaffLoading] = useState(false);
+  // Manage staff modal is handled by the shared ManageStaffModal component
 
   // Reschedule dialog state
   const [rescheduledDate, setRescheduledDate] = useState<any>(null);
@@ -165,33 +162,8 @@ const EventCard: React.FC<EventCardProps> = ({
           description="Manage staff for this event"
           startContent={<Users />}
           onPress={() => {
-            // open local manage staff modal and load existing staff assignments
+            // open the shared ManageStaffModal; it will load staff itself
             setManageStaffOpen(true);
-            (async () => {
-              try {
-                setStaffError(null);
-                setStaffLoading(true);
-                if (!request || !request.Request_ID) return;
-                const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
-                const headers: any = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/requests/${request.Request_ID}`, { headers });
-                const body = await res.json();
-                if (!res.ok) throw new Error(body.message || 'Failed to fetch request details');
-                const reqData = body.data || body.request || body;
-                const staff = reqData?.staff || [];
-                if (Array.isArray(staff)) {
-                  setStaffMembers(staff.map((s: any) => ({ FullName: s.FullName || s.Staff_FullName || s.Staff_Fullname || '', Role: s.Role || '' })));
-                } else {
-                  setStaffMembers([]);
-                }
-              } catch (e: any) {
-                setStaffError(e?.message || 'Failed to load staff');
-              } finally {
-                setStaffLoading(false);
-              }
-            })();
-
             if (typeof onManageStaff === 'function') onManageStaff();
           }}
         >
@@ -247,31 +219,6 @@ const EventCard: React.FC<EventCardProps> = ({
           startContent={<Users />}
           onPress={() => {
             setManageStaffOpen(true);
-            (async () => {
-              try {
-                setStaffError(null);
-                setStaffLoading(true);
-                if (!request || !request.Request_ID) return;
-                const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
-                const headers: any = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/requests/${request.Request_ID}`, { headers });
-                const body = await res.json();
-                if (!res.ok) throw new Error(body.message || 'Failed to fetch request details');
-                const reqData = body.data || body.request || body;
-                const staff = reqData?.staff || [];
-                if (Array.isArray(staff)) {
-                  setStaffMembers(staff.map((s: any) => ({ FullName: s.FullName || s.Staff_FullName || s.Staff_Fullname || '', Role: s.Role || '' })));
-                } else {
-                  setStaffMembers([]);
-                }
-              } catch (e: any) {
-                setStaffError(e?.message || 'Failed to load staff');
-              } finally {
-                setStaffLoading(false);
-              }
-            })();
-
             if (typeof onManageStaff === 'function') onManageStaff();
           }}
         >
@@ -460,91 +407,17 @@ const EventCard: React.FC<EventCardProps> = ({
         </ModalContent>
       </Modal>
 
-      {/* Manage Staff Dialog */}
-      <Modal isOpen={manageStaffOpen} onClose={() => setManageStaffOpen(false)} size="lg" placement="center">
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-              <Users className="w-5 h-5 text-default-600" />
-            </div>
-            <span className="text-lg font-semibold">Manage Staff</span>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-600 mb-4">Add or remove staff assignments for this event.</p>
-
-            {/* Existing staff list */}
-            <div className="space-y-2 mb-4">
-              {staffMembers.length === 0 && (
-                <div className="text-sm text-default-600">No staff assigned yet.</div>
-              )}
-              {staffMembers.map((s, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="flex-1 text-sm">{s.FullName} <span className="text-default-500">({s.Role})</span></div>
-                  <button className="text-sm text-danger" onClick={() => setStaffMembers(staffMembers.filter((_, i) => i !== idx))}>Remove</button>
-                </div>
-              ))}
-            </div>
-
-            {/* Add new staff (wider name field, smaller role field) */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <input value={newFullName} onChange={(e) => setNewFullName((e.target as HTMLInputElement).value)} placeholder="Full name" className="col-span-2 px-3 py-2 border border-default-200 rounded" />
-              <input value={newRole} onChange={(e) => setNewRole((e.target as HTMLInputElement).value)} placeholder="Role" className="px-3 py-2 border border-default-200 rounded" />
-            </div>
-            <div className="flex gap-2 mb-2">
-              <button className="px-3 py-1 bg-default-100 rounded" onClick={() => {
-                if (!newFullName || !newRole) return setStaffError('Name and role are required');
-                setStaffError(null);
-                setStaffMembers([...staffMembers, { FullName: newFullName.trim(), Role: newRole.trim() }]);
-                setNewFullName(''); setNewRole('');
-              }}>Add</button>
-              <button className="px-3 py-1 border rounded" onClick={() => { setNewFullName(''); setNewRole(''); setStaffError(null); }}>Clear</button>
-            </div>
-
-            {staffError && <div className="text-sm text-danger mb-2">{staffError}</div>}
-
-            {/** Save status */}
-            {staffSaving && <div className="text-sm text-default-600">Saving...</div>}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="bordered" onPress={() => setManageStaffOpen(false)} className="font-medium">Close</Button>
-            <Button color="default" className="bg-black text-white font-medium" onPress={async () => {
-              // perform API call to assign staff
-              if (!request || !request.Request_ID) {
-                setStaffError('Request info not available');
-                return;
-              }
-              try {
-                setStaffSaving(true);
-                setStaffError(null);
-                const rawUser = localStorage.getItem('unite_user');
-                const user = rawUser ? JSON.parse(rawUser) : null;
-                const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
-                const headers: any = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-
-                const body: any = {
-                  adminId: user?.id || user?.Admin_ID || null,
-                  eventId: request.Event_ID || (request.event && request.event.Event_ID) || null,
-                  staffMembers
-                };
-
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/requests/${request.Request_ID}/staff`, {
-                  method: 'POST', headers, body: JSON.stringify(body)
-                });
-                const resp = await res.json();
-                if (!res.ok) throw new Error(resp.message || 'Failed to assign staff');
-
-                // success — close modal
-                setManageStaffOpen(false);
-              } catch (e: any) {
-                setStaffError(e?.message || 'Failed to save staff');
-              } finally {
-                setStaffSaving(false);
-              }
-            }}>Save</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {/* Manage Staff Dialog (shared component) */}
+      <ManageStaffModal
+        isOpen={manageStaffOpen}
+        onClose={() => setManageStaffOpen(false)}
+        requestId={request?.Request_ID}
+        eventId={request?.Event_ID || (request?.event && request.event.Event_ID)}
+        request={request}
+        onSaved={async () => {
+          // onSaved hook: you can refresh data here if needed
+        }}
+      />
 
       {/* Cancel Dialog */}
       <Modal isOpen={cancelOpen} onClose={() => setCancelOpen(false)} size="md" placement="center">
