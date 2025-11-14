@@ -12,6 +12,7 @@ interface BdriveModalProps {
   onClose: () => void;
   onSave: (data: BloodDriveData) => void;
   initialData?: BloodDriveData;
+  className?: string;
 }
 
 export interface BloodDriveData {
