@@ -15,6 +15,7 @@ interface CreateTrainingEventModalProps {
   onClose: () => void;
   onConfirm: (data: any) => void | Promise<void>;
   isSubmitting?: boolean;
+  error?: string | null;
 }
 
 type Variant = 'training' | 'blood-drive' | 'advocacy';
@@ -28,6 +29,7 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
   onClose,
   onConfirm,
   isSubmitting,
+  error,
   variant = 'training'
 }) => {
   const [coordinator, setCoordinator] = useState("");
@@ -172,7 +174,7 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
       const today = new Date();
       today.setHours(0,0,0,0);
       if (selected.getTime() < today.getTime()) {
-        alert('Event date cannot be in the past');
+        setErrorMessage('Event date cannot be in the past');
         return;
       }
     }
@@ -393,6 +395,13 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
               </div>
             </div>
           </div>
+          {/* Parent/passed-in error message (display near bottom like campaign modal) */}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-danger-50 border border-danger-200">
+              <p className="text-sm text-danger font-medium">Error</p>
+              <p className="text-sm text-danger-700 mt-1">{error}</p>
+            </div>
+          )}
         </ModalBody>
 
         <ModalFooter>

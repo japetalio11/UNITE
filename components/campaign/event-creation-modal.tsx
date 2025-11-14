@@ -16,6 +16,7 @@ interface CreateTrainingEventModalProps {
   onClose: () => void;
   onConfirm: (data: TrainingEventData) => void | Promise<void>;
   isSubmitting?: boolean;
+  error?: string | null;
 }
 
 interface TrainingEventData {
@@ -41,6 +42,7 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
   onClose,
   onConfirm,
   isSubmitting,
+  error,
 }) => {
   const [coordinator, setCoordinator] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -55,6 +57,7 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
+  const [dateError, setDateError] = useState("");
   const coordinators = [
     // placeholder - will be replaced by fetched coordinators when modal opens
     { key: "john", label: "John Doe" },
@@ -187,22 +190,34 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
       fetchCoordinators();
     }
   }, [isOpen]);
-    
-
-
-
-  const handleCreate = () => {
-    // Prevent selecting a past date
+  
+  // Validate date when it changes
+  useEffect(() => {
     if (date) {
       const selected = new Date(date);
       selected.setHours(0,0,0,0);
       const today = new Date();
       today.setHours(0,0,0,0);
       if (selected.getTime() < today.getTime()) {
-        // Simple UI feedback for now
-        alert('Event date cannot be in the past');
-        return;
+        setDateError('Event date cannot be in the past');
+      } else {
+        setDateError('');
       }
+    } else {
+      setDateError('');
+    }
+  }, [date]);
+
+  const handleCreate = () => {
+    // Validate required fields
+    if (!eventTitle.trim()) {
+      setTitleTouched(true);
+      return;
+    }
+
+    // Check for date errors
+    if (dateError) {
+      return;
     }
 
     // Build ISO datetime strings if date and times are provided
@@ -365,6 +380,9 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                     input: "text-sm",
                   }}
                 />
+                {dateError && (
+                  <p className="text-danger text-xs mt-1">{dateError}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Start time</label>
@@ -455,6 +473,13 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
               </div>
             </div>
           </div>
+          {/* Error Message Display - at bottom of modal body */}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-danger-50 border border-danger-200">
+              <p className="text-sm text-danger font-medium">Error</p>
+              <p className="text-sm text-danger-700 mt-1">{error}</p>
+            </div>
+          )}
         </ModalBody>
 
         <ModalFooter>
@@ -468,8 +493,8 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
           <Button
             color="default"
             onPress={handleCreate}
-            className={`bg-black text-white font-medium ${!eventTitle.trim() || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!eventTitle.trim() || !!isSubmitting}
+            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
             aria-busy={!!isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Event'}
@@ -485,6 +510,7 @@ interface CreateBloodDriveEventModalProps {
   onClose: () => void;
   onConfirm: (data: BloodDriveEventData) => void | Promise<void>;
   isSubmitting?: boolean;
+  error?: string | null;
 }
 
 interface BloodDriveEventData {
@@ -509,6 +535,7 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
   onClose,
   onConfirm,
   isSubmitting,
+  error,
 }) => {
   const [coordinator, setCoordinator] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -521,6 +548,7 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
+  const [dateError, setDateError] = useState("");
 
   const coordinators = [
     { key: "john", label: "John Doe" },
@@ -633,7 +661,35 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
     if (isOpen) fetchCoordinators();
   }, [isOpen]);
 
+  // Validate date when it changes
+  useEffect(() => {
+    if (date) {
+      const selected = new Date(date);
+      selected.setHours(0,0,0,0);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      if (selected.getTime() < today.getTime()) {
+        setDateError('Event date cannot be in the past');
+      } else {
+        setDateError('');
+      }
+    } else {
+      setDateError('');
+    }
+  }, [date]);
+
   const handleCreate = () => {
+    // Validate required fields
+    if (!eventTitle.trim()) {
+      setTitleTouched(true);
+      return;
+    }
+
+    // Check for date errors
+    if (dateError) {
+      return;
+    }
+
     let startISO = "";
     let endISO = "";
     if (date) {
@@ -764,6 +820,9 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                   variant="bordered"
                   classNames={{ base: "w-full", inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }}
                 />
+                {dateError && (
+                  <p className="text-danger text-xs mt-1">{dateError}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Start time</label>
@@ -842,6 +901,13 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
               </div>
             </div>
           </div>
+          {/* Error Message Display - at bottom of modal body */}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-danger-50 border border-danger-200">
+              <p className="text-sm text-danger font-medium">Error</p>
+              <p className="text-sm text-danger-700 mt-1">{error}</p>
+            </div>
+          )}
         </ModalBody>
 
         <ModalFooter>
@@ -855,8 +921,8 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
           <Button
             color="default"
             onPress={handleCreate}
-            className={`bg-black text-white font-medium ${!eventTitle.trim() || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!eventTitle.trim() || !!isSubmitting}
+            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
             aria-busy={!!isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Event'}
@@ -872,6 +938,7 @@ interface CreateAdvocacyEventModalProps {
   onClose: () => void;
   onConfirm: (data: AdvocacyEventData) => void | Promise<void>;
   isSubmitting?: boolean;
+  error?: string | null;
 }
 
 interface AdvocacyEventData {
@@ -897,6 +964,7 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
   onClose,
   onConfirm,
   isSubmitting,
+  error,
 }) => {
   const [coordinator, setCoordinator] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -910,6 +978,7 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
+  const [dateError, setDateError] = useState("");
 
   const coordinators = [
     { key: "john", label: "John Doe" },
@@ -1022,6 +1091,23 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
     if (isOpen) fetchCoordinators();
   }, [isOpen]);
 
+  // Validate date when it changes
+  useEffect(() => {
+    if (date) {
+      const selected = new Date(date);
+      selected.setHours(0,0,0,0);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      if (selected.getTime() < today.getTime()) {
+        setDateError('Event date cannot be in the past');
+      } else {
+        setDateError('');
+      }
+    } else {
+      setDateError('');
+    }
+  }, [date]);
+
   // audienceTypes list is kept for suggestions but we will allow free input
   const audienceTypes = [
     { key: "students", label: "Students" },
@@ -1030,6 +1116,17 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
   ];
 
   const handleCreate = () => {
+    // Validate required fields
+    if (!eventTitle.trim()) {
+      setTitleTouched(true);
+      return;
+    }
+
+    // Check for date errors
+    if (dateError) {
+      return;
+    }
+
     let startISO = "";
     let endISO = "";
     if (date) {
@@ -1169,7 +1266,17 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
             <div className="grid grid-cols-3 gap-3 items-end">
               <div className="col-span-1">
                 <label className="text-sm font-medium mb-1.5 block">Date</label>
-                <DatePicker value={date} onChange={setDate} granularity="day" hideTimeZone variant="bordered" classNames={{ base: "w-full", inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <DatePicker 
+                  value={date} 
+                  onChange={setDate} 
+                  granularity="day" 
+                  hideTimeZone 
+                  variant="bordered" 
+                  classNames={{ base: "w-full", inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} 
+                />
+                {dateError && (
+                  <p className="text-danger text-xs mt-1">{dateError}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Start time</label>
@@ -1248,6 +1355,13 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
               </div>
             </div>
           </div>
+          {/* Error Message Display - at bottom of modal body */}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-danger-50 border border-danger-200">
+              <p className="text-sm text-danger font-medium">Error</p>
+              <p className="text-sm text-danger-700 mt-1">{error}</p>
+            </div>
+          )}
         </ModalBody>
 
         <ModalFooter>
@@ -1261,8 +1375,8 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
           <Button
             color="default"
             onPress={handleCreate}
-            className={`bg-black text-white font-medium ${!eventTitle.trim() || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!eventTitle.trim() || !!isSubmitting}
+            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
             aria-busy={!!isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Event'}

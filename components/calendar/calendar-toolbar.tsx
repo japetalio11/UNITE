@@ -22,6 +22,9 @@ export default function CalendarToolbar({ onExport, onQuickFilter, onAdvancedFil
   const [isTrainingSubmitting, setIsTrainingSubmitting] = useState(false);
   const [isBloodSubmitting, setIsBloodSubmitting] = useState(false);
   const [isAdvocacySubmitting, setIsAdvocacySubmitting] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
+  const [bloodDriveError, setBloodDriveError] = useState<string | null>(null);
+  const [advocacyError, setAdvocacyError] = useState<string | null>(null);
   const [advStart, setAdvStart] = useState<any>(null);
   const [advCoordinator, setAdvCoordinator] = useState("");
 
@@ -33,6 +36,10 @@ export default function CalendarToolbar({ onExport, onQuickFilter, onAdvancedFil
   const currentEventLabel = typedEventKey ? eventLabelsMap[typedEventKey] : "Event";
 
   const handleCreateEventClick = () => {
+    // clear errors when opening modals
+    setTrainingError(null);
+    setBloodDriveError(null);
+    setAdvocacyError(null);
     switch (selectedEventTypeValue) {
       case "blood-drive": setIsBloodDriveModalOpen(true); break;
       case "training": setIsTrainingModalOpen(true); break;
@@ -44,17 +51,38 @@ export default function CalendarToolbar({ onExport, onQuickFilter, onAdvancedFil
   const handleTrainingEventConfirm = async (data: any) => {
     if (!onCreateEvent) return;
     setIsTrainingSubmitting(true);
-    try { await onCreateEvent('training', data); setIsTrainingModalOpen(false); } catch (err) { console.error(err); } finally { setIsTrainingSubmitting(false); }
+    try {
+      await onCreateEvent('training', data);
+      setIsTrainingModalOpen(false);
+      setTrainingError(null);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to create training event';
+      setTrainingError(errorMessage);
+    } finally { setIsTrainingSubmitting(false); }
   };
   const handleBloodDriveEventConfirm = async (data: any) => {
     if (!onCreateEvent) return;
     setIsBloodSubmitting(true);
-    try { await onCreateEvent('blood-drive', data); setIsBloodDriveModalOpen(false); } catch (err) { console.error(err); } finally { setIsBloodSubmitting(false); }
+    try {
+      await onCreateEvent('blood-drive', data);
+      setIsBloodDriveModalOpen(false);
+      setBloodDriveError(null);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to create blood drive event';
+      setBloodDriveError(errorMessage);
+    } finally { setIsBloodSubmitting(false); }
   };
   const handleAdvocacyEventConfirm = async (data: any) => {
     if (!onCreateEvent) return;
     setIsAdvocacySubmitting(true);
-    try { await onCreateEvent('advocacy', data); setIsAdvocacyModalOpen(false); } catch (err) { console.error(err); } finally { setIsAdvocacySubmitting(false); }
+    try {
+      await onCreateEvent('advocacy', data);
+      setIsAdvocacyModalOpen(false);
+      setAdvocacyError(null);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to create advocacy event';
+      setAdvocacyError(errorMessage);
+    } finally { setIsAdvocacySubmitting(false); }
   };
 
   return (
@@ -94,9 +122,9 @@ export default function CalendarToolbar({ onExport, onQuickFilter, onAdvancedFil
       </ButtonGroup>
 
       {/* Creation modals */}
-      <CreateTrainingEventModal isOpen={isTrainingModalOpen} onClose={() => setIsTrainingModalOpen(false)} onConfirm={handleTrainingEventConfirm} isSubmitting={isTrainingSubmitting} />
-      <CreateBloodDriveEventModal isOpen={isBloodDriveModalOpen} onClose={() => setIsBloodDriveModalOpen(false)} onConfirm={handleBloodDriveEventConfirm} isSubmitting={isBloodSubmitting} />
-      <CreateAdvocacyEventModal isOpen={isAdvocacyModalOpen} onClose={() => setIsAdvocacyModalOpen(false)} onConfirm={handleAdvocacyEventConfirm} isSubmitting={isAdvocacySubmitting} />
+      <CreateTrainingEventModal isOpen={isTrainingModalOpen} onClose={() => { setIsTrainingModalOpen(false); setTrainingError(null); }} onConfirm={handleTrainingEventConfirm} isSubmitting={isTrainingSubmitting} error={trainingError} />
+      <CreateBloodDriveEventModal isOpen={isBloodDriveModalOpen} onClose={() => { setIsBloodDriveModalOpen(false); setBloodDriveError(null); }} onConfirm={handleBloodDriveEventConfirm} isSubmitting={isBloodSubmitting} error={bloodDriveError} />
+      <CreateAdvocacyEventModal isOpen={isAdvocacyModalOpen} onClose={() => { setIsAdvocacyModalOpen(false); setAdvocacyError(null); }} onConfirm={handleAdvocacyEventConfirm} isSubmitting={isAdvocacySubmitting} error={advocacyError} />
 
       {/* Advanced Filter Modal (simple inline form) */}
       {isAdvancedModalOpen && (

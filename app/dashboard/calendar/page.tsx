@@ -768,7 +768,8 @@ export default function CalendarPage() {
         }
       }
     } catch (err: any) {
-      try { alert(err?.message || 'Failed to create event'); } catch { }
+      // Do not log to console; propagate error to caller so the toolbar
+      // can set the modal error and render it without producing console warnings.
       throw err;
     }
   };

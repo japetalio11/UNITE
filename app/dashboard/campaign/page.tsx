@@ -328,13 +328,8 @@ export default function CampaignPage() {
         return resp;
       }
     } catch (err: any) {
-      console.error('Create event error', err);
-      // bubble up or display error; for now we set a request error
-      const msg = err?.message || 'Failed to create event/request';
-      setRequestsError(msg);
-      setErrorModalMessage(msg);
-      setErrorModalOpen(true);
-      // rethrow if caller expects it
+      // Errors are already thrown with the API response message from lines 308 and 325
+      // Re-throw the error so it can be caught by the toolbar handler and displayed in modal
       throw err;
     }
   };
