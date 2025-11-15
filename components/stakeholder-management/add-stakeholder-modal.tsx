@@ -261,12 +261,7 @@ export default function AddStakeholderModal({
             sessionStorage.getItem("unite_user");
 
           // Debug raw stored user (truncate to avoid huge logs) to help diagnose shape
-          try {
-            console.log(
-              "[AddStakeholderModal] raw unite_user (truncated):",
-              raw ? String(raw).slice(0, 300) : null,
-            );
-          } catch (e) {}
+          // (removed debug log)
           parsed = raw ? JSON.parse(raw) : null;
         } catch (e) {
           parsed = null;
@@ -376,40 +371,11 @@ export default function AddStakeholderModal({
         if (d) setSelectedProvince(d.Province_Name || "");
       }
 
-      // Debug: show what we found locally so you can paste this to me if still wrong
-      try {
-        // eslint-disable-next-line no-console
-        console.log("[AddStakeholderModal] fallback debug:", {
-          isOpen,
-          isSysAdmin,
-          userDistrictId,
-          computed: uid,
-          getUserInfo: info,
-          parsedLocal: parsed,
-        });
-      } catch (e) {}
+      // (removed debug output)
     }
   }, [isSysAdmin, userDistrictId, districts]);
 
-  // Debug: log key values so we can see whether modal knows the coordinator's district
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line no-console
-      console.log("[AddStakeholderModal] debug:", {
-        isOpen,
-        isSysAdmin,
-        userDistrictId,
-        selectedDistrictId,
-        districtsCount: Array.isArray(districts) ? districts.length : 0,
-        resolvedDistrict:
-          districts.find(
-            (x) => String(x.District_ID) === String(selectedDistrictId),
-          ) || null,
-      });
-    } catch (e) {
-      // ignore console problems
-    }
-  }, [isOpen, isSysAdmin, userDistrictId, selectedDistrictId, districts]);
+  // (removed debug effect)
 
   return (
     <Modal

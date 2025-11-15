@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { getUserInfo } from "../../../utils/getUserInfo";
 
@@ -13,7 +14,7 @@ import AdvancedFilterModal from "@/components/stakeholder-management/advanced-fi
 import EditStakeholderModal from "@/components/stakeholder-management/stakeholder-edit-modal";
 import DeleteStakeholderModal from "@/components/stakeholder-management/delete-stakeholder-modal";
 import GenerateCodeModal from "@/components/stakeholder-management/generate-code-modal";
-import { debug, warn } from "@/utils/devLogger";
+// Removed verbose debug logging from this page per request
 
 interface StakeholderFormData {
   firstName: string;
@@ -74,6 +75,7 @@ export default function StakeholderManagement() {
   const [displayName, setDisplayName] = useState("Bicol Medical Center");
   const [displayEmail, setDisplayEmail] = useState("bmc@gmail.com");
   const [canManageStakeholders, setCanManageStakeholders] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     try {
@@ -172,11 +174,11 @@ export default function StakeholderManagement() {
   };
 
   const handleUserClick = () => {
-    debug("User profile clicked");
+    // no-op (user menu handled elsewhere)
   };
 
   const handleExport = () => {
-    debug("Exporting data...");
+    // export handler placeholder
   };
 
   const handleCreateCode = async () => {
@@ -318,25 +320,7 @@ export default function StakeholderManagement() {
       setUserDistrictId(uid || null);
       setOpenUserDistrictId(uid || null);
       // Include both centralized getUserInfo and raw parsed object for diagnostics
-      let infoForDebug = null;
-
-      try {
-        infoForDebug = getUserInfo();
-      } catch (e) {
-        infoForDebug = null;
-      }
-      debug(
-        "[StakeholderManagement] handleAddStakeholder getUserInfo():",
-        infoForDebug,
-      );
-      debug(
-        "[StakeholderManagement] handleAddStakeholder parsed fallback object:",
-        parsed,
-      );
-      debug(
-        "[StakeholderManagement] handleAddStakeholder computed userDistrictId:",
-        uid,
-      );
+      // removed debug logs for production
     } catch (e) {
       // ignore
     }
@@ -561,9 +545,13 @@ export default function StakeholderManagement() {
           json?.message ||
             `Failed to delete stakeholder (status ${res.status})`,
         );
-
-      // refresh list
-      await fetchStakeholders();
+      // refresh page so all lists and server-side data are consistent
+      try {
+        router.refresh();
+      } catch (e) {
+        // fallback to full reload
+        if (typeof window !== 'undefined') window.location.reload();
+      }
     } catch (err: any) {
       throw err;
     } finally {
@@ -694,37 +682,28 @@ export default function StakeholderManagement() {
           : `/api/stakeholders?${params.toString()}`;
 
       // Debug: log computed request details so we can verify coordinator filtering
-      try {
-        debug("[fetchStakeholders] request debug", {
-          userInfo:
-            userInfo && Object.keys(userInfo).length
-              ? {
-                  displayName: userInfo.displayName,
-                  role: userInfo.role,
-                  isAdmin: userInfo.isAdmin,
-                }
-              : null,
-          storedUserPreview: user
-            ? {
-                id: user.id || user.ID || user.Stakeholder_ID || null,
-                staffType:
-                  user.StaffType || user.staff_type || user.staffType || null,
-                role_data: user.role_data || null,
-              }
-            : null,
-          canManageStakeholders,
-          fetchIsCoordinator,
-          userDistrictId,
-          params: params.toString(),
-          url,
-          tokenPresent: !!token,
-        });
-      } catch (e) {}
+      // removed verbose request debug logging
 
       const headers: any = {};
 
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(url, { headers });
+      let res = await fetch(url, { headers });
+
+      // If the admin-specific endpoint isn't implemented on some backends
+      // the server may return a 404 HTML page. In that case automatically
+      // retry the generic `/api/stakeholders` endpoint as a graceful
+      // fallback so the UI still works and doesn't surface an internal
+      // route-not-found message to the user.
+      if (!res.ok && res.status === 404 && useAdminEndpoint) {
+        try {
+          const fallbackUrl = base
+            ? `${base}/api/stakeholders?${params.toString()}`
+            : `/api/stakeholders?${params.toString()}`;
+          res = await fetch(fallbackUrl, { headers });
+        } catch (e) {
+          // ignore fallback network errors and continue to parse original response
+        }
+      }
 
       // Read as text first to avoid JSON parse errors when the server returns HTML (like a 404 page)
       const text = await res.text();
@@ -733,50 +712,26 @@ export default function StakeholderManagement() {
       try {
         json = text ? JSON.parse(text) : null;
       } catch (parseErr) {
-        // If response is not valid JSON, include a short snippet in the error to help debugging
-        const snippet = text.slice(0, 300);
+        // If response is not valid JSON, do NOT expose raw server HTML or
+        // internal route messages to the end user. Keep a debug log for
+        // developers and throw a sanitized message instead.
+        const snippet = text ? String(text).slice(0, 300) : "";
+        // removed detailed warn output; snippet kept out of UI
 
-        throw new Error(
-          `Invalid JSON response (status ${res.status}): ${snippet}`,
-        );
+        throw new Error("Failed to fetch stakeholders (unexpected server response)");
       }
 
-      if (!res.ok)
-        throw new Error(
-          json?.message ||
-            `Failed to fetch stakeholders (status ${res.status})`,
-        );
+      if (!res.ok) {
+        // Prefer backend message when safe, but avoid echoing internal route
+        // diagnostics to users. Provide a simple, actionable message.
+        throw new Error("Failed to fetch stakeholders. Please try again later.");
+      }
 
       // backend stakeholder list returns items with First_Name, Middle_Name, Last_Name, Email, Phone_Number, Province_Name, District_ID or District_Name
       const items = json.data || json.stakeholders || [];
 
       // Debug: log which district IDs are present in the response
-      try {
-        const returnedDistricts = Array.from(
-          new Set(
-            items.map(
-              (it: any) =>
-                it.District_ID ||
-                it.district_id ||
-                it.DistrictId ||
-                it.districtId ||
-                it.District ||
-                it.District_Name ||
-                it.District_Name ||
-                "",
-            ),
-          ),
-        ).filter(Boolean);
-
-        debug(
-          "[fetchStakeholders] response districts:",
-          returnedDistricts,
-          "itemsCount:",
-          items.length,
-        );
-      } catch (e) {
-        /* ignore */
-      }
+      // removed debug logging for response districts
       const mapped = items.map((s: any) => {
         const fullName = [s.First_Name, s.Middle_Name, s.Last_Name]
           .filter(Boolean)
@@ -909,16 +864,10 @@ export default function StakeholderManagement() {
             raw: s,
           }));
 
-          warn(
-            "[fetchStakeholders] stakeholders missing organization (diagnostics):",
-            diag,
-          );
+          // removed diagnostic warn output
         }
         // Also log the first few mapped items for inspection
-        debug(
-          "[fetchStakeholders] mapped sample (first 5):",
-          mapped.slice(0, 5),
-        );
+        // removed mapped sample debug output
 
         // Fallback: if some mapped items still have empty organization, attempt to fetch
         // full stakeholder details for those items (limited to first 10) — some list
@@ -1160,9 +1109,13 @@ export default function StakeholderManagement() {
           setEditingStakeholder(null);
         }}
         onSaved={async () => {
-          await fetchStakeholders();
-          setIsEditModalOpen(false);
-          setEditingStakeholder(null);
+            try {
+              router.refresh();
+            } catch (e) {
+              if (typeof window !== 'undefined') window.location.reload();
+            }
+            setIsEditModalOpen(false);
+            setEditingStakeholder(null);
         }}
       />
 
