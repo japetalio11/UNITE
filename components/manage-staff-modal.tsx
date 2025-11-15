@@ -1,10 +1,17 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { fetchWithAuth } from '@/utils/fetchWithAuth';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal';
-import { Users, X } from 'lucide-react';
-import { Spinner } from '@heroui/spinner';
-import { Button } from '@heroui/button';
+import React, { useEffect, useState } from "react";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
+import { Users, X } from "lucide-react";
+import { Spinner } from "@heroui/spinner";
+import { Button } from "@heroui/button";
+
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 interface Props {
   isOpen: boolean;
@@ -16,16 +23,32 @@ interface Props {
   onSaved?: () => void;
 }
 
-const API_BASE = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) ? process.env.NEXT_PUBLIC_API_URL : 'http://localhost:3000';
+const API_BASE =
+  typeof process !== "undefined" &&
+  process.env &&
+  process.env.NEXT_PUBLIC_API_URL
+    ? process.env.NEXT_PUBLIC_API_URL
+    : "http://localhost:3000";
 
-export default function ManageStaffModal({ isOpen, onClose, requestId: propRequestId, eventId, request, onSaved }: Props) {
-  const [staffMembers, setStaffMembers] = useState<Array<{ FullName: string; Role: string }>>([]);
-  const [newFullName, setNewFullName] = useState('');
-  const [newRole, setNewRole] = useState('');
+export default function ManageStaffModal({
+  isOpen,
+  onClose,
+  requestId: propRequestId,
+  eventId,
+  request,
+  onSaved,
+}: Props) {
+  const [staffMembers, setStaffMembers] = useState<
+    Array<{ FullName: string; Role: string }>
+  >([]);
+  const [newFullName, setNewFullName] = useState("");
+  const [newRole, setNewRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [requestId, setRequestId] = useState<string | null>(propRequestId || null);
+  const [requestId, setRequestId] = useState<string | null>(
+    propRequestId || null,
+  );
 
   useEffect(() => {
     setRequestId(propRequestId || null);
@@ -34,6 +57,7 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
   useEffect(() => {
     if (!isOpen) return;
     let mounted = true;
+
     (async () => {
       try {
         setError(null);
@@ -41,51 +65,87 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
 
         // Determine requestId: prefer prop, then request object, then fetch from eventId
         let rid = propRequestId || null;
+
         if (!rid && request) {
           rid = request.Request_ID || request.RequestId || request._id || null;
         }
 
         if (!rid && eventId) {
-          const res = await fetch(`${API_BASE}/api/events/${encodeURIComponent(eventId)}`, { credentials: 'include' });
+          const res = await fetch(
+            `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
+            { credentials: "include" },
+          );
           const body = await res.json();
-          if (!res.ok) throw new Error(body.message || 'Failed to fetch event details');
+
+          if (!res.ok)
+            throw new Error(body.message || "Failed to fetch event details");
           const data = body.data || body.event || body;
-          rid = data?.request?.Request_ID || data?.Request_ID || data?.requestId || data?.request?.RequestId || null;
+
+          rid =
+            data?.request?.Request_ID ||
+            data?.Request_ID ||
+            data?.requestId ||
+            data?.request?.RequestId ||
+            null;
         }
 
         setRequestId(rid || null);
 
         if (rid) {
-          const token = typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null;
-          const headers: any = { 'Content-Type': 'application/json' };
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-          const r = await fetch(`${API_BASE}/api/requests/${encodeURIComponent(rid)}`, { headers });
+          const token =
+            typeof window !== "undefined"
+              ? localStorage.getItem("unite_token") ||
+                sessionStorage.getItem("unite_token")
+              : null;
+          const headers: any = { "Content-Type": "application/json" };
+
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const r = await fetch(
+            `${API_BASE}/api/requests/${encodeURIComponent(rid)}`,
+            { headers },
+          );
           const rb = await r.json();
-          if (!r.ok) throw new Error(rb.message || 'Failed to fetch request details');
+
+          if (!r.ok)
+            throw new Error(rb.message || "Failed to fetch request details");
           const reqData = rb.data || rb.request || rb;
           const staff = reqData?.staff || [];
+
           if (mounted) {
-            setStaffMembers(Array.isArray(staff) ? staff.map((s: any) => ({ FullName: s.FullName || s.Staff_FullName || s.Staff_Fullname || '', Role: s.Role || '' })) : []);
+            setStaffMembers(
+              Array.isArray(staff)
+                ? staff.map((s: any) => ({
+                    FullName:
+                      s.FullName || s.Staff_FullName || s.Staff_Fullname || "",
+                    Role: s.Role || "",
+                  }))
+                : [],
+            );
           }
         } else {
           if (mounted) setStaffMembers([]);
         }
       } catch (e: any) {
-        if (mounted) setError(e?.message || 'Failed to load staff');
+        if (mounted) setError(e?.message || "Failed to load staff");
       } finally {
         if (mounted) setLoading(false);
       }
     })();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [isOpen, propRequestId, eventId, request]);
 
   const addStaff = () => {
-    if (!newFullName || !newRole) return setError('Name and role are required');
+    if (!newFullName || !newRole) return setError("Name and role are required");
     setError(null);
-    setStaffMembers([...staffMembers, { FullName: newFullName.trim(), Role: newRole.trim() }]);
-    setNewFullName('');
-    setNewRole('');
+    setStaffMembers([
+      ...staffMembers,
+      { FullName: newFullName.trim(), Role: newRole.trim() },
+    ]);
+    setNewFullName("");
+    setNewRole("");
   };
 
   const removeStaff = (idx: number) => {
@@ -93,52 +153,86 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
   };
 
   const save = async () => {
-    const rid = requestId || (request && (request.Request_ID || request.RequestId || request._id)) || null;
-    if (!rid) return setError('Request info not available');
+    const rid =
+      requestId ||
+      (request && (request.Request_ID || request.RequestId || request._id)) ||
+      null;
+
+    if (!rid) return setError("Request info not available");
     try {
       setSaving(true);
       setError(null);
-      const rawUser = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+      const rawUser =
+        typeof window !== "undefined"
+          ? localStorage.getItem("unite_user")
+          : null;
       const user = rawUser ? JSON.parse(rawUser as string) : null;
-      const token = typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null;
-      const headers: any = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token")
+          : null;
+      const headers: any = { "Content-Type": "application/json" };
+
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const body: any = {
         adminId: user?.id || user?.Admin_ID || null,
-        eventId: eventId || (request && (request.Event_ID || (request.event && request.event.Event_ID))) || null,
-        staffMembers
+        eventId:
+          eventId ||
+          (request &&
+            (request.Event_ID || (request.event && request.event.Event_ID))) ||
+          null,
+        staffMembers,
       };
 
       let res;
+
       if (token) {
-        res = await fetchWithAuth(`${API_BASE}/api/requests/${encodeURIComponent(rid)}/staff`, { method: 'POST', body: JSON.stringify(body) });
+        res = await fetchWithAuth(
+          `${API_BASE}/api/requests/${encodeURIComponent(rid)}/staff`,
+          { method: "POST", body: JSON.stringify(body) },
+        );
       } else {
-        res = await fetch(`${API_BASE}/api/requests/${encodeURIComponent(rid)}/staff`, { method: 'POST', headers, body: JSON.stringify(body), credentials: 'include' });
+        res = await fetch(
+          `${API_BASE}/api/requests/${encodeURIComponent(rid)}/staff`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+            credentials: "include",
+          },
+        );
       }
 
       const resp = await res.json();
-      if (!res.ok) throw new Error(resp.message || 'Failed to assign staff');
+
+      if (!res.ok) throw new Error(resp.message || "Failed to assign staff");
 
       if (onSaved) await onSaved();
       onClose();
     } catch (e: any) {
-      setError(e?.message || 'Failed to save staff');
+      setError(e?.message || "Failed to save staff");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="2xl" placement="center">
+    <Modal isOpen={isOpen} placement="center" size="2xl" onClose={onClose}>
       <ModalContent>
         <ModalHeader className="flex items-center gap-3 px-6 py-4 border-b border-default-200">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-default-100">
             <Users className="w-5 h-5 text-default-700" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-default-900">Add Staff</h2>
-            <p className="text-sm text-default-500 font-normal">Start providing your information by selecting your blood type. Add details below to proceed.</p>
+            <h2 className="text-xl font-semibold text-default-900">
+              Add Staff
+            </h2>
+            <p className="text-sm text-default-500 font-normal">
+              Start providing your information by selecting your blood type. Add
+              details below to proceed.
+            </p>
           </div>
         </ModalHeader>
 
@@ -150,10 +244,12 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
                   Name of Staff <span className="text-danger">*</span>
                 </label>
                 <input
-                  value={newFullName}
-                  onChange={(e) => setNewFullName((e.target as HTMLInputElement).value)}
-                  placeholder="Enter name of staff"
                   className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-default-400 focus:border-transparent bg-white"
+                  placeholder="Enter name of staff"
+                  value={newFullName}
+                  onChange={(e) =>
+                    setNewFullName((e.target as HTMLInputElement).value)
+                  }
                 />
               </div>
 
@@ -162,17 +258,19 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
                   Staff Role
                 </label>
                 <input
-                  value={newRole}
-                  onChange={(e) => setNewRole((e.target as HTMLInputElement).value)}
-                  placeholder="Role"
                   className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-default-400 focus:border-transparent bg-white"
+                  placeholder="Role"
+                  value={newRole}
+                  onChange={(e) =>
+                    setNewRole((e.target as HTMLInputElement).value)
+                  }
                 />
               </div>
 
               <div className="col-span-3 flex items-end">
                 <button
-                  onClick={addStaff}
                   className="w-full px-4 py-2 text-sm font-medium text-default-900 bg-default-100 hover:bg-default-200 rounded-lg transition-colors"
+                  onClick={addStaff}
                 >
                   Add Staff
                 </button>
@@ -182,10 +280,10 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
             <div className="border border-default-200 rounded-lg overflow-hidden">
               <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-default-50">
                 <div className="col-span-1 flex items-center">
-                  <input 
-                    type="checkbox" 
+                  <input
                     aria-label="select all"
                     className="w-4 h-4 rounded border-default-300"
+                    type="checkbox"
                   />
                 </div>
                 <div className="col-span-6 text-xs font-semibold text-default-600 uppercase tracking-wide">
@@ -216,12 +314,15 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
                 )}
 
                 {staffMembers.map((s, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-4 px-4 py-3 border-t border-default-100 hover:bg-default-50 transition-colors">
+                  <div
+                    key={idx}
+                    className="grid grid-cols-12 gap-4 px-4 py-3 border-t border-default-100 hover:bg-default-50 transition-colors"
+                  >
                     <div className="col-span-1 flex items-center">
-                      <input 
-                        type="checkbox" 
+                      <input
                         aria-label={`select-${idx}`}
                         className="w-4 h-4 rounded border-default-300"
+                        type="checkbox"
                       />
                     </div>
                     <div className="col-span-6 text-sm text-default-900">
@@ -231,10 +332,10 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
                       {s.Role}
                     </div>
                     <div className="col-span-2 flex items-center justify-end pr-3">
-                      <button 
-                        onClick={() => removeStaff(idx)} 
+                      <button
                         aria-label="remove"
                         className="text-danger hover:bg-danger-50 p-1.5 rounded-lg transition-colors"
+                        onClick={() => removeStaff(idx)}
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -251,24 +352,18 @@ export default function ManageStaffModal({ isOpen, onClose, requestId: propReque
             </div>
           )}
 
-          {saving && (
-            <div className="text-sm text-default-600">Saving...</div>
-          )}
+          {saving && <div className="text-sm text-default-600">Saving...</div>}
         </ModalBody>
 
         <ModalFooter className="px-6 py-4 border-t border-default-200">
-          <Button 
-            variant="bordered" 
-            onPress={onClose}
-            className="font-medium"
-          >
+          <Button className="font-medium" variant="bordered" onPress={onClose}>
             Close
           </Button>
-          <Button 
-            color="default"
+          <Button
             className="bg-black text-white font-medium hover:bg-default-800"
-            onPress={save}
+            color="default"
             isDisabled={saving}
+            onPress={save}
           >
             Save
           </Button>

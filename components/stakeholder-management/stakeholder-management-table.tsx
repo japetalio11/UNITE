@@ -1,33 +1,36 @@
-"use client"
-import { MoreHorizontal, Edit3, Trash2 } from "lucide-react"
-import { Checkbox } from "@heroui/checkbox"
-import { Button } from "@heroui/button"
-import { Dropdown, DropdownTrigger, DropdownMenu, DropdownSection, DropdownItem } from "@heroui/dropdown"
-import { useState } from "react"
-
+"use client";
+import { MoreHorizontal, Edit3, Trash2 } from "lucide-react";
+import { Checkbox } from "@heroui/checkbox";
+import { Button } from "@heroui/button";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownSection,
+  DropdownItem,
+} from "@heroui/dropdown";
+import { useState } from "react";
 
 interface Stakeholder {
-  id: string
-  name: string
-  email: string
-  phone: string
-  organization?: string
-  district: string
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  organization?: string;
+  district: string;
 }
-
 
 interface StakeholderTableProps {
-  coordinators: Stakeholder[]
-  selectedCoordinators: string[]
-  onSelectAll: (checked: boolean) => void
-  onSelectCoordinator: (id: string, checked: boolean) => void
-  onActionClick: (id: string) => void
-  onUpdateCoordinator?: (id: string) => void
-  onDeleteCoordinator?: (id: string, name?: string) => void
-  searchQuery: string
-  isAdmin?: boolean
+  coordinators: Stakeholder[];
+  selectedCoordinators: string[];
+  onSelectAll: (checked: boolean) => void;
+  onSelectCoordinator: (id: string, checked: boolean) => void;
+  onActionClick: (id: string) => void;
+  onUpdateCoordinator?: (id: string) => void;
+  onDeleteCoordinator?: (id: string, name?: string) => void;
+  searchQuery: string;
+  isAdmin?: boolean;
 }
-
 
 export default function StakeholderTable({
   coordinators,
@@ -40,24 +43,22 @@ export default function StakeholderTable({
   searchQuery,
   isAdmin,
 }: StakeholderTableProps) {
-  const [/*unused*/, setUnused] = useState(false)
+  const [, /*unused*/ setUnused] = useState(false);
 
-  const filteredCoordinators = coordinators.filter(
-    (coordinator) => {
-      const q = searchQuery.toLowerCase()
-      return (
-        (coordinator.name || '').toLowerCase().includes(q) ||
-        (coordinator.email || '').toLowerCase().includes(q) ||
-        ((coordinator.organization || '')).toLowerCase().includes(q) ||
-        (coordinator.district || '').toLowerCase().includes(q)
-      )
-    },
-  )
+  const filteredCoordinators = coordinators.filter((coordinator) => {
+    const q = searchQuery.toLowerCase();
 
+    return (
+      (coordinator.name || "").toLowerCase().includes(q) ||
+      (coordinator.email || "").toLowerCase().includes(q) ||
+      (coordinator.organization || "").toLowerCase().includes(q) ||
+      (coordinator.district || "").toLowerCase().includes(q)
+    );
+  });
 
   const isAllSelected =
-    filteredCoordinators.length > 0 && filteredCoordinators.every((c) => selectedCoordinators.includes(c.id))
-
+    filteredCoordinators.length > 0 &&
+    filteredCoordinators.every((c) => selectedCoordinators.includes(c.id));
 
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -69,10 +70,10 @@ export default function StakeholderTable({
             <tr className="bg-gray-50/80">
               <th className="px-6 py-3.5 text-left w-12">
                 <Checkbox
-                  checked={isAllSelected}
-                  onValueChange={onSelectAll}
                   aria-label="Select all stakeholders"
+                  checked={isAllSelected}
                   size="sm"
+                  onValueChange={onSelectAll}
                 />
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -96,7 +97,6 @@ export default function StakeholderTable({
             </tr>
           </thead>
 
-
           {/* Table Body */}
           <tbody className="bg-white divide-y divide-gray-100">
             {filteredCoordinators.map((coordinator) => (
@@ -106,14 +106,19 @@ export default function StakeholderTable({
               >
                 <td className="px-6 py-4 w-12">
                   <Checkbox
-                    checked={selectedCoordinators.includes(coordinator.id)}
-                    onValueChange={(checked) => onSelectCoordinator(coordinator.id, checked)}
                     aria-label={`Select ${coordinator.name}`}
+                    checked={selectedCoordinators.includes(coordinator.id)}
                     size="sm"
+                    onValueChange={(checked) =>
+                      onSelectCoordinator(coordinator.id, checked)
+                    }
                   />
                 </td>
                 <td className="px-6 py-4 text-sm font-normal text-gray-900">
-                  {coordinator.organization && coordinator.organization.trim() !== '' ? coordinator.organization : 'Independent'}
+                  {coordinator.organization &&
+                  coordinator.organization.trim() !== ""
+                    ? coordinator.organization
+                    : "Independent"}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {coordinator.name}
@@ -132,21 +137,27 @@ export default function StakeholderTable({
                     <DropdownTrigger>
                       <Button
                         isIconOnly
-                        variant="light"
-                        size="sm"
                         aria-label={`Actions for ${coordinator.name}`}
                         className="text-gray-400 hover:text-gray-600"
+                        size="sm"
+                        variant="light"
                       >
                         <MoreHorizontal size={18} />
                       </Button>
                     </DropdownTrigger>
-                    <DropdownMenu aria-label="Stakeholder actions" variant="faded">
+                    <DropdownMenu
+                      aria-label="Stakeholder actions"
+                      variant="faded"
+                    >
                       <DropdownSection title="Actions">
                         <DropdownItem
                           key="update"
                           description="Edit the stakeholder's details"
                           startContent={<Edit3 />}
-                          onPress={() => { if (onUpdateCoordinator) onUpdateCoordinator(coordinator.id) }}
+                          onPress={() => {
+                            if (onUpdateCoordinator)
+                              onUpdateCoordinator(coordinator.id);
+                          }}
                         >
                           Update stakeholder
                         </DropdownItem>
@@ -157,8 +168,16 @@ export default function StakeholderTable({
                           className="text-danger"
                           color="danger"
                           description="Permanently remove this stakeholder"
-                          startContent={<Trash2 className="text-xl text-danger pointer-events-none shrink-0" />}
-                          onPress={() => { if (onDeleteCoordinator) onDeleteCoordinator(coordinator.id, coordinator.name) }}
+                          startContent={
+                            <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
+                          }
+                          onPress={() => {
+                            if (onDeleteCoordinator)
+                              onDeleteCoordinator(
+                                coordinator.id,
+                                coordinator.name,
+                              );
+                          }}
                         >
                           Delete stakeholder
                         </DropdownItem>
@@ -172,8 +191,6 @@ export default function StakeholderTable({
         </table>
       </div>
 
-
-
       {/* Empty State */}
       {filteredCoordinators.length === 0 && (
         <div className="px-6 py-12 text-center bg-white">
@@ -186,5 +203,5 @@ export default function StakeholderTable({
         </div>
       )}
     </div>
-  )
+  );
 }

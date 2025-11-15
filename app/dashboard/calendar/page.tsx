@@ -1,71 +1,103 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronDown, 
+import { useRouter } from "next/navigation";
+import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download, 
   Clock as ClockIcon,
   Calendar,
   CalendarDays,
-  SlidersHorizontal,
-  Filter,
-  Plus,
   MoreVertical,
   Eye,
   Edit,
   Users,
   Trash2,
   Check,
-  X
+  X,
 } from "lucide-react";
 import {
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownSection,
-  DropdownItem
-} from '@heroui/dropdown';
-import { Button } from '@heroui/button';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal';
-import { DatePicker } from '@heroui/date-picker';
-import { User } from '@heroui/user';
-import EventViewModal from '@/components/calendar/event-view-modal';
-import EditEventModal from '@/components/calendar/event-edit-modal';
-import EventManageStaffModal from '@/components/calendar/event-manage-staff-modal';
-import EventRescheduleModal from '@/components/calendar/event-reschedule-modal';
-import CalendarToolbar from '@/components/calendar/calendar-toolbar';
-import { fetchWithAuth } from '@/utils/fetchWithAuth';
-import { usePathname } from 'next/navigation';
+  DropdownItem,
+} from "@heroui/dropdown";
+import { Button } from "@heroui/button";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
+import { User } from "@heroui/user";
+import { usePathname } from "next/navigation";
+
+import EventViewModal from "@/components/calendar/event-view-modal";
+import EditEventModal from "@/components/calendar/event-edit-modal";
+import EventManageStaffModal from "@/components/calendar/event-manage-staff-modal";
+import EventRescheduleModal from "@/components/calendar/event-reschedule-modal";
+import CalendarToolbar from "@/components/calendar/calendar-toolbar";
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 export default function CalendarPage() {
   const pathname = usePathname();
   // Allow create on dashboard calendar, but not on public calendar route
-  const allowCreate = pathname === '/calendar' ? false : true;
+  const allowCreate = pathname === "/calendar" ? false : true;
   const [activeView, setActiveView] = useState("week");
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(today.getDate());
   const [currentDate, setCurrentDate] = useState<Date>(today);
-  const [weekEventsByDate, setWeekEventsByDate] = useState<Record<string, any[]>>({});
-  const [monthEventsByDate, setMonthEventsByDate] = useState<Record<string, any[]>>({});
+  const [weekEventsByDate, setWeekEventsByDate] = useState<
+    Record<string, any[]>
+  >({});
+  const [monthEventsByDate, setMonthEventsByDate] = useState<
+    Record<string, any[]>
+  >({});
   const [eventsLoading, setEventsLoading] = useState(false);
-  const [currentUserName, setCurrentUserName] = useState<string>('Bicol Medical Center');
-  const [currentUserEmail, setCurrentUserEmail] = useState<string>('bmc@gmail.com');
+  const [currentUserName, setCurrentUserName] = useState<string>(
+    "Bicol Medical Center",
+  );
+  const [currentUserEmail, setCurrentUserEmail] =
+    useState<string>("bmc@gmail.com");
+
   // Initialize displayed user name/email from localStorage (match campaign page logic)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('unite_user');
+      const raw = localStorage.getItem("unite_user");
+
       if (raw) {
         const u = JSON.parse(raw);
-        const first = u.First_Name || u.FirstName || u.first_name || u.firstName || u.First || '';
-        const middle = u.Middle_Name || u.MiddleName || u.middle_name || u.middleName || u.Middle || '';
-        const last = u.Last_Name || u.LastName || u.last_name || u.lastName || u.Last || '';
-        const parts = [first, middle, last].map((p: any) => (p || '').toString().trim()).filter(Boolean);
-        const full = parts.join(' ');
-        const email = u.Email || u.email || u.Email_Address || u.emailAddress || '';
+        const first =
+          u.First_Name ||
+          u.FirstName ||
+          u.first_name ||
+          u.firstName ||
+          u.First ||
+          "";
+        const middle =
+          u.Middle_Name ||
+          u.MiddleName ||
+          u.middle_name ||
+          u.middleName ||
+          u.Middle ||
+          "";
+        const last =
+          u.Last_Name ||
+          u.LastName ||
+          u.last_name ||
+          u.lastName ||
+          u.Last ||
+          "";
+        const parts = [first, middle, last]
+          .map((p: any) => (p || "").toString().trim())
+          .filter(Boolean);
+        const full = parts.join(" ");
+        const email =
+          u.Email || u.email || u.Email_Address || u.emailAddress || "";
+
         if (full) setCurrentUserName(full);
         else if (u.name) setCurrentUserName(u.name);
         if (email) setCurrentUserEmail(email);
@@ -76,53 +108,79 @@ export default function CalendarPage() {
   }, []);
   const [isDateTransitioning, setIsDateTransitioning] = useState(false);
   const [isViewTransitioning, setIsViewTransitioning] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
+  const [slideDirection, setSlideDirection] = useState<"left" | "right">(
+    "right",
+  );
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
-  const [quickFilterCategory, setQuickFilterCategory] = useState<string | undefined>(undefined);
-  const [advancedFilter, setAdvancedFilter] = useState<{ start?: string; coordinator?: string; title?: string; requester?: string }>({});
+  const [quickFilterCategory, setQuickFilterCategory] = useState<
+    string | undefined
+  >(undefined);
+  const [advancedFilter, setAdvancedFilter] = useState<{
+    start?: string;
+    coordinator?: string;
+    title?: string;
+    requester?: string;
+  }>({});
   const router = useRouter();
   // Action modal states keyed by Event_ID
   const [rescheduleOpenId, setRescheduleOpenId] = useState<string | null>(null);
   const [cancelOpenId, setCancelOpenId] = useState<string | null>(null);
-  const [manageStaffOpenId, setManageStaffOpenId] = useState<string | null>(null);
+  const [manageStaffOpenId, setManageStaffOpenId] = useState<string | null>(
+    null,
+  );
   const [acceptOpenId, setAcceptOpenId] = useState<string | null>(null);
   const [rejectOpenId, setRejectOpenId] = useState<string | null>(null);
 
-  const [acceptNote, setAcceptNote] = useState<string>('');
+  const [acceptNote, setAcceptNote] = useState<string>("");
   const [acceptSaving, setAcceptSaving] = useState<boolean>(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
-  const [rejectNote, setRejectNote] = useState<string>('');
+  const [rejectNote, setRejectNote] = useState<string>("");
   const [rejectSaving, setRejectSaving] = useState<boolean>(false);
   const [rejectError, setRejectError] = useState<string | null>(null);
 
   // Reschedule state per event
-  const [rescheduledDateMap, setRescheduledDateMap] = useState<Record<string, any>>({});
-  const [rescheduleNoteMap, setRescheduleNoteMap] = useState<Record<string, string>>({});
+  const [rescheduledDateMap, setRescheduledDateMap] = useState<
+    Record<string, any>
+  >({});
+  const [rescheduleNoteMap, setRescheduleNoteMap] = useState<
+    Record<string, string>
+  >({});
 
   // Manage staff simple state
-  const [staffMap, setStaffMap] = useState<Record<string, Array<{ FullName: string; Role: string }>>>({});
+  const [staffMap, setStaffMap] = useState<
+    Record<string, Array<{ FullName: string; Role: string }>>
+  >({});
   const [staffLoading, setStaffLoading] = useState(false);
 
   // Close create menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+      if (
+        createMenuRef.current &&
+        !createMenuRef.current.contains(event.target as Node)
+      ) {
         setIsCreateMenuOpen(false);
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
   // API base (allow override via NEXT_PUBLIC_API_URL)
-  const API_BASE = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) ? process.env.NEXT_PUBLIC_API_URL : 'http://localhost:3000';
+  const API_BASE =
+    typeof process !== "undefined" &&
+    process.env &&
+    process.env.NEXT_PUBLIC_API_URL
+      ? process.env.NEXT_PUBLIC_API_URL
+      : "http://localhost:3000";
 
   // Helpers to normalize date keys (use local date YYYY-MM-DD)
-  const pad = (n: number) => n.toString().padStart(2, '0');
+  const pad = (n: number) => n.toString().padStart(2, "0");
   const dateToLocalKey = (d: Date) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
@@ -133,48 +191,61 @@ export default function CalendarPage() {
   const parseServerDate = (raw: any): Date | null => {
     if (!raw && raw !== 0) return null;
     try {
-      if (typeof raw === 'string') {
+      if (typeof raw === "string") {
         const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
         if (m) {
           const y = Number(m[1]);
           const mo = Number(m[2]) - 1;
           const d = Number(m[3]);
+
           return new Date(y, mo, d);
         }
+
         return new Date(raw);
       }
-      if (typeof raw === 'object' && raw.$date) {
+      if (typeof raw === "object" && raw.$date) {
         const d = raw.$date;
-        if (typeof d === 'object' && d.$numberLong) return new Date(Number(d.$numberLong));
+
+        if (typeof d === "object" && d.$numberLong)
+          return new Date(Number(d.$numberLong));
+
         return new Date(d as any);
       }
+
       return new Date(raw as any);
     } catch (e) {
       return null;
     }
   };
 
-  const normalizeEventsMap = (input: Record<string, any> | undefined): Record<string, any[]> => {
+  const normalizeEventsMap = (
+    input: Record<string, any> | undefined,
+  ): Record<string, any[]> => {
     const out: Record<string, any[]> = {};
+
     if (!input) return out;
     try {
       // Helper: recursively search an object for the first array of event-like objects
       const findArrayInObject = (val: any, depth = 0): any[] | null => {
         if (!val || depth > 6) return null; // limit depth
         if (Array.isArray(val)) return val;
-        if (typeof val !== 'object') return null;
-        const commonKeys = ['events', 'data', 'eventsByDate', 'weekDays'];
+        if (typeof val !== "object") return null;
+        const commonKeys = ["events", "data", "eventsByDate", "weekDays"];
+
         for (const k of commonKeys) {
           if (Array.isArray(val[k])) return val[k];
         }
         for (const k of Object.keys(val)) {
           try {
             const found = findArrayInObject(val[k], depth + 1);
+
             if (found && Array.isArray(found)) return found;
           } catch (e) {
             // ignore
           }
         }
+
         return null;
       };
 
@@ -182,6 +253,7 @@ export default function CalendarPage() {
         // Attempt to parse rawKey into a Date. If parsing fails, keep as-is.
         const parsed = new Date(rawKey);
         let localKey = rawKey;
+
         if (!isNaN(parsed.getTime())) {
           localKey = dateToLocalKey(parsed);
         }
@@ -190,9 +262,10 @@ export default function CalendarPage() {
         let vals: any[] = [];
 
         const found = findArrayInObject(rawVal);
+
         if (found && Array.isArray(found)) vals = found;
         else if (Array.isArray(rawVal)) vals = rawVal;
-        else if (rawVal && typeof rawVal === 'object') vals = [rawVal];
+        else if (rawVal && typeof rawVal === "object") vals = [rawVal];
         else if (rawVal !== undefined && rawVal !== null) vals = [rawVal];
 
         if (!out[localKey]) out[localKey] = [];
@@ -202,56 +275,92 @@ export default function CalendarPage() {
       // Deduplicate events per date (prefer Event_ID / EventId when available)
       Object.keys(out).forEach((k) => {
         const seen = new Set<string>();
+
         out[k] = out[k].filter((ev) => {
-          const id = (ev && (ev.Event_ID || ev.EventId || ev.id)) ? String(ev.Event_ID ?? ev.EventId ?? ev.id) : JSON.stringify(ev);
+          const id =
+            ev && (ev.Event_ID || ev.EventId || ev.id)
+              ? String(ev.Event_ID ?? ev.EventId ?? ev.id)
+              : JSON.stringify(ev);
+
           if (seen.has(id)) return false;
           seen.add(id);
+
           return true;
         });
       });
     } catch (e) {
       return input as Record<string, any[]>;
     }
+
     return out;
   };
 
   // Merge month multi-day events into a week map for the given currentDate
-  const mergeWeekWithMonth = (normalizedWeek: Record<string, any[]>, normalizedMonth: Record<string, any[]>, currentDateParam: Date) => {
+  const mergeWeekWithMonth = (
+    normalizedWeek: Record<string, any[]>,
+    normalizedMonth: Record<string, any[]>,
+    currentDateParam: Date,
+  ) => {
     try {
       const wkStart = new Date(currentDateParam);
       const dayOfWeek = wkStart.getDay();
+
       wkStart.setDate(wkStart.getDate() - dayOfWeek);
-      wkStart.setHours(0,0,0,0);
+      wkStart.setHours(0, 0, 0, 0);
       const wkEnd = new Date(wkStart);
+
       wkEnd.setDate(wkStart.getDate() + 6);
 
       const merged: Record<string, any[]> = {};
-      Object.keys(normalizedWeek || {}).forEach(k => { merged[k] = Array.isArray(normalizedWeek[k]) ? [...normalizedWeek[k]] : []; });
+
+      Object.keys(normalizedWeek || {}).forEach((k) => {
+        merged[k] = Array.isArray(normalizedWeek[k])
+          ? [...normalizedWeek[k]]
+          : [];
+      });
 
       const addEventToDate = (localKey: string, ev: any) => {
         if (!merged[localKey]) merged[localKey] = [];
         const id = ev?.Event_ID ?? ev?.EventId ?? ev?._id ?? JSON.stringify(ev);
-        if (!merged[localKey].some(x => (x?.Event_ID ?? x?.EventId ?? x?._id ?? JSON.stringify(x)) === id)) {
+
+        if (
+          !merged[localKey].some(
+            (x) =>
+              (x?.Event_ID ?? x?.EventId ?? x?._id ?? JSON.stringify(x)) === id,
+          )
+        ) {
           merged[localKey].push(ev);
         }
       };
 
-      Object.keys(normalizedMonth || {}).forEach(k => {
+      Object.keys(normalizedMonth || {}).forEach((k) => {
         const arr = normalizedMonth[k] || [];
+
         for (const ev of arr) {
           let start: Date | null = null;
           let end: Date | null = null;
-          try { if (ev.Start_Date) start = parseServerDate(ev.Start_Date); } catch (e) { start = null; }
-          try { if (ev.End_Date) end = parseServerDate(ev.End_Date); } catch (e) { end = null; }
+
+          try {
+            if (ev.Start_Date) start = parseServerDate(ev.Start_Date);
+          } catch (e) {
+            start = null;
+          }
+          try {
+            if (ev.End_Date) end = parseServerDate(ev.End_Date);
+          } catch (e) {
+            end = null;
+          }
 
           if (!start) continue;
           if (!end) end = start;
 
           const cur = new Date(start);
-          cur.setHours(0,0,0,0);
+
+          cur.setHours(0, 0, 0, 0);
           while (cur <= end) {
             if (cur >= wkStart && cur <= wkEnd) {
               const localKey = dateToLocalKey(new Date(cur));
+
               addEventToDate(localKey, ev);
             }
             cur.setDate(cur.getDate() + 1);
@@ -274,14 +383,21 @@ export default function CalendarPage() {
       // prepare holders so we can merge month multi-day events into week view if needed
       let normalizedWeek: Record<string, any[]> = {};
       let normalizedMonth: Record<string, any[]> = {};
+
       try {
         // Week endpoint (passes currentDate as date param)
         const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
-        const weekResp = await fetch(weekUrl, { credentials: 'include' });
+        const weekResp = await fetch(weekUrl, { credentials: "include" });
         const weekJson = await weekResp.json();
-  // Debug: raw week response received (logging removed)
+        // Debug: raw week response received (logging removed)
 
-        if (mounted && weekResp.ok && weekJson && weekJson.success && weekJson.data) {
+        if (
+          mounted &&
+          weekResp.ok &&
+          weekJson &&
+          weekJson.success &&
+          weekJson.data
+        ) {
           // backend returns week object in `data` with `weekDays` map
           const weekDaysRaw = weekJson.data.weekDays || {};
           // Raw weekDays structure received (logging removed)
@@ -297,13 +413,20 @@ export default function CalendarPage() {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth() + 1; // service expects 1-12
         const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
-        const monthResp = await fetch(monthUrl, { credentials: 'include' });
+        const monthResp = await fetch(monthUrl, { credentials: "include" });
         const monthJson = await monthResp.json();
-  // Raw month response received (logging removed)
+        // Raw month response received (logging removed)
 
-        if (mounted && monthResp.ok && monthJson && monthJson.success && monthJson.data) {
+        if (
+          mounted &&
+          monthResp.ok &&
+          monthJson &&
+          monthJson.success &&
+          monthJson.data
+        ) {
           // backend returns month object in `data` with `eventsByDate` map
           const eventsByDateRaw = monthJson.data.eventsByDate || {};
+
           // Normalize keys to local YYYY-MM-DD so lookups match the frontend dates
           normalizedMonth = normalizeEventsMap(eventsByDateRaw);
           setMonthEventsByDate(normalizedMonth);
@@ -316,43 +439,70 @@ export default function CalendarPage() {
           // Compute week range
           const wkStart = new Date(currentDate);
           const dayOfWeek = wkStart.getDay();
+
           wkStart.setDate(wkStart.getDate() - dayOfWeek);
-          wkStart.setHours(0,0,0,0);
+          wkStart.setHours(0, 0, 0, 0);
           const wkEnd = new Date(wkStart);
+
           wkEnd.setDate(wkStart.getDate() + 6);
 
           // copy normalizedWeek into merged
           const merged: Record<string, any[]> = {};
-          Object.keys(normalizedWeek || {}).forEach(k => { merged[k] = Array.isArray(normalizedWeek[k]) ? [...normalizedWeek[k]] : []; });
+
+          Object.keys(normalizedWeek || {}).forEach((k) => {
+            merged[k] = Array.isArray(normalizedWeek[k])
+              ? [...normalizedWeek[k]]
+              : [];
+          });
 
           const addEventToDate = (localKey: string, ev: any) => {
             if (!merged[localKey]) merged[localKey] = [];
             // avoid duplicates by Event_ID
-            const id = ev?.Event_ID ?? ev?.EventId ?? ev?._id ?? JSON.stringify(ev);
-            if (!merged[localKey].some(x => (x?.Event_ID ?? x?.EventId ?? x?._id ?? JSON.stringify(x)) === id)) {
+            const id =
+              ev?.Event_ID ?? ev?.EventId ?? ev?._id ?? JSON.stringify(ev);
+
+            if (
+              !merged[localKey].some(
+                (x) =>
+                  (x?.Event_ID ?? x?.EventId ?? x?._id ?? JSON.stringify(x)) ===
+                  id,
+              )
+            ) {
               merged[localKey].push(ev);
             }
           };
 
           // iterate month events, expand multi-day events and add to merged if they overlap the week
-          Object.keys(normalizedMonth || {}).forEach(k => {
+          Object.keys(normalizedMonth || {}).forEach((k) => {
             const arr = normalizedMonth[k] || [];
+
             for (const ev of arr) {
               // parse start and end
               let start: Date | null = null;
               let end: Date | null = null;
-              try { if (ev.Start_Date) start = parseServerDate(ev.Start_Date); } catch (e) { start = null; }
-              try { if (ev.End_Date) end = parseServerDate(ev.End_Date); } catch (e) { end = null; }
+
+              try {
+                if (ev.Start_Date) start = parseServerDate(ev.Start_Date);
+              } catch (e) {
+                start = null;
+              }
+              try {
+                if (ev.End_Date) end = parseServerDate(ev.End_Date);
+              } catch (e) {
+                end = null;
+              }
 
               if (!start) continue;
               if (!end) end = start;
 
               // iterate dates from start to end inclusive
               const cur = new Date(start);
-              cur.setHours(0,0,0,0);
+
+              cur.setHours(0, 0, 0, 0);
               while (cur <= end) {
                 if (cur >= wkStart && cur <= wkEnd) {
                   const localKey = dateToLocalKey(new Date(cur));
+
                   addEventToDate(localKey, ev);
                 }
                 cur.setDate(cur.getDate() + 1);
@@ -361,8 +511,15 @@ export default function CalendarPage() {
           });
 
           // If merged contains more events than original normalizedWeek, update state
-          const mergedCount = Object.keys(merged).reduce((acc, k) => acc + (merged[k]?.length || 0), 0);
-          const origCount = Object.keys(normalizedWeek || {}).reduce((acc, k) => acc + ((normalizedWeek[k] || []).length || 0), 0);
+          const mergedCount = Object.keys(merged).reduce(
+            (acc, k) => acc + (merged[k]?.length || 0),
+            0,
+          );
+          const origCount = Object.keys(normalizedWeek || {}).reduce(
+            (acc, k) => acc + ((normalizedWeek[k] || []).length || 0),
+            0,
+          );
+
           if (mergedCount > origCount) {
             setWeekEventsByDate(merged);
           }
@@ -382,37 +539,41 @@ export default function CalendarPage() {
 
     fetchData();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [currentDate, activeView]);
 
-  const navigateWeek = async (direction: 'prev' | 'next') => {
+  const navigateWeek = async (direction: "prev" | "next") => {
     setIsDateTransitioning(true);
-    setSlideDirection(direction === 'prev' ? 'right' : 'left');
-    
+    setSlideDirection(direction === "prev" ? "right" : "left");
+
     const newDate = new Date(currentDate);
-    if (direction === 'prev') {
+
+    if (direction === "prev") {
       newDate.setDate(newDate.getDate() - 7);
     } else {
       newDate.setDate(newDate.getDate() + 7);
     }
     setCurrentDate(newDate);
-    
+
     setTimeout(() => {
       setIsDateTransitioning(false);
     }, 300);
   };
 
-  const navigateMonth = async (direction: 'prev' | 'next') => {
+  const navigateMonth = async (direction: "prev" | "next") => {
     setIsDateTransitioning(true);
-    
+
     const newDate = new Date(currentDate);
-    if (direction === 'prev') {
+
+    if (direction === "prev") {
       newDate.setMonth(newDate.getMonth() - 1);
     } else {
       newDate.setMonth(newDate.getMonth() + 1);
     }
     setCurrentDate(newDate);
-    
+
     setTimeout(() => {
       setIsDateTransitioning(false);
     }, 300);
@@ -422,15 +583,17 @@ export default function CalendarPage() {
     const startOfWeek = new Date(date);
     const dayOfWeek = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - dayOfWeek;
+
     startOfWeek.setDate(diff);
-    
+
     const endOfWeek = new Date(startOfWeek);
+
     endOfWeek.setDate(endOfWeek.getDate() + 6);
-    
-    const startMonth = startOfWeek.toLocaleString('default', { month: 'long' });
-    const endMonth = endOfWeek.toLocaleString('default', { month: 'long' });
+
+    const startMonth = startOfWeek.toLocaleString("default", { month: "long" });
+    const endMonth = endOfWeek.toLocaleString("default", { month: "long" });
     const year = startOfWeek.getFullYear();
-    
+
     if (startMonth === endMonth) {
       return `${startMonth} ${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${year}`;
     } else {
@@ -439,7 +602,7 @@ export default function CalendarPage() {
   };
 
   const formatMonthYear = (date: Date) => {
-    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+    return date.toLocaleString("default", { month: "long", year: "numeric" });
   };
 
   const getDaysForWeek = (date: Date) => {
@@ -447,69 +610,78 @@ export default function CalendarPage() {
     const startOfWeek = new Date(date);
     const dayOfWeek = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - dayOfWeek;
+
     startOfWeek.setDate(diff);
-    
+
     for (let i = 0; i < 7; i++) {
       const dayDate = new Date(startOfWeek);
+
       dayDate.setDate(startOfWeek.getDate() + i);
       days.push({
         date: dayDate.getDate(),
-        day: dayDate.toLocaleString('default', { weekday: 'short' }),
+        day: dayDate.toLocaleString("default", { weekday: "short" }),
         fullDate: new Date(dayDate),
         isToday: isToday(dayDate),
-        month: dayDate.toLocaleString('default', { month: 'short' })
+        month: dayDate.toLocaleString("default", { month: "short" }),
       });
     }
+
     return days;
   };
 
   const generateMonthDays = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    
+
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
+
     const startDate = new Date(firstDay);
+
     startDate.setDate(firstDay.getDate() - firstDay.getDay());
-    
+
     const endDate = new Date(lastDay);
+
     endDate.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
-    
+
     const days = [];
     const currentDate = new Date(startDate);
-    
+
     while (currentDate <= endDate) {
       days.push({
         date: new Date(currentDate),
         isCurrentMonth: currentDate.getMonth() === month,
         isToday: isToday(currentDate),
-        events: getEventsForDate(new Date(currentDate))
+        events: getEventsForDate(new Date(currentDate)),
       });
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return days;
   };
 
   const makeOrdinal = (n: number | string) => {
     const num = parseInt(String(n), 10);
+
     if (isNaN(num)) return String(n);
-    const suffixes = ['th', 'st', 'nd', 'rd'];
+    const suffixes = ["th", "st", "nd", "rd"];
     const v = num % 100;
-    const suffix = (v >= 11 && v <= 13) ? 'th' : (suffixes[num % 10] || 'th');
+    const suffix = v >= 11 && v <= 13 ? "th" : suffixes[num % 10] || "th";
+
     return `${num}${suffix}`;
   };
 
   const getEventsForDate = (date: Date) => {
     const key = dateToLocalKey(date);
-    const source = activeView === 'month' ? monthEventsByDate : weekEventsByDate;
+    const source =
+      activeView === "month" ? monthEventsByDate : weekEventsByDate;
     // Prefer normalized local key; fallback to ISO UTC key or raw date string if present
-    const isoKey = date.toISOString().split('T')[0];
-    let raw: any = source[key] || source[isoKey] || source[date.toString()] || [];
+    const isoKey = date.toISOString().split("T")[0];
+    let raw: any =
+      source[key] || source[isoKey] || source[date.toString()] || [];
 
     // If backend returned a container object for this date, try to extract the array
-    if (raw && !Array.isArray(raw) && typeof raw === 'object') {
+    if (raw && !Array.isArray(raw) && typeof raw === "object") {
       if (Array.isArray(raw.events)) raw = raw.events;
       else if (Array.isArray(raw.data)) raw = raw.data;
       else raw = [raw];
@@ -519,16 +691,21 @@ export default function CalendarPage() {
 
     // Only include events that are explicitly approved
     const approved = raw.filter((e: any) => {
-      const status = (e && (e.Status ?? e.status ?? '')).toString ? (e.Status ?? e.status ?? '').toString() : '';
-      return status.toLowerCase() === 'approved';
+      const status = (e && (e.Status ?? e.status ?? "")).toString
+        ? (e.Status ?? e.status ?? "").toString()
+        : "";
+
+      return status.toLowerCase() === "approved";
     });
 
     // Deduplicate approved list just in case
     const deduped: any[] = [];
     const seenIds = new Set<string>();
+
     for (const e of approved) {
       const id = e?.Event_ID ?? e?.EventId ?? JSON.stringify(e);
       const sid = String(id);
+
       if (seenIds.has(sid)) continue;
       seenIds.add(sid);
       deduped.push(e);
@@ -536,63 +713,124 @@ export default function CalendarPage() {
 
     // For month view, avoid showing multi-day events on every day: only show on the event Start_Date
     const filterByStartDateForMonth = (ev: any) => {
-      if (activeView !== 'month') return true;
+      if (activeView !== "month") return true;
       let start: Date | null = null;
-      try { if (ev.Start_Date) start = parseServerDate(ev.Start_Date); } catch (err) { start = null; }
+
+      try {
+        if (ev.Start_Date) start = parseServerDate(ev.Start_Date);
+      } catch (err) {
+        start = null;
+      }
       if (!start) return false;
+
       return dateToLocalKey(start) === key;
     };
 
     const finalList = deduped.filter(filterByStartDateForMonth);
 
     // Apply quick / advanced filters
-    const afterQuick = finalList.filter((ev: any) => {
-      if (!quickFilterCategory) return true;
-      const rawCat = ((ev.Category ?? ev.category ?? '')).toString().toLowerCase();
-      let categoryLabel = 'Event';
-      if (rawCat.includes('blood')) categoryLabel = 'Blood Drive';
-      else if (rawCat.includes('training')) categoryLabel = 'Training';
-      else if (rawCat.includes('advocacy')) categoryLabel = 'Advocacy';
-      return quickFilterCategory === '' || quickFilterCategory === undefined || quickFilterCategory === categoryLabel;
-    }).filter((ev: any) => {
-      // advanced filter: start date (only events on or after)
-      if (advancedFilter.start) {
-        let start: Date | null = null;
-        try {
-          if (ev.Start_Date) start = (typeof ev.Start_Date === 'string') ? new Date(ev.Start_Date) : (ev.Start_Date.$date ? new Date(ev.Start_Date.$date) : new Date(ev.Start_Date));
-        } catch (err) { start = null; }
-        if (start) {
-          const s = new Date(advancedFilter.start);
-          if (start < s) return false;
+    const afterQuick = finalList
+      .filter((ev: any) => {
+        if (!quickFilterCategory) return true;
+        const rawCat = (ev.Category ?? ev.category ?? "")
+          .toString()
+          .toLowerCase();
+        let categoryLabel = "Event";
+
+        if (rawCat.includes("blood")) categoryLabel = "Blood Drive";
+        else if (rawCat.includes("training")) categoryLabel = "Training";
+        else if (rawCat.includes("advocacy")) categoryLabel = "Advocacy";
+
+        return (
+          quickFilterCategory === "" ||
+          quickFilterCategory === undefined ||
+          quickFilterCategory === categoryLabel
+        );
+      })
+      .filter((ev: any) => {
+        // advanced filter: start date (only events on or after)
+        if (advancedFilter.start) {
+          let start: Date | null = null;
+
+          try {
+            if (ev.Start_Date)
+              start =
+                typeof ev.Start_Date === "string"
+                  ? new Date(ev.Start_Date)
+                  : ev.Start_Date.$date
+                    ? new Date(ev.Start_Date.$date)
+                    : new Date(ev.Start_Date);
+          } catch (err) {
+            start = null;
+          }
+          if (start) {
+            const s = new Date(advancedFilter.start);
+
+            if (start < s) return false;
+          }
         }
-      }
-      if (advancedFilter.coordinator && advancedFilter.coordinator.trim()) {
-        const coordQ = advancedFilter.coordinator.trim().toLowerCase();
-        const coordinatorName = (ev.coordinator?.name || ev.StakeholderName || ev.MadeByCoordinatorName || ev.coordinatorName || ev.Email || '').toString().toLowerCase();
-        if (!coordinatorName.includes(coordQ)) return false;
-      }
-      if (advancedFilter.title && advancedFilter.title.trim()) {
-        const titleQ = advancedFilter.title.trim().toLowerCase();
-        const evtTitle = (ev.Event_Title || ev.title || ev.EventTitle || ev.eventTitle || '').toString().toLowerCase();
-        if (!evtTitle.includes(titleQ)) return false;
-      }
-      if (advancedFilter.requester && advancedFilter.requester.trim()) {
-        const reqQ = advancedFilter.requester.trim().toLowerCase();
-        const requesterName = (ev.createdByName || ev.raw?.createdByName || ev.MadeByStakeholderName || ev.StakeholderName || ev.coordinator?.name || ev.coordinatorName || ev.Email || '').toString().toLowerCase();
-        if (!requesterName.includes(reqQ)) return false;
-      }
-      return true;
-    });
+        if (advancedFilter.coordinator && advancedFilter.coordinator.trim()) {
+          const coordQ = advancedFilter.coordinator.trim().toLowerCase();
+          const coordinatorName = (
+            ev.coordinator?.name ||
+            ev.StakeholderName ||
+            ev.MadeByCoordinatorName ||
+            ev.coordinatorName ||
+            ev.Email ||
+            ""
+          )
+            .toString()
+            .toLowerCase();
+
+          if (!coordinatorName.includes(coordQ)) return false;
+        }
+        if (advancedFilter.title && advancedFilter.title.trim()) {
+          const titleQ = advancedFilter.title.trim().toLowerCase();
+          const evtTitle = (
+            ev.Event_Title ||
+            ev.title ||
+            ev.EventTitle ||
+            ev.eventTitle ||
+            ""
+          )
+            .toString()
+            .toLowerCase();
+
+          if (!evtTitle.includes(titleQ)) return false;
+        }
+        if (advancedFilter.requester && advancedFilter.requester.trim()) {
+          const reqQ = advancedFilter.requester.trim().toLowerCase();
+          const requesterName = (
+            ev.createdByName ||
+            ev.raw?.createdByName ||
+            ev.MadeByStakeholderName ||
+            ev.StakeholderName ||
+            ev.coordinator?.name ||
+            ev.coordinatorName ||
+            ev.Email ||
+            ""
+          )
+            .toString()
+            .toLowerCase();
+
+          if (!requesterName.includes(reqQ)) return false;
+        }
+
+        return true;
+      });
 
     return afterQuick.map((e: any) => {
       // Start date may come in different shapes (ISO, number, or mongo export object)
       let start: Date | null = null;
+
       if (e.Start_Date) {
         try {
-          if (typeof e.Start_Date === 'object' && e.Start_Date.$date) {
+          if (typeof e.Start_Date === "object" && e.Start_Date.$date) {
             // mongo export shape: { $date: { $numberLong: '...' } } or { $date: 12345 }
             const d = e.Start_Date.$date;
-            if (typeof d === 'object' && d.$numberLong) start = new Date(Number(d.$numberLong));
+
+            if (typeof d === "object" && d.$numberLong)
+              start = new Date(Number(d.$numberLong));
             else start = new Date(d as any);
           } else {
             start = new Date(e.Start_Date as any);
@@ -602,75 +840,116 @@ export default function CalendarPage() {
         }
       }
 
-  const startTime = start ? start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-  // End time (if provided)
-  let end: Date | null = null;
-  if (e.End_Date) {
-    try {
-      if (typeof e.End_Date === 'object' && e.End_Date.$date) {
-        const d = e.End_Date.$date;
-        if (typeof d === 'object' && d.$numberLong) end = new Date(Number(d.$numberLong));
-        else end = new Date(d as any);
-      } else {
-        end = new Date(e.End_Date as any);
+      const startTime = start
+        ? start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : "";
+      // End time (if provided)
+      let end: Date | null = null;
+
+      if (e.End_Date) {
+        try {
+          if (typeof e.End_Date === "object" && e.End_Date.$date) {
+            const d = e.End_Date.$date;
+
+            if (typeof d === "object" && d.$numberLong)
+              end = new Date(Number(d.$numberLong));
+            else end = new Date(d as any);
+          } else {
+            end = new Date(e.End_Date as any);
+          }
+        } catch (err) {
+          end = null;
+        }
       }
-    } catch (err) {
-      end = null;
-    }
-  }
-  const endTime = end ? end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+      const endTime = end
+        ? end.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : "";
 
       // Coordinator / stakeholder name — prefer createdByName from backend (stakeholder),
       // then fall back to other fields used previously.
-      const coordinatorName = (e.createdByName || e.raw?.createdByName) || e.coordinator?.name || e.StakeholderName || e.MadeByCoordinatorName || e.coordinatorName || e.Email || 'Local Government Unit';
+      const coordinatorName =
+        e.createdByName ||
+        e.raw?.createdByName ||
+        e.coordinator?.name ||
+        e.StakeholderName ||
+        e.MadeByCoordinatorName ||
+        e.coordinatorName ||
+        e.Email ||
+        "Local Government Unit";
 
       // District number — prefer coordinator nested value but accept other shapes
-      const districtNumber = e.coordinator?.district_number ?? e.district_number ?? e.DistrictNumber ?? e.district;
-      const districtDisplay = districtNumber ? `${makeOrdinal(districtNumber)} District` : '1st District';
+      const districtNumber =
+        e.coordinator?.district_number ??
+        e.district_number ??
+        e.DistrictNumber ??
+        e.district;
+      const districtDisplay = districtNumber
+        ? `${makeOrdinal(districtNumber)} District`
+        : "1st District";
 
       // Determine category (case-insensitive, check both Category and category)
-      const rawCat = ((e.Category ?? e.category ?? '')).toString().toLowerCase();
-      let typeKey: string = 'event';
-      if (rawCat.includes('blood')) typeKey = 'blood-drive';
-      else if (rawCat.includes('train')) typeKey = 'training';
-      else if (rawCat.includes('advoc')) typeKey = 'advocacy';
+      const rawCat = (e.Category ?? e.category ?? "").toString().toLowerCase();
+      let typeKey: string = "event";
+
+      if (rawCat.includes("blood")) typeKey = "blood-drive";
+      else if (rawCat.includes("train")) typeKey = "training";
+      else if (rawCat.includes("advoc")) typeKey = "advocacy";
 
       // Helper to find count values across shapes (main event or categoryData)
       const getVal = (keys: string[]) => {
         for (const k of keys) {
           if (e[k] !== undefined && e[k] !== null) return e[k];
-          if (e.categoryData && (e.categoryData[k] !== undefined && e.categoryData[k] !== null)) return e.categoryData[k];
+          if (
+            e.categoryData &&
+            e.categoryData[k] !== undefined &&
+            e.categoryData[k] !== null
+          )
+            return e.categoryData[k];
         }
+
         return undefined;
       };
 
-      let countType = '';
-      let count = '';
-      const targetDonation = getVal(['Target_Donation', 'TargetDonation', 'Target_Donations']);
-      const maxParticipants = getVal(['MaxParticipants', 'Max_Participants', 'MaxParticipant']);
-      const expectedAudience = getVal(['ExpectedAudienceSize', 'Expected_AudienceSize', 'ExpectedAudience']);
+      let countType = "";
+      let count = "";
+      const targetDonation = getVal([
+        "Target_Donation",
+        "TargetDonation",
+        "Target_Donations",
+      ]);
+      const maxParticipants = getVal([
+        "MaxParticipants",
+        "Max_Participants",
+        "MaxParticipant",
+      ]);
+      const expectedAudience = getVal([
+        "ExpectedAudienceSize",
+        "Expected_AudienceSize",
+        "ExpectedAudience",
+      ]);
 
-      if (typeKey === 'blood-drive' && targetDonation !== undefined) {
-        countType = 'Goal Count';
+      if (typeKey === "blood-drive" && targetDonation !== undefined) {
+        countType = "Goal Count";
         count = `${targetDonation} u.`;
-      } else if (typeKey === 'training' && maxParticipants !== undefined) {
-        countType = 'Participant Count';
+      } else if (typeKey === "training" && maxParticipants !== undefined) {
+        countType = "Participant Count";
         count = `${maxParticipants} no.`;
-      } else if (typeKey === 'advocacy' && expectedAudience !== undefined) {
-        countType = 'Audience Count';
+      } else if (typeKey === "advocacy" && expectedAudience !== undefined) {
+        countType = "Audience Count";
         count = `${expectedAudience} no.`;
       } else {
-        countType = 'Audience Count';
-        count = '205 no.';
+        countType = "Audience Count";
+        count = "205 no.";
       }
 
-      const baseTitle = e.Event_Title || e.title || 'Lifesavers Blood Drive';
+      const baseTitle = e.Event_Title || e.title || "Lifesavers Blood Drive";
       // For month view we keep the title as the event title only; tooltip will show times
       const displayTitle = baseTitle;
       // color codes: blood-drive -> red, advocacy -> yellow, training -> blue
-      let color = '#3b82f6'; // default blue (training)
-      if (typeKey === 'blood-drive') color = '#ef4444';
-      else if (typeKey === 'advocacy') color = '#f59e0b';
+      let color = "#3b82f6"; // default blue (training)
+
+      if (typeKey === "blood-drive") color = "#ef4444";
+      else if (typeKey === "advocacy") color = "#f59e0b";
 
       return {
         title: displayTitle,
@@ -679,12 +958,15 @@ export default function CalendarPage() {
         time: startTime,
         type: typeKey,
         district: districtDisplay,
-        location: e.Location || e.location || 'Ateneo Avenue, Bagumbayan Sur, Naga City, 4400 Camarines Sur, Philippine',
+        location:
+          e.Location ||
+          e.location ||
+          "Ateneo Avenue, Bagumbayan Sur, Naga City, 4400 Camarines Sur, Philippine",
         countType,
         count,
         coordinatorName,
         raw: e,
-        color
+        color,
       };
     });
   };
@@ -695,11 +977,14 @@ export default function CalendarPage() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
       const url = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, { credentials: "include" });
       const body = await res.json();
-      const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(body, null, 2)], {
+        type: "application/json",
+      });
       const href = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
+
       a.href = href;
       a.download = `calendar-${year}-${month}.json`;
       document.body.appendChild(a);
@@ -712,31 +997,47 @@ export default function CalendarPage() {
   };
 
   const handleQuickFilter = (f?: any) => {
-    if (f && Object.prototype.hasOwnProperty.call(f, 'category')) setQuickFilterCategory(f.category);
+    if (f && Object.prototype.hasOwnProperty.call(f, "category"))
+      setQuickFilterCategory(f.category);
     else setQuickFilterCategory(undefined);
   };
 
-  const handleAdvancedFilter = (f?: { start?: string; end?: string; coordinator?: string; title?: string; requester?: string }) => {
-    if (f) setAdvancedFilter({ start: f.start, coordinator: f.coordinator, title: f.title, requester: f.requester });
+  const handleAdvancedFilter = (f?: {
+    start?: string;
+    end?: string;
+    coordinator?: string;
+    title?: string;
+    requester?: string;
+  }) => {
+    if (f)
+      setAdvancedFilter({
+        start: f.start,
+        coordinator: f.coordinator,
+        title: f.title,
+        requester: f.requester,
+      });
     else setAdvancedFilter({});
   };
 
   const refreshCalendarData = async () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
+
     try {
       const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
-      const w = await fetch(weekUrl, { credentials: 'include' });
+      const w = await fetch(weekUrl, { credentials: "include" });
       const wj = await w.json();
       const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
 
       const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
-      const m = await fetch(monthUrl, { credentials: 'include' });
+      const m = await fetch(monthUrl, { credentials: "include" });
       const mj = await m.json();
       const normalizedMonth = normalizeEventsMap(mj?.data?.eventsByDate || {});
 
       setMonthEventsByDate(normalizedMonth);
-      setWeekEventsByDate(mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate));
+      setWeekEventsByDate(
+        mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate),
+      );
     } catch (e) {
       // ignore
     }
@@ -745,35 +1046,78 @@ export default function CalendarPage() {
   // Perform an admin action (Accepted/Rejected/Rescheduled) given an Event_ID.
   // This will fetch the event to determine the linked request id, then call
   // the admin-action endpoint on the request.
-  const performAdminActionByEventId = async (eventId: string, action: string, note?: string, rescheduledDate?: string) => {
-    if (!eventId) throw new Error('Missing event id');
+  const performAdminActionByEventId = async (
+    eventId: string,
+    action: string,
+    note?: string,
+    rescheduledDate?: string,
+  ) => {
+    if (!eventId) throw new Error("Missing event id");
     // fetch event details to find request id
-    const headers: any = { 'Content-Type': 'application/json' };
-    const rawUser = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+    const headers: any = { "Content-Type": "application/json" };
+    const rawUser =
+      typeof window !== "undefined" ? localStorage.getItem("unite_user") : null;
     const user = rawUser ? JSON.parse(rawUser as string) : null;
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null;
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("unite_token") ||
+          sessionStorage.getItem("unite_token")
+        : null;
+
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     // load event to resolve request id
-    const evRes = await fetch(`${API_BASE}/api/events/${encodeURIComponent(eventId)}`, token ? { headers } : { headers, credentials: 'include' });
+    const evRes = await fetch(
+      `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
+      token ? { headers } : { headers, credentials: "include" },
+    );
     const evBody = await evRes.json();
-    if (!evRes.ok) throw new Error(evBody.message || 'Failed to fetch event details');
+
+    if (!evRes.ok)
+      throw new Error(evBody.message || "Failed to fetch event details");
     const evData = evBody.data || evBody.event || evBody;
-    const requestId = evData?.request?.Request_ID || evData?.Request_ID || evData?.requestId || evData?.request?.RequestId || null;
-    if (!requestId) throw new Error('Unable to determine request id for action');
+    const requestId =
+      evData?.request?.Request_ID ||
+      evData?.Request_ID ||
+      evData?.requestId ||
+      evData?.request?.RequestId ||
+      null;
+
+    if (!requestId)
+      throw new Error("Unable to determine request id for action");
 
     const body: any = { action, note: note ? note.trim() : undefined };
+
     if (rescheduledDate) body.rescheduledDate = rescheduledDate;
 
     let res;
+
     if (token) {
-      res = await fetchWithAuth(`${API_BASE}/api/requests/${encodeURIComponent(requestId)}/admin-action`, { method: 'POST', body: JSON.stringify(body) });
+      res = await fetchWithAuth(
+        `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/admin-action`,
+        { method: "POST", body: JSON.stringify(body) },
+      );
     } else {
-      const legacyBody = { adminId: user?.id || user?.Admin_ID || null, ...body };
-      res = await fetch(`${API_BASE}/api/requests/${encodeURIComponent(requestId)}/admin-action`, { method: 'POST', headers, body: JSON.stringify(legacyBody), credentials: 'include' });
+      const legacyBody = {
+        adminId: user?.id || user?.Admin_ID || null,
+        ...body,
+      };
+
+      res = await fetch(
+        `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/admin-action`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(legacyBody),
+          credentials: "include",
+        },
+      );
     }
     const resp = await res.json();
-    if (!res.ok) throw new Error(resp.message || 'Failed to perform admin action');
+
+    if (!res.ok)
+      throw new Error(resp.message || "Failed to perform admin action");
+
     return resp;
   };
 
@@ -781,26 +1125,42 @@ export default function CalendarPage() {
     try {
       // Build the normalized event payload (no actor ids here)
       const eventPayload: any = {
-        Event_Title: data.eventTitle || data.eventDescription || `${eventType} event`,
-        Location: data.location || '',
-        Event_Description: data.eventDescription || data.Event_Description || undefined,
-        Start_Date: data.startTime || (data.date ? new Date(data.date).toISOString() : undefined),
+        Event_Title:
+          data.eventTitle || data.eventDescription || `${eventType} event`,
+        Location: data.location || "",
+        Event_Description:
+          data.eventDescription || data.Event_Description || undefined,
+        Start_Date:
+          data.startTime ||
+          (data.date ? new Date(data.date).toISOString() : undefined),
         End_Date: data.endTime || undefined,
         Email: data.email || undefined,
         Phone_Number: data.contactNumber || undefined,
-        categoryType: eventType === 'blood-drive' ? 'BloodDrive' : (eventType === 'training' ? 'Training' : 'Advocacy')
+        categoryType:
+          eventType === "blood-drive"
+            ? "BloodDrive"
+            : eventType === "training"
+              ? "Training"
+              : "Advocacy",
       };
 
-      if (eventPayload.categoryType === 'Training') {
-        eventPayload.MaxParticipants = data.numberOfParticipants ? parseInt(data.numberOfParticipants, 10) : undefined;
+      if (eventPayload.categoryType === "Training") {
+        eventPayload.MaxParticipants = data.numberOfParticipants
+          ? parseInt(data.numberOfParticipants, 10)
+          : undefined;
         eventPayload.TrainingType = data.trainingType || undefined;
-      } else if (eventPayload.categoryType === 'BloodDrive') {
-        eventPayload.Target_Donation = data.goalCount ? parseInt(data.goalCount, 10) : undefined;
+      } else if (eventPayload.categoryType === "BloodDrive") {
+        eventPayload.Target_Donation = data.goalCount
+          ? parseInt(data.goalCount, 10)
+          : undefined;
         eventPayload.VenueType = data.venueType || undefined;
-      } else if (eventPayload.categoryType === 'Advocacy') {
-        eventPayload.TargetAudience = data.audienceType || data.targetAudience || undefined;
+      } else if (eventPayload.categoryType === "Advocacy") {
+        eventPayload.TargetAudience =
+          data.audienceType || data.targetAudience || undefined;
         eventPayload.Topic = data.topic || undefined;
-        eventPayload.ExpectedAudienceSize = data.numberOfParticipants ? parseInt(data.numberOfParticipants, 10) : undefined;
+        eventPayload.ExpectedAudienceSize = data.numberOfParticipants
+          ? parseInt(data.numberOfParticipants, 10)
+          : undefined;
       }
 
       if (data.coordinator) eventPayload.MadeByCoordinatorID = data.coordinator;
@@ -808,45 +1168,96 @@ export default function CalendarPage() {
       // If an auth token exists, prefer server-side identity resolution and
       // omit client-supplied actor ids. If no token is present (legacy), keep
       // sending the provided actor identifiers for backwards compatibility.
-      const rawUser = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+      const rawUser =
+        typeof window !== "undefined"
+          ? localStorage.getItem("unite_user")
+          : null;
       const user = rawUser ? JSON.parse(rawUser) : null;
-      const token = typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null;
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token")
+          : null;
 
       if (token) {
         // Token present: send only the event payload (server derives user/role)
-        if (user && (user.staff_type === 'Admin' || user.staff_type === 'Coordinator')) {
-          const res = await fetchWithAuth(`${API_BASE}/api/events/direct`, { method: 'POST', body: JSON.stringify(eventPayload) });
+        if (
+          user &&
+          (user.staff_type === "Admin" || user.staff_type === "Coordinator")
+        ) {
+          const res = await fetchWithAuth(`${API_BASE}/api/events/direct`, {
+            method: "POST",
+            body: JSON.stringify(eventPayload),
+          });
           const resp = await res.json();
-          if (!res.ok) throw new Error(resp.message || 'Failed to create event');
+
+          if (!res.ok)
+            throw new Error(resp.message || "Failed to create event");
           await refreshCalendarData();
+
           return resp;
         } else {
-          if (!data.coordinator) throw new Error('Coordinator is required for requests');
+          if (!data.coordinator)
+            throw new Error("Coordinator is required for requests");
           const body = { coordinatorId: data.coordinator, ...eventPayload };
-          const res = await fetchWithAuth(`${API_BASE}/api/requests`, { method: 'POST', body: JSON.stringify(body) });
+          const res = await fetchWithAuth(`${API_BASE}/api/requests`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
           const resp = await res.json();
-          if (!res.ok) throw new Error(resp.message || 'Failed to create request');
+
+          if (!res.ok)
+            throw new Error(resp.message || "Failed to create request");
           await refreshCalendarData();
+
           return resp;
         }
       } else {
         // No token: legacy behavior - include actor ids if available
-        const headers: any = { 'Content-Type': 'application/json' };
-        if (user && (user.staff_type === 'Admin' || user.staff_type === 'Coordinator')) {
-          const body = { creatorId: user.id, creatorRole: user.staff_type, ...eventPayload };
-          const res = await fetch(`${API_BASE}/api/events/direct`, { method: 'POST', headers, body: JSON.stringify(body) });
+        const headers: any = { "Content-Type": "application/json" };
+
+        if (
+          user &&
+          (user.staff_type === "Admin" || user.staff_type === "Coordinator")
+        ) {
+          const body = {
+            creatorId: user.id,
+            creatorRole: user.staff_type,
+            ...eventPayload,
+          };
+          const res = await fetch(`${API_BASE}/api/events/direct`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+          });
           const resp = await res.json();
-          if (!res.ok) throw new Error(resp.message || 'Failed to create event');
+
+          if (!res.ok)
+            throw new Error(resp.message || "Failed to create event");
           await refreshCalendarData();
+
           return resp;
         } else {
-          if (!data.coordinator) throw new Error('Coordinator is required for requests');
-          const stakeholderId = user?.Stakeholder_ID || user?.StakeholderId || user?.id || null;
-          const body = { coordinatorId: data.coordinator, MadeByStakeholderID: stakeholderId, ...eventPayload };
-          const res = await fetch(`${API_BASE}/api/requests`, { method: 'POST', headers, body: JSON.stringify(body) });
+          if (!data.coordinator)
+            throw new Error("Coordinator is required for requests");
+          const stakeholderId =
+            user?.Stakeholder_ID || user?.StakeholderId || user?.id || null;
+          const body = {
+            coordinatorId: data.coordinator,
+            MadeByStakeholderID: stakeholderId,
+            ...eventPayload,
+          };
+          const res = await fetch(`${API_BASE}/api/requests`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+          });
           const resp = await res.json();
-          if (!res.ok) throw new Error(resp.message || 'Failed to create request');
+
+          if (!res.ok)
+            throw new Error(resp.message || "Failed to create request");
           await refreshCalendarData();
+
           return resp;
         }
       }
@@ -859,29 +1270,35 @@ export default function CalendarPage() {
 
   // Profile helpers: initial and deterministic color per user
   const getProfileInitial = (name?: string) => {
-    if (!name) return 'U';
+    if (!name) return "U";
     const trimmed = String(name).trim();
-    return trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : 'U';
+
+    return trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : "U";
   };
 
   const getProfileColor = (name?: string) => {
-    const s = (name || 'unknown').toString();
+    const s = (name || "unknown").toString();
     // simple hash to hue
     let hash = 0;
+
     for (let i = 0; i < s.length; i++) {
       hash = s.charCodeAt(i) + ((hash << 5) - hash);
       hash = hash & hash; // keep in 32-bit int
     }
     const hue = Math.abs(hash) % 360;
+
     // return an HSL color string; use moderate saturation/lightness for good contrast
     return `hsl(${hue}deg 65% 40%)`;
   };
 
   const isToday = (date: Date) => {
     const today = new Date();
-    return date.getDate() === today.getDate() &&
-           date.getMonth() === today.getMonth() &&
-           date.getFullYear() === today.getFullYear();
+
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
   };
 
   const days = getDaysForWeek(currentDate);
@@ -894,8 +1311,8 @@ export default function CalendarPage() {
 
   const eventLabelsMap: Record<EventType, string> = {
     "blood-drive": "Blood Drive",
-    "training": "Training",
-    "advocacy": "Advocacy"
+    training: "Training",
+    advocacy: "Advocacy",
   };
 
   const handleViewChange = (view: string) => {
@@ -909,39 +1326,46 @@ export default function CalendarPage() {
   const getViewTransitionStyle = (view: string) => {
     const isActive = activeView === view;
     const isTransitioning = isViewTransitioning;
-    
+
     if (isActive && !isTransitioning) {
-      return 'opacity-100 scale-100 translate-y-0';
+      return "opacity-100 scale-100 translate-y-0";
     } else if (isActive && isTransitioning) {
-      return 'opacity-100 scale-100 translate-y-0';
+      return "opacity-100 scale-100 translate-y-0";
     } else if (!isActive && isTransitioning) {
-      return view === 'week' 
-        ? 'opacity-0 scale-95 -translate-y-4 absolute inset-0 pointer-events-none'
-        : 'opacity-0 scale-95 translate-y-4 absolute inset-0 pointer-events-none';
+      return view === "week"
+        ? "opacity-0 scale-95 -translate-y-4 absolute inset-0 pointer-events-none"
+        : "opacity-0 scale-95 translate-y-4 absolute inset-0 pointer-events-none";
     } else {
-      return 'opacity-0 scale-95 absolute inset-0 pointer-events-none';
+      return "opacity-0 scale-95 absolute inset-0 pointer-events-none";
     }
   };
 
   const slideVariants = {
-    enter: (direction: 'left' | 'right') => ({
-      x: direction === 'left' ? 100 : -100,
-      opacity: 0
+    enter: (direction: "left" | "right") => ({
+      x: direction === "left" ? 100 : -100,
+      opacity: 0,
     }),
     center: {
       x: 0,
-      opacity: 1
+      opacity: 1,
     },
-    exit: (direction: 'left' | 'right') => ({
-      x: direction === 'left' ? -100 : 100,
-      opacity: 0
-    })
+    exit: (direction: "left" | "right") => ({
+      x: direction === "left" ? -100 : 100,
+      opacity: 0,
+    }),
   };
 
   // Build dropdown menus matching campaign design
   const getMenuByStatus = (event: any) => {
-    const statusRaw = event.raw?.Status || event.raw?.status || '';
-    const status = (statusRaw || '').toString().toLowerCase().includes('approve') ? 'Approved' : ((statusRaw || '').toString().toLowerCase().includes('reject') ? 'Rejected' : 'Pending');
+    const statusRaw = event.raw?.Status || event.raw?.status || "";
+    const status = (statusRaw || "")
+      .toString()
+      .toLowerCase()
+      .includes("approve")
+      ? "Approved"
+      : (statusRaw || "").toString().toLowerCase().includes("reject")
+        ? "Rejected"
+        : "Pending";
 
     // Helper: derive boolean flag for an action. Rules:
     // - If the client is unauthenticated (no token), only allow 'view'.
@@ -952,27 +1376,47 @@ export default function CalendarPage() {
     const flagFor = (flagName: string, actionName?: string) => {
       try {
         // if no auth token, restrict to view-only
-        const token = (typeof window !== 'undefined') ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null;
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_token") ||
+              sessionStorage.getItem("unite_token")
+            : null;
         const isAuthenticated = !!token;
+
         if (!isAuthenticated) {
-          return actionName === 'view';
+          return actionName === "view";
         }
 
         // event may have top-level flags (e.g., event.canEdit) or raw flags (event.raw.canEdit)
-        const explicit = (event && (event as any)[flagName]) ?? (event && event.raw && event.raw[flagName]);
-        if (explicit !== undefined && explicit !== null) return Boolean(explicit);
+        const explicit =
+          (event && (event as any)[flagName]) ??
+          (event && event.raw && event.raw[flagName]);
+
+        if (explicit !== undefined && explicit !== null)
+          return Boolean(explicit);
 
         // fallback to allowedActions array
-        const allowed = (event && event.allowedActions) || (event && event.raw && event.raw.allowedActions) || null;
-        if (Array.isArray(allowed) && actionName) return allowed.includes(actionName);
+        const allowed =
+          (event && event.allowedActions) ||
+          (event && event.raw && event.raw.allowedActions) ||
+          null;
+
+        if (Array.isArray(allowed) && actionName)
+          return allowed.includes(actionName);
 
         // As a last resort, allow admins/coordinators broader access based on local user info
         try {
-          const raw = (typeof window !== 'undefined') ? localStorage.getItem('unite_user') : null;
+          const raw =
+            typeof window !== "undefined"
+              ? localStorage.getItem("unite_user")
+              : null;
           const u = raw ? JSON.parse(raw as string) : null;
-          const roleStr = String(u?.staff_type || u?.role || u?.staffRole || '').toLowerCase();
-          const isAdmin = roleStr.includes('admin');
-          const isCoordinator = roleStr.includes('coordinator');
+          const roleStr = String(
+            u?.staff_type || u?.role || u?.staffRole || "",
+          ).toLowerCase();
+          const isAdmin = roleStr.includes("admin");
+          const isCoordinator = roleStr.includes("coordinator");
+
           if (isAdmin || isCoordinator) return true;
         } catch (e) {
           // ignore
@@ -987,13 +1431,62 @@ export default function CalendarPage() {
     const approvedMenu = (
       <DropdownMenu aria-label="Event actions menu" variant="faded">
         <DropdownSection showDivider title="Actions">
-          {flagFor('canView', 'view') ? <DropdownItem key="view" description="View this event" startContent={<Eye />} onPress={() => handleOpenViewEvent(event.raw)}>View Event</DropdownItem> : null}
-          {flagFor('canEdit', 'edit') ? <DropdownItem key="edit" description="Edit an event" startContent={<Edit />} onPress={() => handleOpenEditEvent(event.raw)}>Edit Event</DropdownItem> : null}
-          {flagFor('canManageStaff', 'manage-staff') ? <DropdownItem key="manage-staff" description="Manage staff for this event" startContent={<Users />} onPress={() => setManageStaffOpenId(event.raw.Event_ID)}>Manage Staff</DropdownItem> : null}
-          {flagFor('canReschedule', 'resched') ? <DropdownItem key="reschedule" description="Reschedule this event" startContent={<ClockIcon />} onPress={() => setRescheduleOpenId(event.raw.Event_ID)}>Reschedule Event</DropdownItem> : null}
+          {flagFor("canView", "view") ? (
+            <DropdownItem
+              key="view"
+              description="View this event"
+              startContent={<Eye />}
+              onPress={() => handleOpenViewEvent(event.raw)}
+            >
+              View Event
+            </DropdownItem>
+          ) : null}
+          {flagFor("canEdit", "edit") ? (
+            <DropdownItem
+              key="edit"
+              description="Edit an event"
+              startContent={<Edit />}
+              onPress={() => handleOpenEditEvent(event.raw)}
+            >
+              Edit Event
+            </DropdownItem>
+          ) : null}
+          {flagFor("canManageStaff", "manage-staff") ? (
+            <DropdownItem
+              key="manage-staff"
+              description="Manage staff for this event"
+              startContent={<Users />}
+              onPress={() => setManageStaffOpenId(event.raw.Event_ID)}
+            >
+              Manage Staff
+            </DropdownItem>
+          ) : null}
+          {flagFor("canReschedule", "resched") ? (
+            <DropdownItem
+              key="reschedule"
+              description="Reschedule this event"
+              startContent={<ClockIcon />}
+              onPress={() => setRescheduleOpenId(event.raw.Event_ID)}
+            >
+              Reschedule Event
+            </DropdownItem>
+          ) : null}
         </DropdownSection>
         <DropdownSection title="Danger zone">
-          {flagFor('canAdminAction', 'cancel') ? <DropdownItem key="cancel" className="text-danger" color="danger" description="Cancel an event" startContent={<Trash2 className="text-xl text-danger pointer-events-none shrink-0" />} onPress={() => setCancelOpenId(event.raw.Event_ID)}>Cancel</DropdownItem> : null}
+          {flagFor("canAdminAction", "cancel") ? (
+            <DropdownItem
+              key="cancel"
+              className="text-danger"
+              color="danger"
+              description="Cancel an event"
+              startContent={
+                <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
+              }
+              onPress={() => setCancelOpenId(event.raw.Event_ID)}
+            >
+              Cancel
+            </DropdownItem>
+          ) : null}
         </DropdownSection>
       </DropdownMenu>
     );
@@ -1001,11 +1494,56 @@ export default function CalendarPage() {
     const pendingMenu = (
       <DropdownMenu aria-label="Event actions menu" variant="faded">
         <DropdownSection title="Actions">
-          {flagFor('canView', 'view') ? <DropdownItem key="view" description="View this event" startContent={<Eye />} onPress={() => handleOpenViewEvent(event.raw)}>View Event</DropdownItem> : null}
-          {flagFor('canAccept', 'accept') ? <DropdownItem key="accept" description="Accept this event" startContent={<Check />} onPress={() => setAcceptOpenId(event.raw.Event_ID)}>Accept Event</DropdownItem> : null}
-          {flagFor('canManageStaff', 'manage-staff') ? <DropdownItem key="manage-staff" description="Manage staff for this event" startContent={<Users />} onPress={() => setManageStaffOpenId(event.raw.Event_ID)}>Manage Staff</DropdownItem> : null}
-          {flagFor('canReject', 'reject') ? <DropdownItem key="reject" description="Reject this event" startContent={<X />} onPress={() => setRejectOpenId(event.raw.Event_ID)}>Reject Event</DropdownItem> : null}
-          {flagFor('canReschedule', 'resched') ? <DropdownItem key="reschedule" description="Reschedule this event" startContent={<ClockIcon />} onPress={() => setRescheduleOpenId(event.raw.Event_ID)}>Reschedule Event</DropdownItem> : null}
+          {flagFor("canView", "view") ? (
+            <DropdownItem
+              key="view"
+              description="View this event"
+              startContent={<Eye />}
+              onPress={() => handleOpenViewEvent(event.raw)}
+            >
+              View Event
+            </DropdownItem>
+          ) : null}
+          {flagFor("canAccept", "accept") ? (
+            <DropdownItem
+              key="accept"
+              description="Accept this event"
+              startContent={<Check />}
+              onPress={() => setAcceptOpenId(event.raw.Event_ID)}
+            >
+              Accept Event
+            </DropdownItem>
+          ) : null}
+          {flagFor("canManageStaff", "manage-staff") ? (
+            <DropdownItem
+              key="manage-staff"
+              description="Manage staff for this event"
+              startContent={<Users />}
+              onPress={() => setManageStaffOpenId(event.raw.Event_ID)}
+            >
+              Manage Staff
+            </DropdownItem>
+          ) : null}
+          {flagFor("canReject", "reject") ? (
+            <DropdownItem
+              key="reject"
+              description="Reject this event"
+              startContent={<X />}
+              onPress={() => setRejectOpenId(event.raw.Event_ID)}
+            >
+              Reject Event
+            </DropdownItem>
+          ) : null}
+          {flagFor("canReschedule", "resched") ? (
+            <DropdownItem
+              key="reschedule"
+              description="Reschedule this event"
+              startContent={<ClockIcon />}
+              onPress={() => setRescheduleOpenId(event.raw.Event_ID)}
+            >
+              Reschedule Event
+            </DropdownItem>
+          ) : null}
         </DropdownSection>
       </DropdownMenu>
     );
@@ -1013,13 +1551,23 @@ export default function CalendarPage() {
     const defaultMenu = (
       <DropdownMenu aria-label="Event actions menu" variant="faded">
         <DropdownSection title="Actions">
-          <DropdownItem key="view" description="View this event" startContent={<Eye />} onPress={() => router.push(`/dashboard/events/${event.raw.Event_ID}`)}>View Event</DropdownItem>
+          <DropdownItem
+            key="view"
+            description="View this event"
+            startContent={<Eye />}
+            onPress={() =>
+              router.push(`/dashboard/events/${event.raw.Event_ID}`)
+            }
+          >
+            View Event
+          </DropdownItem>
         </DropdownSection>
       </DropdownMenu>
     );
 
-    if (status === 'Approved') return approvedMenu;
-    if (status === 'Pending') return pendingMenu;
+    if (status === "Approved") return approvedMenu;
+    if (status === "Pending") return pendingMenu;
+
     return defaultMenu;
   };
 
@@ -1033,36 +1581,51 @@ export default function CalendarPage() {
 
   const handleOpenViewEvent = async (rawEvent: any) => {
     if (!rawEvent) return;
-    const eventId = rawEvent.Event_ID || rawEvent.EventId || rawEvent.EventId || rawEvent.Event_ID;
+    const eventId =
+      rawEvent.Event_ID ||
+      rawEvent.EventId ||
+      rawEvent.EventId ||
+      rawEvent.Event_ID;
+
     if (!eventId) {
       setViewRequest(rawEvent);
       setViewModalOpen(true);
+
       return;
     }
 
     setViewLoading(true);
     try {
-      const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
-      const headers: any = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const token =
+        localStorage.getItem("unite_token") ||
+        sessionStorage.getItem("unite_token");
+      const headers: any = { "Content-Type": "application/json" };
+
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       // Always fetch the full event details from backend. Log the raw response to help debugging.
-      const res = await fetch(`${API_BASE}/api/events/${encodeURIComponent(eventId)}`, { headers });
-  const body = await res.json();
-      if (!res.ok) throw new Error(body.message || 'Failed to fetch event details');
-  // The API may return the full event under different keys; prefer body.data, then body.event, then body
-  const data = body.data || body.event || body;
-  // If the response wraps the event inside a `event` property, prefer that inner object for merging
-  const eventData = (data && data.event) ? data.event : data;
-  // Merge strategy: prefer fetched eventData, but FALLBACK to rawEvent for any fields missing
-  // (some backend handlers return a trimmed `event` object that omits fields like Event_Description)
-  const merged = { ...(eventData || {}), ...(rawEvent || {}) };
-  // Keep the fetched event shape under `event` while exposing merged top-level fields
-  const finalPayload = { ...merged, event: eventData || merged };
-  // merged payload prepared for modal
-  setViewRequest(finalPayload || rawEvent);
+      const res = await fetch(
+        `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
+        { headers },
+      );
+      const body = await res.json();
+
+      if (!res.ok)
+        throw new Error(body.message || "Failed to fetch event details");
+      // The API may return the full event under different keys; prefer body.data, then body.event, then body
+      const data = body.data || body.event || body;
+      // If the response wraps the event inside a `event` property, prefer that inner object for merging
+      const eventData = data && data.event ? data.event : data;
+      // Merge strategy: prefer fetched eventData, but FALLBACK to rawEvent for any fields missing
+      // (some backend handlers return a trimmed `event` object that omits fields like Event_Description)
+      const merged = { ...(eventData || {}), ...(rawEvent || {}) };
+      // Keep the fetched event shape under `event` while exposing merged top-level fields
+      const finalPayload = { ...merged, event: eventData || merged };
+
+      // merged payload prepared for modal
+      setViewRequest(finalPayload || rawEvent);
       setViewModalOpen(true);
     } catch (err: any) {
-      console.error('Failed to load event details', err);
+      console.error("Failed to load event details", err);
       // fallback to opening with rawEvent
       setViewRequest(rawEvent);
       setViewModalOpen(true);
@@ -1073,25 +1636,40 @@ export default function CalendarPage() {
 
   const handleOpenEditEvent = async (rawEvent: any) => {
     if (!rawEvent) return;
-    const eventId = rawEvent.Event_ID || rawEvent.EventId || rawEvent.EventId || rawEvent.Event_ID;
+    const eventId =
+      rawEvent.Event_ID ||
+      rawEvent.EventId ||
+      rawEvent.EventId ||
+      rawEvent.Event_ID;
+
     if (!eventId) {
       setEditRequest(rawEvent);
       setEditModalOpen(true);
+
       return;
     }
 
     try {
-      const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
-      const headers: any = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/events/${encodeURIComponent(eventId)}`, { headers });
+      const token =
+        localStorage.getItem("unite_token") ||
+        sessionStorage.getItem("unite_token");
+      const headers: any = { "Content-Type": "application/json" };
+
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(
+        `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
+        { headers },
+      );
       const body = await res.json();
-      if (!res.ok) throw new Error(body.message || 'Failed to fetch event for edit');
+
+      if (!res.ok)
+        throw new Error(body.message || "Failed to fetch event for edit");
       const data = body.data || body.event || body;
+
       setEditRequest(data || rawEvent);
       setEditModalOpen(true);
     } catch (err: any) {
-      console.error('Failed to load event for edit', err);
+      console.error("Failed to load event for edit", err);
       setEditRequest(rawEvent);
       setEditModalOpen(true);
     }
@@ -1102,28 +1680,28 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="px-8 py-6">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Calendar</h1>
-        
+
         {/* User Profile Section (use HeroUI User like campaign Topbar) */}
         <div className="flex items-center gap-3 mb-6">
           <User
-            name={currentUserName}
-            description={currentUserEmail}
             avatarProps={{
-              src: '',
-              size: 'md',
-              className: 'bg-orange-400 text-white'
+              src: "",
+              size: "md",
+              className: "bg-orange-400 text-white",
             }}
             classNames={{
-              base: 'cursor-pointer',
-              name: 'font-semibold text-gray-900 text-sm',
-              description: 'text-gray-500 text-xs'
+              base: "cursor-pointer",
+              name: "font-semibold text-gray-900 text-sm",
+              description: "text-gray-500 text-xs",
             }}
+            description={currentUserEmail}
+            name={currentUserName}
             onClick={() => {}}
           />
           <button
-            onClick={() => {}}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="User menu"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={() => {}}
           >
             <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
@@ -1135,25 +1713,25 @@ export default function CalendarPage() {
           <div className="flex items-center gap-3">
             {/* View Toggle */}
             <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-              <button 
-                onClick={() => handleViewChange("week")}
+              <button
                 className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  activeView === "week" 
-                    ? "bg-gray-100 text-gray-900" 
+                  activeView === "week"
+                    ? "bg-gray-100 text-gray-900"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
+                onClick={() => handleViewChange("week")}
               >
                 <CalendarDays className="w-4 h-4" />
                 Week
               </button>
-              <div className="w-px h-6 bg-gray-300"></div>
-              <button 
-                onClick={() => handleViewChange("month")}
+              <div className="w-px h-6 bg-gray-300" />
+              <button
                 className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  activeView === "month" 
-                    ? "bg-gray-100 text-gray-900" 
+                  activeView === "month"
+                    ? "bg-gray-100 text-gray-900"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
+                onClick={() => handleViewChange("month")}
               >
                 <Calendar className="w-4 h-4" />
                 Month
@@ -1162,18 +1740,28 @@ export default function CalendarPage() {
 
             {/* Date Navigation */}
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                onClick={() => activeView === "week" ? navigateWeek('prev') : navigateMonth('prev')}
+                onClick={() =>
+                  activeView === "week"
+                    ? navigateWeek("prev")
+                    : navigateMonth("prev")
+                }
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
               <span className="text-sm font-medium text-gray-900 min-w-[200px] text-center">
-                {activeView === "week" ? formatWeekRange(currentDate) : formatMonthYear(currentDate)}
+                {activeView === "week"
+                  ? formatWeekRange(currentDate)
+                  : formatMonthYear(currentDate)}
               </span>
-              <button 
+              <button
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                onClick={() => activeView === "week" ? navigateWeek('next') : navigateMonth('next')}
+                onClick={() =>
+                  activeView === "week"
+                    ? navigateWeek("next")
+                    : navigateMonth("next")
+                }
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
@@ -1183,11 +1771,11 @@ export default function CalendarPage() {
           {/* Right side - Action Buttons (calendar toolbar copied from campaign) */}
           <div>
             <CalendarToolbar
-              onExport={handleExport}
-              onQuickFilter={handleQuickFilter}
+              showCreate={allowCreate}
               onAdvancedFilter={handleAdvancedFilter}
               onCreateEvent={allowCreate ? handleCreateEvent : undefined}
-              showCreate={allowCreate}
+              onExport={handleExport}
+              onQuickFilter={handleQuickFilter}
             />
           </div>
         </div>
@@ -1195,7 +1783,9 @@ export default function CalendarPage() {
         {/* Views Container */}
         <div className="relative min-h-[700px]">
           {/* Week View */}
-          <div className={`transition-all duration-500 ease-in-out ${getViewTransitionStyle('week')}`}>
+          <div
+            className={`transition-all duration-500 ease-in-out ${getViewTransitionStyle("week")}`}
+          >
             <div>
               {/* Days of Week Header */}
               <div className="grid grid-cols-7 gap-4 mb-4">
@@ -1205,11 +1795,13 @@ export default function CalendarPage() {
                       {day.day}
                     </div>
                     <div className="flex justify-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold ${
-                        day.isToday
-                          ? 'bg-red-500 text-white'
-                          : 'text-gray-900'
-                      }`}>
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold ${
+                          day.isToday
+                            ? "bg-red-500 text-white"
+                            : "text-gray-900"
+                        }`}
+                      >
                         {day.date}
                       </div>
                     </div>
@@ -1221,6 +1813,7 @@ export default function CalendarPage() {
               <div className="grid grid-cols-7 gap-4 mt-6">
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day.fullDate);
+
                   return (
                     <div key={index} className="min-h-[500px]">
                       {dayEvents.length === 0 ? (
@@ -1230,8 +1823,8 @@ export default function CalendarPage() {
                       ) : (
                         <div className="space-y-3">
                           {dayEvents.map((event, eventIndex) => (
-                            <div 
-                              key={eventIndex} 
+                            <div
+                              key={eventIndex}
                               className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
                             >
                               {/* Three-dot menu */}
@@ -1241,53 +1834,82 @@ export default function CalendarPage() {
                                 </h4>
                                 <Dropdown>
                                   <DropdownTrigger>
-                                    <Button isIconOnly variant="light" className="hover:text-default-800" aria-label="Event actions">
+                                    <Button
+                                      isIconOnly
+                                      aria-label="Event actions"
+                                      className="hover:text-default-800"
+                                      variant="light"
+                                    >
                                       <MoreVertical className="w-5 h-5" />
                                     </Button>
                                   </DropdownTrigger>
                                   {getMenuByStatus(event)}
                                 </Dropdown>
                               </div>
-                              
+
                               {/* Profile */}
                               <div className="flex items-center gap-2 mb-3">
                                 <div
                                   className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold"
-                                  style={{ backgroundColor: getProfileColor(event.coordinatorName) }}
+                                  style={{
+                                    backgroundColor: getProfileColor(
+                                      event.coordinatorName,
+                                    ),
+                                  }}
                                 >
-                                  <span className="text-white">{getProfileInitial(event.coordinatorName)}</span>
+                                  <span className="text-white">
+                                    {getProfileInitial(event.coordinatorName)}
+                                  </span>
                                 </div>
-                                <span className="text-xs text-gray-600">{event.coordinatorName}</span>
+                                <span className="text-xs text-gray-600">
+                                  {event.coordinatorName}
+                                </span>
                               </div>
 
                               {/* Time and Type Badges */}
                               <div className="flex gap-2 mb-3">
                                 <div className="bg-gray-100 rounded px-2 py-1 flex items-center gap-1">
                                   <ClockIcon className="w-3 h-3 text-gray-500" />
-                                  <span className="text-xs text-gray-700">{event.time}</span>
+                                  <span className="text-xs text-gray-700">
+                                    {event.time}
+                                  </span>
                                 </div>
                                 <div className="bg-gray-100 rounded px-2 py-1">
-                                  <span className="text-xs text-gray-700">{eventLabelsMap[event.type as EventType]}</span>
+                                  <span className="text-xs text-gray-700">
+                                    {eventLabelsMap[event.type as EventType]}
+                                  </span>
                                 </div>
                               </div>
 
                               {/* District */}
                               <div className="mb-2">
-                                <div className="text-xs font-medium text-gray-700 mb-0.5">District</div>
-                                <div className="text-xs text-gray-600">{event.district}</div>
+                                <div className="text-xs font-medium text-gray-700 mb-0.5">
+                                  District
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {event.district}
+                                </div>
                               </div>
 
                               {/* Location */}
                               <div className="mb-3">
-                                <div className="text-xs font-medium text-gray-700 mb-0.5">Location</div>
-                                <div className="text-xs text-gray-600 line-clamp-2">{event.location}</div>
+                                <div className="text-xs font-medium text-gray-700 mb-0.5">
+                                  Location
+                                </div>
+                                <div className="text-xs text-gray-600 line-clamp-2">
+                                  {event.location}
+                                </div>
                               </div>
 
                               {/* Count */}
                               <div className="border-t border-gray-200 pt-2">
                                 <div className="flex justify-between items-center">
-                                  <span className="text-xs text-gray-600">{event.countType}</span>
-                                  <span className="text-lg font-bold text-red-500">{event.count}</span>
+                                  <span className="text-xs text-gray-600">
+                                    {event.countType}
+                                  </span>
+                                  <span className="text-lg font-bold text-red-500">
+                                    {event.count}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -1302,14 +1924,18 @@ export default function CalendarPage() {
           </div>
 
           {/* Month View */}
-          <div className={`transition-all duration-500 ease-in-out ${getViewTransitionStyle('month')}`}>
+          <div
+            className={`transition-all duration-500 ease-in-out ${getViewTransitionStyle("month")}`}
+          >
             <div>
               {/* Days of Week Header */}
               <div className="grid grid-cols-7 gap-4 mb-4">
-                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
                   <div key={day} className="text-center">
-                    <div className="text-sm font-medium text-gray-500 mb-2">{day}</div>
-                    <div className="h-10"></div>
+                    <div className="text-sm font-medium text-gray-500 mb-2">
+                      {day}
+                    </div>
+                    <div className="h-10" />
                   </div>
                 ))}
               </div>
@@ -1321,17 +1947,19 @@ export default function CalendarPage() {
                     <div
                       key={index}
                       className={`min-h-[100px] bg-white p-2 ${
-                        !day.isCurrentMonth && 'bg-gray-50 text-gray-400'
+                        !day.isCurrentMonth && "bg-gray-50 text-gray-400"
                       }`}
                     >
                       <div className="flex justify-center mb-2">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold ${
-                          day.isToday
-                            ? 'bg-red-500 text-white'
-                            : day.isCurrentMonth
-                            ? 'text-gray-900'
-                            : 'text-gray-400'
-                        }`}>
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold ${
+                            day.isToday
+                              ? "bg-red-500 text-white"
+                              : day.isCurrentMonth
+                                ? "text-gray-900"
+                                : "text-gray-400"
+                          }`}
+                        >
                           {day.date.getDate()}
                         </div>
                       </div>
@@ -1340,17 +1968,30 @@ export default function CalendarPage() {
                         {day.events.map((event, eventIndex) => (
                           <div
                             key={eventIndex}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleOpenViewEvent(event.raw)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { handleOpenViewEvent(event.raw); } }}
                             className="text-xs p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm"
-                            title={`${eventLabelsMap[event.type as EventType]} : ${event.startTime || ''}${event.endTime ? ` - ${event.endTime}` : ''}`}
-                            style={{ backgroundColor: `${event.color}22`, color: event.color }}
+                            role="button"
+                            style={{
+                              backgroundColor: `${event.color}22`,
+                              color: event.color,
+                            }}
+                            tabIndex={0}
+                            title={`${eventLabelsMap[event.type as EventType]} : ${event.startTime || ""}${event.endTime ? ` - ${event.endTime}` : ""}`}
+                            onClick={() => handleOpenViewEvent(event.raw)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                handleOpenViewEvent(event.raw);
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-2">
-                              <span className="truncate block">{event.title}</span>
-                              {event.startTime ? <span className="text-xs font-semibold ml-1">{event.startTime}</span> : null}
+                              <span className="truncate block">
+                                {event.title}
+                              </span>
+                              {event.startTime ? (
+                                <span className="text-xs font-semibold ml-1">
+                                  {event.startTime}
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         ))}
@@ -1364,86 +2005,128 @@ export default function CalendarPage() {
         </div>
       </div>
       {/* Event View & Edit Modals (reuse campaign components) */}
-      <EventViewModal isOpen={viewModalOpen} onClose={() => { setViewModalOpen(false); setViewRequest(null); }} request={viewRequest} />
+      <EventViewModal
+        isOpen={viewModalOpen}
+        request={viewRequest}
+        onClose={() => {
+          setViewModalOpen(false);
+          setViewRequest(null);
+        }}
+      />
       <EventManageStaffModal
-        isOpen={!!manageStaffOpenId}
         eventId={manageStaffOpenId}
-        onClose={() => { setManageStaffOpenId(null); }}
+        isOpen={!!manageStaffOpenId}
+        onClose={() => {
+          setManageStaffOpenId(null);
+        }}
         onSaved={async () => {
-            // refresh calendar after saving staff (preserve multi-day events by merging month into week)
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth() + 1;
-            try {
-              const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
-              const w = await fetch(weekUrl, { credentials: 'include' });
-              const wj = await w.json();
-              const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
+          // refresh calendar after saving staff (preserve multi-day events by merging month into week)
+          const year = currentDate.getFullYear();
+          const month = currentDate.getMonth() + 1;
 
-              const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
-              const m = await fetch(monthUrl, { credentials: 'include' });
-              const mj = await m.json();
-              const normalizedMonth = normalizeEventsMap(mj?.data?.eventsByDate || {});
+          try {
+            const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
+            const w = await fetch(weekUrl, { credentials: "include" });
+            const wj = await w.json();
+            const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
 
-              // update both month and merged week maps
-              setMonthEventsByDate(normalizedMonth);
-              setWeekEventsByDate(mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate));
-            } catch (e) { console.error(e); }
+            const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
+            const m = await fetch(monthUrl, { credentials: "include" });
+            const mj = await m.json();
+            const normalizedMonth = normalizeEventsMap(
+              mj?.data?.eventsByDate || {},
+            );
+
+            // update both month and merged week maps
+            setMonthEventsByDate(normalizedMonth);
+            setWeekEventsByDate(
+              mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate),
+            );
+          } catch (e) {
+            console.error(e);
+          }
         }}
       />
       <EventRescheduleModal
-        isOpen={!!rescheduleOpenId}
         eventId={rescheduleOpenId}
-        onClose={() => { setRescheduleOpenId(null); }}
+        isOpen={!!rescheduleOpenId}
+        onClose={() => {
+          setRescheduleOpenId(null);
+        }}
         onSaved={async () => {
-            // refresh calendar after reschedule (preserve multi-day events by merging month into week)
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth() + 1;
-            try {
-              const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
-              const w = await fetch(weekUrl, { credentials: 'include' });
-              const wj = await w.json();
-              const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
+          // refresh calendar after reschedule (preserve multi-day events by merging month into week)
+          const year = currentDate.getFullYear();
+          const month = currentDate.getMonth() + 1;
 
-              const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
-              const m = await fetch(monthUrl, { credentials: 'include' });
-              const mj = await m.json();
-              const normalizedMonth = normalizeEventsMap(mj?.data?.eventsByDate || {});
+          try {
+            const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
+            const w = await fetch(weekUrl, { credentials: "include" });
+            const wj = await w.json();
+            const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
 
-              setMonthEventsByDate(normalizedMonth);
-              setWeekEventsByDate(mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate));
-            } catch (e) { console.error(e); }
+            const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
+            const m = await fetch(monthUrl, { credentials: "include" });
+            const mj = await m.json();
+            const normalizedMonth = normalizeEventsMap(
+              mj?.data?.eventsByDate || {},
+            );
+
+            setMonthEventsByDate(normalizedMonth);
+            setWeekEventsByDate(
+              mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate),
+            );
+          } catch (e) {
+            console.error(e);
+          }
         }}
       />
       <EditEventModal
         isOpen={editModalOpen}
-        onClose={() => { setEditModalOpen(false); setEditRequest(null); }}
         request={editRequest}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditRequest(null);
+        }}
         onSaved={async () => {
-            // refresh calendar after edit (preserve multi-day events by merging month into week)
-            setViewModalOpen(false);
-            setEditModalOpen(false);
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth() + 1;
-            try {
-              const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
-              const w = await fetch(weekUrl, { credentials: 'include' });
-              const wj = await w.json();
-              const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
+          // refresh calendar after edit (preserve multi-day events by merging month into week)
+          setViewModalOpen(false);
+          setEditModalOpen(false);
+          const year = currentDate.getFullYear();
+          const month = currentDate.getMonth() + 1;
 
-              const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
-              const m = await fetch(monthUrl, { credentials: 'include' });
-              const mj = await m.json();
-              const normalizedMonth = normalizeEventsMap(mj?.data?.eventsByDate || {});
+          try {
+            const weekUrl = `${API_BASE}/api/calendar/week?date=${encodeURIComponent(currentDate.toISOString())}&status=Approved`;
+            const w = await fetch(weekUrl, { credentials: "include" });
+            const wj = await w.json();
+            const normalizedWeek = normalizeEventsMap(wj?.data?.weekDays || {});
 
-              setMonthEventsByDate(normalizedMonth);
-              setWeekEventsByDate(mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate));
-            } catch (e) {
-              console.error(e);
-            }
+            const monthUrl = `${API_BASE}/api/calendar/month?year=${year}&month=${month}&status=Approved`;
+            const m = await fetch(monthUrl, { credentials: "include" });
+            const mj = await m.json();
+            const normalizedMonth = normalizeEventsMap(
+              mj?.data?.eventsByDate || {},
+            );
+
+            setMonthEventsByDate(normalizedMonth);
+            setWeekEventsByDate(
+              mergeWeekWithMonth(normalizedWeek, normalizedMonth, currentDate),
+            );
+          } catch (e) {
+            console.error(e);
+          }
         }}
       />
       {/* Accept confirmation modal */}
-      <Modal isOpen={!!acceptOpenId} onClose={() => { setAcceptOpenId(null); setAcceptNote(''); setAcceptError(null); }} size="sm" placement="center">
+      <Modal
+        isOpen={!!acceptOpenId}
+        placement="center"
+        size="sm"
+        onClose={() => {
+          setAcceptOpenId(null);
+          setAcceptNote("");
+          setAcceptError(null);
+        }}
+      >
         <ModalContent>
           <ModalHeader className="flex items-center gap-2">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
@@ -1452,36 +2135,84 @@ export default function CalendarPage() {
             <span className="text-lg font-semibold">Accept Event</span>
           </ModalHeader>
           <ModalBody>
-            <p className="text-sm text-default-600 mb-4">Optionally add a note to record when accepting this request.</p>
+            <p className="text-sm text-default-600 mb-4">
+              Optionally add a note to record when accepting this request.
+            </p>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-default-900">Note (optional)</label>
-              <textarea value={acceptNote} onChange={(e) => setAcceptNote((e.target as HTMLTextAreaElement).value)} rows={4} className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg" />
+              <label
+                htmlFor="accept-note"
+                className="text-sm font-medium text-default-900"
+              >
+                Note (optional)
+              </label>
+              <textarea
+                id="accept-note"
+                className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg"
+                rows={4}
+                value={acceptNote}
+                onChange={(e) =>
+                  setAcceptNote((e.target as HTMLTextAreaElement).value)
+                }
+              />
             </div>
-            {acceptError && (<div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded"><p className="text-xs text-warning-700">{acceptError}</p></div>)}
+            {acceptError && (
+              <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded">
+                <p className="text-xs text-warning-700">{acceptError}</p>
+              </div>
+            )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="bordered" onPress={() => { setAcceptOpenId(null); setAcceptNote(''); setAcceptError(null); }} className="font-medium">Cancel</Button>
-            <Button color="default" onPress={async () => {
-              setAcceptError(null);
-              if (!acceptOpenId) return setAcceptError('No event selected');
-              try {
-                setAcceptSaving(true);
-                await performAdminActionByEventId(acceptOpenId, 'Accepted', acceptNote || undefined);
-                await refreshCalendarData();
+            <Button
+              className="font-medium"
+              variant="bordered"
+              onPress={() => {
                 setAcceptOpenId(null);
-                setAcceptNote('');
-              } catch (err: any) {
-                setAcceptError(err?.message || 'Failed to accept request');
-              } finally {
-                setAcceptSaving(false);
-              }
-            }} className="bg-black text-white font-medium">{acceptSaving ? 'Accepting...' : 'Accept'}</Button>
+                setAcceptNote("");
+                setAcceptError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-black text-white font-medium"
+              color="default"
+              onPress={async () => {
+                setAcceptError(null);
+                if (!acceptOpenId) return setAcceptError("No event selected");
+                try {
+                  setAcceptSaving(true);
+                  await performAdminActionByEventId(
+                    acceptOpenId,
+                    "Accepted",
+                    acceptNote || undefined,
+                  );
+                  await refreshCalendarData();
+                  setAcceptOpenId(null);
+                  setAcceptNote("");
+                } catch (err: any) {
+                  setAcceptError(err?.message || "Failed to accept request");
+                } finally {
+                  setAcceptSaving(false);
+                }
+              }}
+            >
+              {acceptSaving ? "Accepting..." : "Accept"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
       {/* Reject confirmation modal */}
-      <Modal isOpen={!!rejectOpenId} onClose={() => { setRejectOpenId(null); setRejectNote(''); setRejectError(null); }} size="sm" placement="center">
+      <Modal
+        isOpen={!!rejectOpenId}
+        placement="center"
+        size="sm"
+        onClose={() => {
+          setRejectOpenId(null);
+          setRejectNote("");
+          setRejectError(null);
+        }}
+      >
         <ModalContent>
           <ModalHeader className="flex items-center gap-2">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
@@ -1490,31 +2221,74 @@ export default function CalendarPage() {
             <span className="text-lg font-semibold">Reject Event</span>
           </ModalHeader>
           <ModalBody>
-            <p className="text-sm text-default-600 mb-4">Provide a reason for rejecting this request. This will be recorded in the request history.</p>
+            <p className="text-sm text-default-600 mb-4">
+              Provide a reason for rejecting this request. This will be recorded
+              in the request history.
+            </p>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-default-900">Reason</label>
-              <textarea value={rejectNote} onChange={(e) => setRejectNote((e.target as HTMLTextAreaElement).value)} rows={4} className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg" />
+              <label
+                htmlFor="reject-note"
+                className="text-sm font-medium text-default-900"
+              >
+                Reason
+              </label>
+              <textarea
+                id="reject-note"
+                className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg"
+                rows={4}
+                value={rejectNote}
+                onChange={(e) =>
+                  setRejectNote((e.target as HTMLTextAreaElement).value)
+                }
+              />
             </div>
-            {rejectError && (<div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded"><p className="text-xs text-warning-700">{rejectError}</p></div>)}
+            {rejectError && (
+              <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded">
+                <p className="text-xs text-warning-700">{rejectError}</p>
+              </div>
+            )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="bordered" onPress={() => { setRejectOpenId(null); setRejectNote(''); setRejectError(null); }} className="font-medium">Cancel</Button>
-            <Button color="danger" onPress={async () => {
-              setRejectError(null);
-              if (!rejectOpenId) return setRejectError('No event selected');
-              if (!rejectNote || rejectNote.trim().length === 0) return setRejectError('Please provide a reason for rejection');
-              try {
-                setRejectSaving(true);
-                await performAdminActionByEventId(rejectOpenId, 'Rejected', rejectNote);
-                await refreshCalendarData();
+            <Button
+              className="font-medium"
+              variant="bordered"
+              onPress={() => {
                 setRejectOpenId(null);
-                setRejectNote('');
-              } catch (err: any) {
-                setRejectError(err?.message || 'Failed to reject request');
-              } finally {
-                setRejectSaving(false);
-              }
-            }} className="bg-red-600 text-white font-medium">{rejectSaving ? 'Rejecting...' : 'Reject'}</Button>
+                setRejectNote("");
+                setRejectError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white font-medium"
+              color="danger"
+              onPress={async () => {
+                setRejectError(null);
+                if (!rejectOpenId) return setRejectError("No event selected");
+                if (!rejectNote || rejectNote.trim().length === 0)
+                  return setRejectError(
+                    "Please provide a reason for rejection",
+                  );
+                try {
+                  setRejectSaving(true);
+                  await performAdminActionByEventId(
+                    rejectOpenId,
+                    "Rejected",
+                    rejectNote,
+                  );
+                  await refreshCalendarData();
+                  setRejectOpenId(null);
+                  setRejectNote("");
+                } catch (err: any) {
+                  setRejectError(err?.message || "Failed to reject request");
+                } finally {
+                  setRejectSaving(false);
+                }
+              }}
+            >
+              {rejectSaving ? "Rejecting..." : "Reject"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

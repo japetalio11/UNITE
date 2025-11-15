@@ -7,115 +7,115 @@ import { Kbd } from "@heroui/kbd";
 import { Search } from "lucide-react";
 
 /**
-* Topbar Component
-* 
-* A top navigation bar with user profile and global search functionality.
-* Features HeroUI User component with dropdown and search with keyboard shortcut.
-*/
-    
+ * Topbar Component
+ *
+ * A top navigation bar with user profile and global search functionality.
+ * Features HeroUI User component with dropdown and search with keyboard shortcut.
+ */
+
 interface TopbarProps {
-    userName?: string;
-    userEmail?: string;
-    userAvatar?: string;
-    onSearch?: (query: string) => void;
-    onUserClick?: () => void;
+  userName?: string;
+  userEmail?: string;
+  userAvatar?: string;
+  onSearch?: (query: string) => void;
+  onUserClick?: () => void;
 }
-    
+
 export default function Topbar({
-    userName = "Bicol Medical Center",
-    userEmail = "bmc@gmail.com",
-    userAvatar = "",
-    onSearch,
-    onUserClick
-    }: TopbarProps) {
-    const [searchQuery, setSearchQuery] = useState("");
-    
-    // Handle search input changes
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchQuery(value);
-        onSearch?.(value);
+  userName = "Bicol Medical Center",
+  userEmail = "bmc@gmail.com",
+  userAvatar = "",
+  onSearch,
+  onUserClick,
+}: TopbarProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Handle search input changes
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    setSearchQuery(value);
+    onSearch?.(value);
+  };
+
+  // Handle keyboard shortcuts (Win+K or Cmd+K)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        document.getElementById("topbar-search")?.focus();
+      }
     };
-    
-    // Handle keyboard shortcuts (Win+K or Cmd+K)
-    React.useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            document.getElementById('topbar-search')?.focus();
-        }
-        };
-    
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
-    
-    return (
-        <div className="w-full bg-white border-gray-200">
-        <div className="flex items-center justify-between px-6 py-3">
-            {/* Left side - User Profile */}
-            <div className="flex items-center gap-3">
-            <User
-                name={userName}
-                description={userEmail}
-                avatarProps={{
-                src: userAvatar,
-                size: "sm",
-                className: "bg-orange-400 text-white"
-                }}
-                classNames={{
-                base: "cursor-pointer",
-                name: "font-semibold text-gray-900 text-sm",
-                description: "text-gray-500 text-xs"
-                }}
-                onClick={onUserClick}
-            />
-            
-            {/* Dropdown chevron */}
-            <button 
-                onClick={onUserClick}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label="User menu"
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  return (
+    <div className="w-full bg-white border-gray-200">
+      <div className="flex items-center justify-between px-6 py-3">
+        {/* Left side - User Profile */}
+        <div className="flex items-center gap-3">
+          <User
+            avatarProps={{
+              src: userAvatar,
+              size: "sm",
+              className: "bg-orange-400 text-white",
+            }}
+            classNames={{
+              base: "cursor-pointer",
+              name: "font-semibold text-gray-900 text-sm",
+              description: "text-gray-500 text-xs",
+            }}
+            description={userEmail}
+            name={userName}
+            onClick={onUserClick}
+          />
+
+          {/* Dropdown chevron */}
+          <button
+            aria-label="User menu"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={onUserClick}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-                <svg 
-                className="w-4 h-4" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                >
-                <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M19 9l-7 7-7-7" 
-                />
-                </svg>
-            </button>
-            </div>
-    
-            {/* Right side - Search Input */}
-            <div className="flex-1 max-w-md ml-auto">
-                <Input
-                    id="topbar-search"
-                    type="text"
-                    placeholder="Search files..."
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    startContent={
-                        <Search className="w-4 h-4 text-gray-400" />
-                    }
-                    endContent={
-                        <div className="flex items-center gap-1">
-                            <Kbd keys={["command"]} className="hidden sm:inline-flex">
-                            K
-                            </Kbd>
-                        </div>
-                    }
-                    radius="md"
-                    size="sm"
-                />
-            </div>
+              <path
+                d="M19 9l-7 7-7-7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+              />
+            </svg>
+          </button>
         </div>
+
+        {/* Right side - Search Input */}
+        <div className="flex-1 max-w-md ml-auto">
+          <Input
+            endContent={
+              <div className="flex items-center gap-1">
+                <Kbd className="hidden sm:inline-flex" keys={["command"]}>
+                  K
+                </Kbd>
+              </div>
+            }
+            id="topbar-search"
+            placeholder="Search files..."
+            radius="md"
+            size="sm"
+            startContent={<Search className="w-4 h-4 text-gray-400" />}
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchChange}
+          />
         </div>
-    );
+      </div>
+    </div>
+  );
 }

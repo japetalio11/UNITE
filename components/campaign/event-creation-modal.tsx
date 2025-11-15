@@ -1,15 +1,22 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { debug } from '@/utils/devLogger'
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { DatePicker } from "@heroui/date-picker";
 import { Users, Droplet, Megaphone } from "lucide-react";
-import { getUserInfo } from '@/utils/getUserInfo'
-import { decodeJwt } from '@/utils/decodeJwt'
+
+import { debug } from "@/utils/devLogger";
+import { getUserInfo } from "@/utils/getUserInfo";
+import { decodeJwt } from "@/utils/decodeJwt";
 
 interface CreateTrainingEventModalProps {
   isOpen: boolean;
@@ -37,13 +44,9 @@ interface TrainingEventData {
  * CreateTrainingEventModal Component
  * Modal for creating a training event
  */
-export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  isSubmitting,
-  error,
-}) => {
+export const CreateTrainingEventModal: React.FC<
+  CreateTrainingEventModalProps
+> = ({ isOpen, onClose, onConfirm, isSubmitting, error }) => {
   const [coordinator, setCoordinator] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [titleTouched, setTitleTouched] = useState(false);
@@ -65,7 +68,9 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
     { key: "bob", label: "Bob Johnson" },
   ];
 
-  const [coordinatorOptions, setCoordinatorOptions] = useState<{ key: string; label: string }[]>([]);
+  const [coordinatorOptions, setCoordinatorOptions] = useState<
+    { key: string; label: string }[]
+  >([]);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   useEffect(() => {
@@ -73,79 +78,157 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
     const fetchCoordinators = async () => {
       try {
         const rawUser = localStorage.getItem("unite_user");
-        const token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+        const token =
+          localStorage.getItem("unite_token") ||
+          sessionStorage.getItem("unite_token");
         const headers: any = { "Content-Type": "application/json" };
+
         if (token) headers["Authorization"] = `Bearer ${token}`;
         const user = rawUser ? JSON.parse(rawUser) : null;
-        const info = (() => { try { return getUserInfo() } catch (e) { return null } })()
+        const info = (() => {
+          try {
+            return getUserInfo();
+          } catch (e) {
+            return null;
+          }
+        })();
 
         const isAdmin = !!(
           (info && info.isAdmin) ||
-          (user && (
-            (user.staff_type && String(user.staff_type).toLowerCase().includes('admin')) ||
-            (user.role && String(user.role).toLowerCase().includes('admin'))
-          ))
+          (user &&
+            ((user.staff_type &&
+              String(user.staff_type).toLowerCase().includes("admin")) ||
+              (user.role && String(user.role).toLowerCase().includes("admin"))))
         );
 
         if (user && isAdmin) {
-          const res = await fetch(`${API_URL}/api/coordinators`, { headers, credentials: 'include' });
+          const res = await fetch(`${API_URL}/api/coordinators`, {
+            headers,
+            credentials: "include",
+          });
           const body = await res.json();
+
           if (res.ok) {
             const list = body.data || body.coordinators || body;
             const opts = (Array.isArray(list) ? list : []).map((c: any) => {
               const staff = c.Staff || c.staff || null;
               const district = c.District || c.district || null;
-              const fullName = staff ? [staff.First_Name, staff.Middle_Name, staff.Last_Name].filter(Boolean).join(' ').trim() : (c.StaffName || c.label || '');
-              const districtLabel = district?.District_Number ? `District ${district.District_Number}` : (district?.District_Name || '');
+              const fullName = staff
+                ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim()
+                : c.StaffName || c.label || "";
+              const districtLabel = district?.District_Number
+                ? `District ${district.District_Number}`
+                : district?.District_Name || "";
+
               return {
                 key: c.Coordinator_ID || (staff && staff.ID) || c.id,
-                label: `${fullName}${districtLabel ? ' - ' + districtLabel : ''}`
+                label: `${fullName}${districtLabel ? " - " + districtLabel : ""}`,
               };
             });
+
             setCoordinatorOptions(opts);
+
             return;
           }
         }
 
         // non-admin flows: try to derive coordinator id from user or token
         if (user) {
-          const candidateIds: Array<string|number|undefined> = [];
-          if ((user.staff_type && String(user.staff_type).toLowerCase().includes('coordinator')) || (info && String(info.role || '').toLowerCase().includes('coordinator'))) candidateIds.push(user.id || info?.raw?.id);
-          candidateIds.push(user.Coordinator_ID, user.CoordinatorId, user.CoordinatorID, user.role_data?.coordinator_id, user.MadeByCoordinatorID, info?.raw?.Coordinator_ID, info?.raw?.CoordinatorId);
+          const candidateIds: Array<string | number | undefined> = [];
+
+          if (
+            (user.staff_type &&
+              String(user.staff_type).toLowerCase().includes("coordinator")) ||
+            (info &&
+              String(info.role || "")
+                .toLowerCase()
+                .includes("coordinator"))
+          )
+            candidateIds.push(user.id || info?.raw?.id);
+          candidateIds.push(
+            user.Coordinator_ID,
+            user.CoordinatorId,
+            user.CoordinatorID,
+            user.role_data?.coordinator_id,
+            user.MadeByCoordinatorID,
+            info?.raw?.Coordinator_ID,
+            info?.raw?.CoordinatorId,
+          );
 
           let coordId = candidateIds.find(Boolean) as string | undefined;
 
           if (!coordId) {
             try {
-              const t = token || (typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null)
-              const payload = decodeJwt(t)
+              const t =
+                token ||
+                (typeof window !== "undefined"
+                  ? localStorage.getItem("unite_token") ||
+                    sessionStorage.getItem("unite_token")
+                  : null);
+              const payload = decodeJwt(t);
+
               if (payload) {
-                coordId = payload.id || payload.ID || payload.Coordinator_ID || payload.coordinator_id || coordId
+                coordId =
+                  payload.id ||
+                  payload.ID ||
+                  payload.Coordinator_ID ||
+                  payload.coordinator_id ||
+                  coordId;
               }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+              /* ignore */
+            }
           }
 
           if (coordId) {
             try {
               let resolvedCoordId = String(coordId);
+
               if (/^stkh_/i.test(resolvedCoordId)) {
                 // try to resolve stakeholder -> coordinator id; if that fails, fall back to any Coordinator_ID present
                 let resolvedFromStakeholder = false;
+
                 try {
-                  const stRes = await fetch(`${API_URL}/api/stakeholders/${encodeURIComponent(resolvedCoordId)}`, { headers, credentials: 'include' });
+                  const stRes = await fetch(
+                    `${API_URL}/api/stakeholders/${encodeURIComponent(resolvedCoordId)}`,
+                    { headers, credentials: "include" },
+                  );
                   const stBody = await stRes.json();
+
                   if (stRes.ok && stBody.data) {
                     const stakeholder = stBody.data;
-                    resolvedCoordId = stakeholder.Coordinator_ID || stakeholder.CoordinatorId || stakeholder.coordinator_id || resolvedCoordId;
-                    resolvedFromStakeholder = !!(stakeholder.Coordinator_ID || stakeholder.CoordinatorId || stakeholder.coordinator_id);
+
+                    resolvedCoordId =
+                      stakeholder.Coordinator_ID ||
+                      stakeholder.CoordinatorId ||
+                      stakeholder.coordinator_id ||
+                      resolvedCoordId;
+                    resolvedFromStakeholder = !!(
+                      stakeholder.Coordinator_ID ||
+                      stakeholder.CoordinatorId ||
+                      stakeholder.coordinator_id
+                    );
                   }
                 } catch (e) {
-                  console.warn('Failed to fetch stakeholder to resolve coordinator id', resolvedCoordId, e);
+                  console.warn(
+                    "Failed to fetch stakeholder to resolve coordinator id",
+                    resolvedCoordId,
+                    e,
+                  );
                 }
 
                 if (!resolvedFromStakeholder) {
                   // try local user fields and token payload for coordinator id
-                  const fallback = user?.Coordinator_ID || user?.CoordinatorId || user?.CoordinatorId || info?.raw?.Coordinator_ID || info?.raw?.CoordinatorId;
+                  const fallback =
+                    user?.Coordinator_ID ||
+                    user?.CoordinatorId ||
+                    user?.CoordinatorId ||
+                    info?.raw?.Coordinator_ID ||
+                    info?.raw?.CoordinatorId;
+
                   if (fallback) {
                     resolvedCoordId = fallback;
                   } else {
@@ -155,56 +238,96 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                 }
               }
 
-              const res = await fetch(`${API_URL}/api/coordinators/${encodeURIComponent(resolvedCoordId)}`, { headers, credentials: 'include' });
+              const res = await fetch(
+                `${API_URL}/api/coordinators/${encodeURIComponent(resolvedCoordId)}`,
+                { headers, credentials: "include" },
+              );
               const body = await res.json();
+
               if (res.ok && body.data) {
-                const coord = body.data.coordinator || body.data || body.coordinator || body;
+                const coord =
+                  body.data.coordinator ||
+                  body.data ||
+                  body.coordinator ||
+                  body;
                 const staff = coord?.Staff || null;
-                const fullName = staff ? [staff.First_Name, staff.Middle_Name, staff.Last_Name].filter(Boolean).join(' ').trim() : '';
-                const districtLabel = coord?.District?.District_Number ? `District ${coord.District.District_Number}` : (coord?.District?.District_Name || '');
-                const name = `${fullName}${districtLabel ? ' - ' + districtLabel : ''}`;
-                setCoordinatorOptions([{ key: coord?.Coordinator_ID || resolvedCoordId, label: name }]);
+                const fullName = staff
+                  ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim()
+                  : "";
+                const districtLabel = coord?.District?.District_Number
+                  ? `District ${coord.District.District_Number}`
+                  : coord?.District?.District_Name || "";
+                const name = `${fullName}${districtLabel ? " - " + districtLabel : ""}`;
+
+                setCoordinatorOptions([
+                  {
+                    key: coord?.Coordinator_ID || resolvedCoordId,
+                    label: name,
+                  },
+                ]);
                 setCoordinator(coord?.Coordinator_ID || resolvedCoordId);
+
                 return;
               }
             } catch (e) {
-              console.error('Failed to fetch coordinator by id', coordId, e);
+              console.error("Failed to fetch coordinator by id", coordId, e);
             }
           }
         }
       } catch (err) {
-        console.error('Failed to fetch coordinators', err);
+        console.error("Failed to fetch coordinators", err);
       }
     };
 
     // Diagnostics: print centralized user info and raw stored user when modal opens
     if (isOpen) {
       try {
-        const infoOuter = (() => { try { return getUserInfo() } catch (e) { return null } })()
+        const infoOuter = (() => {
+          try {
+            return getUserInfo();
+          } catch (e) {
+            return null;
+          }
+        })();
+
         // eslint-disable-next-line no-console
-        console.log('[CampaignCreateEventModal] getUserInfo():', infoOuter)
-        const rawUserOuter = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null
+        console.log("[CampaignCreateEventModal] getUserInfo():", infoOuter);
+        const rawUserOuter =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_user")
+            : null;
+
         // eslint-disable-next-line no-console
-        console.log('[CampaignCreateEventModal] raw unite_user (truncated):', rawUserOuter ? String(rawUserOuter).slice(0, 300) : null)
-      } catch (e) { /* ignore */ }
+        console.log(
+          "[CampaignCreateEventModal] raw unite_user (truncated):",
+          rawUserOuter ? String(rawUserOuter).slice(0, 300) : null,
+        );
+      } catch (e) {
+        /* ignore */
+      }
       fetchCoordinators();
     }
   }, [isOpen]);
-  
+
   // Validate date when it changes
   useEffect(() => {
     if (date) {
       const selected = new Date(date);
-      selected.setHours(0,0,0,0);
+
+      selected.setHours(0, 0, 0, 0);
       const today = new Date();
-      today.setHours(0,0,0,0);
+
+      today.setHours(0, 0, 0, 0);
       if (selected.getTime() < today.getTime()) {
-        setDateError('Event date cannot be in the past');
+        setDateError("Event date cannot be in the past");
       } else {
-        setDateError('');
+        setDateError("");
       }
     } else {
-      setDateError('');
+      setDateError("");
     }
   }, [date]);
 
@@ -212,6 +335,7 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
     // Validate required fields
     if (!eventTitle.trim()) {
       setTitleTouched(true);
+
       return;
     }
 
@@ -223,16 +347,20 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
     // Build ISO datetime strings if date and times are provided
     let startISO = "";
     let endISO = "";
+
     if (date) {
       const d = new Date(date);
+
       if (startTime) {
         const [sh, sm] = startTime.split(":").map((s) => parseInt(s, 10));
+
         d.setHours(sh || 0, sm || 0, 0, 0);
         startISO = d.toISOString();
       }
       if (endTime) {
         const e = new Date(date);
         const [eh, em] = endTime.split(":").map((s) => parseInt(s, 10));
+
         e.setHours(eh || 0, em || 0, 0, 0);
         endISO = e.toISOString();
       }
@@ -251,12 +379,19 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
       email,
       contactNumber,
     };
+
     onConfirm(eventData);
     // parent will close modal after create completes (to avoid closing before async create finishes)
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="2xl" placement="center" scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      placement="center"
+      scrollBehavior="inside"
+      size="2xl"
+      onClose={onClose}
+    >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3 pb-4">
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
@@ -265,7 +400,8 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
           <div>
             <h2 className="text-xl font-semibold">Create a training event</h2>
             <p className="text-xs text-default-500 font-normal mt-0.5">
-              Start providing your information by selecting your blood type. Add details below to proceed.
+              Start providing your information by selecting your blood type. Add
+              details below to proceed.
             </p>
           </div>
         </ModalHeader>
@@ -281,46 +417,79 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
               {/* Coordinator selection: admin -> dropdown, coordinator/stakeholder -> locked input */}
               {(() => {
                 // determine user role robustly (handle different shapes/casing)
-                const rawUser = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+                const rawUser =
+                  typeof window !== "undefined"
+                    ? localStorage.getItem("unite_user")
+                    : null;
                 const user = rawUser ? JSON.parse(rawUser) : null;
                 const isAdmin = !!(
-                  user && (
-                    (user.staff_type && String(user.staff_type).toLowerCase().includes('admin')) ||
-                    (user.role && String(user.role).toLowerCase().includes('admin'))
-                  )
+                  user &&
+                  ((user.staff_type &&
+                    String(user.staff_type).toLowerCase().includes("admin")) ||
+                    (user.role &&
+                      String(user.role).toLowerCase().includes("admin")))
                 );
 
                 if (isAdmin) {
-                    // If there are no coordinator options at all, show a disabled message
-                    const availableCount = (coordinatorOptions?.length || 0) + (coordinators?.length || 0);
-                    if (availableCount === 0) {
-                      return (
-                        <Input type="text" value={"No coordinators available"} disabled variant="bordered" classNames={{ inputWrapper: 'border-default-200 h-10 bg-default-100', input: 'text-sm' }} />
-                      );
-                    }
+                  // If there are no coordinator options at all, show a disabled message
+                  const availableCount =
+                    (coordinatorOptions?.length || 0) +
+                    (coordinators?.length || 0);
 
+                  if (availableCount === 0) {
                     return (
-                      <Select
-                        placeholder="Select one"
-                        selectedKeys={coordinator ? [coordinator] : []}
-                        onSelectionChange={(keys) => setCoordinator(Array.from(keys)[0] as string)}
-                        variant="bordered"
+                      <Input
+                        disabled
                         classNames={{
-                          trigger: "border-default-200 hover:border-default-400 h-10",
-                          value: "text-sm",
+                          inputWrapper:
+                            "border-default-200 h-10 bg-default-100",
+                          input: "text-sm",
                         }}
-                      >
-                        {(coordinatorOptions.length ? coordinatorOptions : coordinators).map((coord) => (
-                          <SelectItem key={coord.key}>{coord.label}</SelectItem>
-                        ))}
-                      </Select>
+                        type="text"
+                        value={"No coordinators available"}
+                        variant="bordered"
+                      />
                     );
+                  }
+
+                  return (
+                    <Select
+                      classNames={{
+                        trigger:
+                          "border-default-200 hover:border-default-400 h-10",
+                        value: "text-sm",
+                      }}
+                      placeholder="Select one"
+                      selectedKeys={coordinator ? [coordinator] : []}
+                      variant="bordered"
+                      onSelectionChange={(keys) =>
+                        setCoordinator(Array.from(keys)[0] as string)
+                      }
+                    >
+                      {(coordinatorOptions.length
+                        ? coordinatorOptions
+                        : coordinators
+                      ).map((coord) => (
+                        <SelectItem key={coord.key}>{coord.label}</SelectItem>
+                      ))}
+                    </Select>
+                  );
                 }
 
                 // Non-admin: show locked input with coordinator full name if available
                 const selected = coordinatorOptions[0];
+
                 return (
-                  <Input type="text" value={selected?.label || ''} disabled variant="bordered" classNames={{ inputWrapper: 'border-default-200 h-10 bg-default-100', input: 'text-sm' }} />
+                  <Input
+                    disabled
+                    classNames={{
+                      inputWrapper: "border-default-200 h-10 bg-default-100",
+                      input: "text-sm",
+                    }}
+                    type="text"
+                    value={selected?.label || ""}
+                    variant="bordered"
+                  />
                 );
               })()}
             </div>
@@ -332,16 +501,24 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
+                classNames={{
+                  input: "text-sm",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
+                }}
                 placeholder="Enter event title"
+                type="text"
                 value={eventTitle}
-                onChange={(e) => setEventTitle((e.target as HTMLInputElement).value)}
-                onBlur={() => setTitleTouched(true)}
                 variant="bordered"
-                classNames={{ input: "text-sm", inputWrapper: "border-default-200 hover:border-default-400 h-10" }}
+                onBlur={() => setTitleTouched(true)}
+                onChange={(e) =>
+                  setEventTitle((e.target as HTMLInputElement).value)
+                }
               />
               {titleTouched && !eventTitle.trim() && (
-                <p className="text-danger text-xs mt-1">Event title is required.</p>
+                <p className="text-danger text-xs mt-1">
+                  Event title is required.
+                </p>
               )}
             </div>
 
@@ -352,15 +529,16 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="e.g. Basic Life Support, Infection Control"
-                value={trainingType}
-                onChange={(e) => setTrainingType(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="e.g. Basic Life Support, Infection Control"
+                type="text"
+                value={trainingType}
+                variant="bordered"
+                onChange={(e) => setTrainingType(e.target.value)}
               />
             </div>
 
@@ -369,39 +547,56 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
               <div className="col-span-1">
                 <label className="text-sm font-medium mb-1.5 block">Date</label>
                 <DatePicker
-                  value={date}
-                  onChange={setDate}
-                  granularity="day"
                   hideTimeZone
-                  variant="bordered"
                   classNames={{
                     base: "w-full",
-                    inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
                     input: "text-sm",
                   }}
+                  granularity="day"
+                  value={date}
+                  variant="bordered"
+                  onChange={setDate}
                 />
                 {dateError && (
                   <p className="text-danger text-xs mt-1">{dateError}</p>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Start time</label>
+                <label className="text-sm font-medium mb-1.5 block">
+                  Start time
+                </label>
                 <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
                   type="time"
                   value={startTime}
-                  onChange={(e) => setStartTime((e.target as HTMLInputElement).value)}
                   variant="bordered"
-                  classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }}
+                  onChange={(e) =>
+                    setStartTime((e.target as HTMLInputElement).value)
+                  }
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">End time</label>
+                <label className="text-sm font-medium mb-1.5 block">
+                  End time
+                </label>
                 <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
                   type="time"
                   value={endTime}
-                  onChange={(e) => setEndTime((e.target as HTMLInputElement).value)}
                   variant="bordered"
-                  classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }}
+                  onChange={(e) =>
+                    setEndTime((e.target as HTMLInputElement).value)
+                  }
                 />
               </div>
             </div>
@@ -413,15 +608,16 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="200"
-                value={numberOfParticipants}
-                onChange={(e) => setNumberOfParticipants(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="200"
+                type="text"
+                value={numberOfParticipants}
+                variant="bordered"
+                onChange={(e) => setNumberOfParticipants(e.target.value)}
               />
             </div>
 
@@ -431,15 +627,15 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                 Event Description
               </label>
               <Textarea
-                placeholder="The event is about..."
-                value={eventDescription}
-                onChange={(e) => setEventDescription(e.target.value)}
-                variant="bordered"
-                minRows={4}
                 classNames={{
                   input: "text-sm",
                   inputWrapper: "border-default-200 hover:border-default-400",
                 }}
+                minRows={4}
+                placeholder="The event is about..."
+                value={eventDescription}
+                variant="bordered"
+                onChange={(e) => setEventDescription(e.target.value)}
               />
             </div>
 
@@ -450,26 +646,53 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="Enter location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="Enter location"
+                type="text"
+                value={location}
+                variant="bordered"
+                onChange={(e) => setLocation(e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Contact Email<span className="text-danger ml-1">*</span></label>
-                <Input type="email" placeholder="email@example.com" value={email} onChange={(e) => setEmail(e.target.value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Contact Email<span className="text-danger ml-1">*</span>
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  placeholder="email@example.com"
+                  type="email"
+                  value={email}
+                  variant="bordered"
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Contact Number<span className="text-danger ml-1">*</span></label>
-                <Input type="tel" placeholder="09xxxxxxxxx" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Contact Number<span className="text-danger ml-1">*</span>
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  placeholder="09xxxxxxxxx"
+                  type="tel"
+                  value={contactNumber}
+                  variant="bordered"
+                  onChange={(e) => setContactNumber(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -483,21 +706,17 @@ export const CreateTrainingEventModal: React.FC<CreateTrainingEventModalProps> =
         </ModalBody>
 
         <ModalFooter>
-          <Button
-            variant="bordered"
-            onPress={onClose}
-            className="font-medium"
-          >
+          <Button className="font-medium" variant="bordered" onPress={onClose}>
             Cancel
           </Button>
           <Button
-            color="default"
-            onPress={handleCreate}
-            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
             aria-busy={!!isSubmitting}
+            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+            color="default"
+            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
+            onPress={handleCreate}
           >
-            {isSubmitting ? 'Creating...' : 'Create Event'}
+            {isSubmitting ? "Creating..." : "Create Event"}
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -530,13 +749,9 @@ interface BloodDriveEventData {
  * CreateBloodDriveEventModal Component
  * Modal for creating a blood drive event
  */
-export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  isSubmitting,
-  error,
-}) => {
+export const CreateBloodDriveEventModal: React.FC<
+  CreateBloodDriveEventModalProps
+> = ({ isOpen, onClose, onConfirm, isSubmitting, error }) => {
   const [coordinator, setCoordinator] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [titleTouched, setTitleTouched] = useState(false);
@@ -556,82 +771,162 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
     { key: "bob", label: "Bob Johnson" },
   ];
 
-  const [coordinatorOptions, setCoordinatorOptions] = useState<{ key: string; label: string }[]>([]);
+  const [coordinatorOptions, setCoordinatorOptions] = useState<
+    { key: string; label: string }[]
+  >([]);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   useEffect(() => {
     const fetchCoordinators = async () => {
       try {
         const rawUser = localStorage.getItem("unite_user");
-        const token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+        const token =
+          localStorage.getItem("unite_token") ||
+          sessionStorage.getItem("unite_token");
         const headers: any = { "Content-Type": "application/json" };
+
         if (token) headers["Authorization"] = `Bearer ${token}`;
         const user = rawUser ? JSON.parse(rawUser) : null;
-        const info = (() => { try { return getUserInfo() } catch (e) { return null } })()
+        const info = (() => {
+          try {
+            return getUserInfo();
+          } catch (e) {
+            return null;
+          }
+        })();
 
         const isAdmin = !!(
           (info && info.isAdmin) ||
-          (user && (
-            (user.staff_type && String(user.staff_type).toLowerCase().includes('admin')) ||
-            (user.role && String(user.role).toLowerCase().includes('admin'))
-          ))
+          (user &&
+            ((user.staff_type &&
+              String(user.staff_type).toLowerCase().includes("admin")) ||
+              (user.role && String(user.role).toLowerCase().includes("admin"))))
         );
 
         if (user && isAdmin) {
-          const res = await fetch(`${API_URL}/api/coordinators`, { headers, credentials: 'include' });
+          const res = await fetch(`${API_URL}/api/coordinators`, {
+            headers,
+            credentials: "include",
+          });
           const body = await res.json();
+
           if (res.ok) {
             const list = body.data || body.coordinators || body;
             const opts = (Array.isArray(list) ? list : []).map((c: any) => {
               const staff = c.Staff || c.staff || null;
               const district = c.District || c.district || null;
-              const fullName = staff ? [staff.First_Name, staff.Middle_Name, staff.Last_Name].filter(Boolean).join(' ').trim() : (c.StaffName || c.label || '');
-              const districtLabel = district?.District_Number ? `District ${district.District_Number}` : (district?.District_Name || '');
+              const fullName = staff
+                ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim()
+                : c.StaffName || c.label || "";
+              const districtLabel = district?.District_Number
+                ? `District ${district.District_Number}`
+                : district?.District_Name || "";
+
               return {
                 key: c.Coordinator_ID || (staff && staff.ID) || c.id,
-                label: `${fullName}${districtLabel ? ' - ' + districtLabel : ''}`
+                label: `${fullName}${districtLabel ? " - " + districtLabel : ""}`,
               };
             });
+
             setCoordinatorOptions(opts);
+
             return;
           }
         }
 
         if (user) {
-          const candidateIds: Array<string|number|undefined> = [];
-          if ((user.staff_type && String(user.staff_type).toLowerCase().includes('coordinator')) || (info && String(info.role || '').toLowerCase().includes('coordinator'))) candidateIds.push(user.id || info?.raw?.id);
-          candidateIds.push(user.Coordinator_ID, user.CoordinatorId, user.CoordinatorID, user.role_data?.coordinator_id, user.MadeByCoordinatorID, info?.raw?.Coordinator_ID, info?.raw?.CoordinatorId);
+          const candidateIds: Array<string | number | undefined> = [];
+
+          if (
+            (user.staff_type &&
+              String(user.staff_type).toLowerCase().includes("coordinator")) ||
+            (info &&
+              String(info.role || "")
+                .toLowerCase()
+                .includes("coordinator"))
+          )
+            candidateIds.push(user.id || info?.raw?.id);
+          candidateIds.push(
+            user.Coordinator_ID,
+            user.CoordinatorId,
+            user.CoordinatorID,
+            user.role_data?.coordinator_id,
+            user.MadeByCoordinatorID,
+            info?.raw?.Coordinator_ID,
+            info?.raw?.CoordinatorId,
+          );
 
           let coordId = candidateIds.find(Boolean) as string | undefined;
+
           if (!coordId) {
             try {
-              const t = token || (typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null)
-              const payload = decodeJwt(t)
-              if (payload) coordId = payload.id || payload.ID || payload.Coordinator_ID || payload.coordinator_id || coordId
-            } catch (e) { }
+              const t =
+                token ||
+                (typeof window !== "undefined"
+                  ? localStorage.getItem("unite_token") ||
+                    sessionStorage.getItem("unite_token")
+                  : null);
+              const payload = decodeJwt(t);
+
+              if (payload)
+                coordId =
+                  payload.id ||
+                  payload.ID ||
+                  payload.Coordinator_ID ||
+                  payload.coordinator_id ||
+                  coordId;
+            } catch (e) {}
           }
 
           if (coordId) {
             try {
               let resolvedCoordId = String(coordId);
+
               if (/^stkh_/i.test(resolvedCoordId)) {
                 // try to resolve stakeholder -> coordinator id; if that fails, fall back to any Coordinator_ID present
                 let resolvedFromStakeholder = false;
+
                 try {
-                  const stRes = await fetch(`${API_URL}/api/stakeholders/${encodeURIComponent(resolvedCoordId)}`, { headers, credentials: 'include' });
+                  const stRes = await fetch(
+                    `${API_URL}/api/stakeholders/${encodeURIComponent(resolvedCoordId)}`,
+                    { headers, credentials: "include" },
+                  );
                   const stBody = await stRes.json();
+
                   if (stRes.ok && stBody.data) {
                     const stakeholder = stBody.data;
-                    resolvedCoordId = stakeholder.Coordinator_ID || stakeholder.CoordinatorId || stakeholder.coordinator_id || resolvedCoordId;
-                    resolvedFromStakeholder = !!(stakeholder.Coordinator_ID || stakeholder.CoordinatorId || stakeholder.coordinator_id);
+
+                    resolvedCoordId =
+                      stakeholder.Coordinator_ID ||
+                      stakeholder.CoordinatorId ||
+                      stakeholder.coordinator_id ||
+                      resolvedCoordId;
+                    resolvedFromStakeholder = !!(
+                      stakeholder.Coordinator_ID ||
+                      stakeholder.CoordinatorId ||
+                      stakeholder.coordinator_id
+                    );
                   }
                 } catch (e) {
-                  console.warn('Failed to fetch stakeholder to resolve coordinator id', resolvedCoordId, e);
+                  console.warn(
+                    "Failed to fetch stakeholder to resolve coordinator id",
+                    resolvedCoordId,
+                    e,
+                  );
                 }
 
                 if (!resolvedFromStakeholder) {
                   // try local user fields and token payload for coordinator id
-                  const fallback = user?.Coordinator_ID || user?.CoordinatorId || user?.CoordinatorID || info?.raw?.Coordinator_ID || info?.raw?.CoordinatorId;
+                  const fallback =
+                    user?.Coordinator_ID ||
+                    user?.CoordinatorId ||
+                    user?.CoordinatorID ||
+                    info?.raw?.Coordinator_ID ||
+                    info?.raw?.CoordinatorId;
+
                   if (fallback) {
                     resolvedCoordId = fallback;
                   } else {
@@ -641,21 +936,46 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 }
               }
 
-              const res = await fetch(`${API_URL}/api/coordinators/${encodeURIComponent(resolvedCoordId)}`, { headers, credentials: 'include' });
+              const res = await fetch(
+                `${API_URL}/api/coordinators/${encodeURIComponent(resolvedCoordId)}`,
+                { headers, credentials: "include" },
+              );
               const body = await res.json();
+
               if (res.ok && body.data) {
-                const coord = body.data.coordinator || body.data || body.coordinator || body;
+                const coord =
+                  body.data.coordinator ||
+                  body.data ||
+                  body.coordinator ||
+                  body;
                 const staff = coord?.Staff || null;
-                const fullName = staff ? [staff.First_Name, staff.Middle_Name, staff.Last_Name].filter(Boolean).join(' ').trim() : '';
-                const districtLabel = coord?.District?.District_Number ? `District ${coord.District.District_Number}` : (coord?.District?.District_Name || '');
-                const name = `${fullName}${districtLabel ? ' - ' + districtLabel : ''}`;
-                setCoordinatorOptions([{ key: coord?.Coordinator_ID || resolvedCoordId, label: name }]);
+                const fullName = staff
+                  ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim()
+                  : "";
+                const districtLabel = coord?.District?.District_Number
+                  ? `District ${coord.District.District_Number}`
+                  : coord?.District?.District_Name || "";
+                const name = `${fullName}${districtLabel ? " - " + districtLabel : ""}`;
+
+                setCoordinatorOptions([
+                  {
+                    key: coord?.Coordinator_ID || resolvedCoordId,
+                    label: name,
+                  },
+                ]);
                 setCoordinator(coord?.Coordinator_ID || resolvedCoordId);
               }
-            } catch (e) { console.error('Failed to fetch coordinator by id', coordId, e); }
+            } catch (e) {
+              console.error("Failed to fetch coordinator by id", coordId, e);
+            }
           }
         }
-      } catch (err) { console.error('Failed to fetch coordinators', err); }
+      } catch (err) {
+        console.error("Failed to fetch coordinators", err);
+      }
     };
 
     if (isOpen) fetchCoordinators();
@@ -665,16 +985,18 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
   useEffect(() => {
     if (date) {
       const selected = new Date(date);
-      selected.setHours(0,0,0,0);
+
+      selected.setHours(0, 0, 0, 0);
       const today = new Date();
-      today.setHours(0,0,0,0);
+
+      today.setHours(0, 0, 0, 0);
       if (selected.getTime() < today.getTime()) {
-        setDateError('Event date cannot be in the past');
+        setDateError("Event date cannot be in the past");
       } else {
-        setDateError('');
+        setDateError("");
       }
     } else {
-      setDateError('');
+      setDateError("");
     }
   }, [date]);
 
@@ -682,6 +1004,7 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
     // Validate required fields
     if (!eventTitle.trim()) {
       setTitleTouched(true);
+
       return;
     }
 
@@ -692,16 +1015,20 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
 
     let startISO = "";
     let endISO = "";
+
     if (date) {
       const d = new Date(date);
+
       if (startTime) {
         const [sh, sm] = startTime.split(":").map((s) => parseInt(s, 10));
+
         d.setHours(sh || 0, sm || 0, 0, 0);
         startISO = d.toISOString();
       }
       if (endTime) {
         const e = new Date(date);
         const [eh, em] = endTime.split(":").map((s) => parseInt(s, 10));
+
         e.setHours(eh || 0, em || 0, 0, 0);
         endISO = e.toISOString();
       }
@@ -719,21 +1046,31 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
       email,
       contactNumber,
     };
+
     onConfirm(eventData);
     // parent will close modal after create completes
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="2xl" placement="center" scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      placement="center"
+      scrollBehavior="inside"
+      size="2xl"
+      onClose={onClose}
+    >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3 pb-4">
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
             <Droplet className="w-5 h-5 text-default-600" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold">Create a blood drive event</h2>
+            <h2 className="text-xl font-semibold">
+              Create a blood drive event
+            </h2>
             <p className="text-xs text-default-500 font-normal mt-0.5">
-              Start providing your information by selecting your blood type. Add details below to proceed.
+              Start providing your information by selecting your blood type. Add
+              details below to proceed.
             </p>
           </div>
         </ModalHeader>
@@ -747,35 +1084,58 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 <span className="text-danger ml-1">*</span>
               </label>
               {(() => {
-                const rawUser = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+                const rawUser =
+                  typeof window !== "undefined"
+                    ? localStorage.getItem("unite_user")
+                    : null;
                 const user = rawUser ? JSON.parse(rawUser) : null;
                 const isAdmin = !!(
-                  user && (
-                    (user.staff_type && String(user.staff_type).toLowerCase().includes('admin')) ||
-                    (user.role && String(user.role).toLowerCase().includes('admin'))
-                  )
+                  user &&
+                  ((user.staff_type &&
+                    String(user.staff_type).toLowerCase().includes("admin")) ||
+                    (user.role &&
+                      String(user.role).toLowerCase().includes("admin")))
                 );
 
                 if (isAdmin) {
-                  const availableCount = (coordinatorOptions?.length || 0) + (coordinators?.length || 0);
+                  const availableCount =
+                    (coordinatorOptions?.length || 0) +
+                    (coordinators?.length || 0);
+
                   if (availableCount === 0) {
                     return (
-                      <Input type="text" value={"No coordinators available"} disabled variant="bordered" classNames={{ inputWrapper: 'border-default-200 h-10 bg-default-100', input: 'text-sm' }} />
+                      <Input
+                        disabled
+                        classNames={{
+                          inputWrapper:
+                            "border-default-200 h-10 bg-default-100",
+                          input: "text-sm",
+                        }}
+                        type="text"
+                        value={"No coordinators available"}
+                        variant="bordered"
+                      />
                     );
                   }
 
                   return (
                     <Select
-                      placeholder="Select one"
-                      selectedKeys={coordinator ? [coordinator] : []}
-                      onSelectionChange={(keys) => setCoordinator(Array.from(keys)[0] as string)}
-                      variant="bordered"
                       classNames={{
-                        trigger: "border-default-200 hover:border-default-400 h-10",
+                        trigger:
+                          "border-default-200 hover:border-default-400 h-10",
                         value: "text-sm",
                       }}
+                      placeholder="Select one"
+                      selectedKeys={coordinator ? [coordinator] : []}
+                      variant="bordered"
+                      onSelectionChange={(keys) =>
+                        setCoordinator(Array.from(keys)[0] as string)
+                      }
                     >
-                      {(coordinatorOptions.length ? coordinatorOptions : coordinators).map((coord) => (
+                      {(coordinatorOptions.length
+                        ? coordinatorOptions
+                        : coordinators
+                      ).map((coord) => (
                         <SelectItem key={coord.key}>{coord.label}</SelectItem>
                       ))}
                     </Select>
@@ -783,8 +1143,18 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 }
 
                 const selected = coordinatorOptions[0];
+
                 return (
-                  <Input type="text" value={selected?.label || ''} disabled variant="bordered" classNames={{ inputWrapper: 'border-default-200 h-10 bg-default-100', input: 'text-sm' }} />
+                  <Input
+                    disabled
+                    classNames={{
+                      inputWrapper: "border-default-200 h-10 bg-default-100",
+                      input: "text-sm",
+                    }}
+                    type="text"
+                    value={selected?.label || ""}
+                    variant="bordered"
+                  />
                 );
               })()}
             </div>
@@ -796,16 +1166,24 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
+                classNames={{
+                  input: "text-sm",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
+                }}
                 placeholder="Enter event title"
+                type="text"
                 value={eventTitle}
-                onChange={(e) => setEventTitle((e.target as HTMLInputElement).value)}
-                onBlur={() => setTitleTouched(true)}
                 variant="bordered"
-                classNames={{ input: "text-sm", inputWrapper: "border-default-200 hover:border-default-400 h-10" }}
+                onBlur={() => setTitleTouched(true)}
+                onChange={(e) =>
+                  setEventTitle((e.target as HTMLInputElement).value)
+                }
               />
               {titleTouched && !eventTitle.trim() && (
-                <p className="text-danger text-xs mt-1">Event title is required.</p>
+                <p className="text-danger text-xs mt-1">
+                  Event title is required.
+                </p>
               )}
             </div>
 
@@ -813,24 +1191,57 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
               <div className="col-span-1">
                 <label className="text-sm font-medium mb-1.5 block">Date</label>
                 <DatePicker
-                  value={date}
-                  onChange={setDate}
-                  granularity="day"
                   hideTimeZone
+                  classNames={{
+                    base: "w-full",
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  granularity="day"
+                  value={date}
                   variant="bordered"
-                  classNames={{ base: "w-full", inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }}
+                  onChange={setDate}
                 />
                 {dateError && (
                   <p className="text-danger text-xs mt-1">{dateError}</p>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Start time</label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Start time
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  type="time"
+                  value={startTime}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setStartTime((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">End time</label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  End time
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  type="time"
+                  value={endTime}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setEndTime((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
             </div>
 
@@ -841,15 +1252,16 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="Enter location"
-                value={goalCount}
-                onChange={(e) => setGoalCount(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="Enter location"
+                type="text"
+                value={goalCount}
+                variant="bordered"
+                onChange={(e) => setGoalCount(e.target.value)}
               />
             </div>
 
@@ -859,15 +1271,15 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 Event Description
               </label>
               <Textarea
-                placeholder="The event is about..."
-                value={eventDescription}
-                onChange={(e) => setEventDescription(e.target.value)}
-                variant="bordered"
-                minRows={4}
                 classNames={{
                   input: "text-sm",
                   inputWrapper: "border-default-200 hover:border-default-400",
                 }}
+                minRows={4}
+                placeholder="The event is about..."
+                value={eventDescription}
+                variant="bordered"
+                onChange={(e) => setEventDescription(e.target.value)}
               />
             </div>
 
@@ -878,26 +1290,53 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="Enter location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="Enter location"
+                type="text"
+                value={location}
+                variant="bordered"
+                onChange={(e) => setLocation(e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Contact Email<span className="text-danger ml-1">*</span></label>
-                <Input type="email" placeholder="email@example.com" value={email} onChange={(e) => setEmail(e.target.value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Contact Email<span className="text-danger ml-1">*</span>
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  placeholder="email@example.com"
+                  type="email"
+                  value={email}
+                  variant="bordered"
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Contact Number<span className="text-danger ml-1">*</span></label>
-                <Input type="tel" placeholder="09xxxxxxxxx" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Contact Number<span className="text-danger ml-1">*</span>
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  placeholder="09xxxxxxxxx"
+                  type="tel"
+                  value={contactNumber}
+                  variant="bordered"
+                  onChange={(e) => setContactNumber(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -911,21 +1350,17 @@ export const CreateBloodDriveEventModal: React.FC<CreateBloodDriveEventModalProp
         </ModalBody>
 
         <ModalFooter>
-          <Button
-            variant="bordered"
-            onPress={onClose}
-            className="font-medium"
-          >
+          <Button className="font-medium" variant="bordered" onPress={onClose}>
             Cancel
           </Button>
           <Button
-            color="default"
-            onPress={handleCreate}
-            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
             aria-busy={!!isSubmitting}
+            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+            color="default"
+            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
+            onPress={handleCreate}
           >
-            {isSubmitting ? 'Creating...' : 'Create Event'}
+            {isSubmitting ? "Creating..." : "Create Event"}
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -959,13 +1394,9 @@ interface AdvocacyEventData {
  * CreateAdvocacyEventModal Component
  * Modal for creating an advocacy event
  */
-export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  isSubmitting,
-  error,
-}) => {
+export const CreateAdvocacyEventModal: React.FC<
+  CreateAdvocacyEventModalProps
+> = ({ isOpen, onClose, onConfirm, isSubmitting, error }) => {
   const [coordinator, setCoordinator] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [titleTouched, setTitleTouched] = useState(false);
@@ -986,82 +1417,162 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
     { key: "bob", label: "Bob Johnson" },
   ];
 
-  const [coordinatorOptions, setCoordinatorOptions] = useState<{ key: string; label: string }[]>([]);
+  const [coordinatorOptions, setCoordinatorOptions] = useState<
+    { key: string; label: string }[]
+  >([]);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   useEffect(() => {
     const fetchCoordinators = async () => {
       try {
         const rawUser = localStorage.getItem("unite_user");
-        const token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+        const token =
+          localStorage.getItem("unite_token") ||
+          sessionStorage.getItem("unite_token");
         const headers: any = { "Content-Type": "application/json" };
+
         if (token) headers["Authorization"] = `Bearer ${token}`;
         const user = rawUser ? JSON.parse(rawUser) : null;
-        const info = (() => { try { return getUserInfo() } catch (e) { return null } })()
+        const info = (() => {
+          try {
+            return getUserInfo();
+          } catch (e) {
+            return null;
+          }
+        })();
 
         const isAdmin = !!(
           (info && info.isAdmin) ||
-          (user && (
-            (user.staff_type && String(user.staff_type).toLowerCase().includes('admin')) ||
-            (user.role && String(user.role).toLowerCase().includes('admin'))
-          ))
+          (user &&
+            ((user.staff_type &&
+              String(user.staff_type).toLowerCase().includes("admin")) ||
+              (user.role && String(user.role).toLowerCase().includes("admin"))))
         );
 
         if (user && isAdmin) {
-          const res = await fetch(`${API_URL}/api/coordinators`, { headers, credentials: 'include' });
+          const res = await fetch(`${API_URL}/api/coordinators`, {
+            headers,
+            credentials: "include",
+          });
           const body = await res.json();
+
           if (res.ok) {
             const list = body.data || body.coordinators || body;
             const opts = (Array.isArray(list) ? list : []).map((c: any) => {
               const staff = c.Staff || c.staff || null;
               const district = c.District || c.district || null;
-              const fullName = staff ? [staff.First_Name, staff.Middle_Name, staff.Last_Name].filter(Boolean).join(' ').trim() : (c.StaffName || c.label || '');
-              const districtLabel = district?.District_Number ? `District ${district.District_Number}` : (district?.District_Name || '');
+              const fullName = staff
+                ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim()
+                : c.StaffName || c.label || "";
+              const districtLabel = district?.District_Number
+                ? `District ${district.District_Number}`
+                : district?.District_Name || "";
+
               return {
                 key: c.Coordinator_ID || (staff && staff.ID) || c.id,
-                label: `${fullName}${districtLabel ? ' - ' + districtLabel : ''}`
+                label: `${fullName}${districtLabel ? " - " + districtLabel : ""}`,
               };
             });
+
             setCoordinatorOptions(opts);
+
             return;
           }
         }
 
         if (user) {
-          const candidateIds: Array<string|number|undefined> = [];
-          if ((user.staff_type && String(user.staff_type).toLowerCase().includes('coordinator')) || (info && String(info.role || '').toLowerCase().includes('coordinator'))) candidateIds.push(user.id || info?.raw?.id);
-          candidateIds.push(user.Coordinator_ID, user.CoordinatorId, user.CoordinatorID, user.role_data?.coordinator_id, user.MadeByCoordinatorID, info?.raw?.Coordinator_ID, info?.raw?.CoordinatorId);
+          const candidateIds: Array<string | number | undefined> = [];
+
+          if (
+            (user.staff_type &&
+              String(user.staff_type).toLowerCase().includes("coordinator")) ||
+            (info &&
+              String(info.role || "")
+                .toLowerCase()
+                .includes("coordinator"))
+          )
+            candidateIds.push(user.id || info?.raw?.id);
+          candidateIds.push(
+            user.Coordinator_ID,
+            user.CoordinatorId,
+            user.CoordinatorID,
+            user.role_data?.coordinator_id,
+            user.MadeByCoordinatorID,
+            info?.raw?.Coordinator_ID,
+            info?.raw?.CoordinatorId,
+          );
 
           let coordId = candidateIds.find(Boolean) as string | undefined;
+
           if (!coordId) {
             try {
-              const t = token || (typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null)
-              const payload = decodeJwt(t)
-              if (payload) coordId = payload.id || payload.ID || payload.Coordinator_ID || payload.coordinator_id || coordId
-            } catch (e) { }
+              const t =
+                token ||
+                (typeof window !== "undefined"
+                  ? localStorage.getItem("unite_token") ||
+                    sessionStorage.getItem("unite_token")
+                  : null);
+              const payload = decodeJwt(t);
+
+              if (payload)
+                coordId =
+                  payload.id ||
+                  payload.ID ||
+                  payload.Coordinator_ID ||
+                  payload.coordinator_id ||
+                  coordId;
+            } catch (e) {}
           }
 
           if (coordId) {
             try {
               let resolvedCoordId = String(coordId);
+
               if (/^stkh_/i.test(resolvedCoordId)) {
                 // try to resolve stakeholder -> coordinator id; if that fails, fall back to any Coordinator_ID present
                 let resolvedFromStakeholder = false;
+
                 try {
-                  const stRes = await fetch(`${API_URL}/api/stakeholders/${encodeURIComponent(resolvedCoordId)}`, { headers, credentials: 'include' });
+                  const stRes = await fetch(
+                    `${API_URL}/api/stakeholders/${encodeURIComponent(resolvedCoordId)}`,
+                    { headers, credentials: "include" },
+                  );
                   const stBody = await stRes.json();
+
                   if (stRes.ok && stBody.data) {
                     const stakeholder = stBody.data;
-                    resolvedCoordId = stakeholder.Coordinator_ID || stakeholder.CoordinatorId || stakeholder.coordinator_id || resolvedCoordId;
-                    resolvedFromStakeholder = !!(stakeholder.Coordinator_ID || stakeholder.CoordinatorId || stakeholder.coordinator_id);
+
+                    resolvedCoordId =
+                      stakeholder.Coordinator_ID ||
+                      stakeholder.CoordinatorId ||
+                      stakeholder.coordinator_id ||
+                      resolvedCoordId;
+                    resolvedFromStakeholder = !!(
+                      stakeholder.Coordinator_ID ||
+                      stakeholder.CoordinatorId ||
+                      stakeholder.coordinator_id
+                    );
                   }
                 } catch (e) {
-                  console.warn('Failed to fetch stakeholder to resolve coordinator id', resolvedCoordId, e);
+                  console.warn(
+                    "Failed to fetch stakeholder to resolve coordinator id",
+                    resolvedCoordId,
+                    e,
+                  );
                 }
 
                 if (!resolvedFromStakeholder) {
                   // try local user fields and token payload for coordinator id
-                  const fallback = user?.Coordinator_ID || user?.CoordinatorId || user?.CoordinatorID || info?.raw?.Coordinator_ID || info?.raw?.CoordinatorId;
+                  const fallback =
+                    user?.Coordinator_ID ||
+                    user?.CoordinatorId ||
+                    user?.CoordinatorID ||
+                    info?.raw?.Coordinator_ID ||
+                    info?.raw?.CoordinatorId;
+
                   if (fallback) {
                     resolvedCoordId = fallback;
                   } else {
@@ -1071,21 +1582,46 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 }
               }
 
-              const res = await fetch(`${API_URL}/api/coordinators/${encodeURIComponent(resolvedCoordId)}`, { headers, credentials: 'include' });
+              const res = await fetch(
+                `${API_URL}/api/coordinators/${encodeURIComponent(resolvedCoordId)}`,
+                { headers, credentials: "include" },
+              );
               const body = await res.json();
+
               if (res.ok && body.data) {
-                const coord = body.data.coordinator || body.data || body.coordinator || body;
+                const coord =
+                  body.data.coordinator ||
+                  body.data ||
+                  body.coordinator ||
+                  body;
                 const staff = coord?.Staff || null;
-                const fullName = staff ? [staff.First_Name, staff.Middle_Name, staff.Last_Name].filter(Boolean).join(' ').trim() : '';
-                const districtLabel = coord?.District?.District_Number ? `District ${coord.District.District_Number}` : (coord?.District?.District_Name || '');
-                const name = `${fullName}${districtLabel ? ' - ' + districtLabel : ''}`;
-                setCoordinatorOptions([{ key: coord?.Coordinator_ID || resolvedCoordId, label: name }]);
+                const fullName = staff
+                  ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim()
+                  : "";
+                const districtLabel = coord?.District?.District_Number
+                  ? `District ${coord.District.District_Number}`
+                  : coord?.District?.District_Name || "";
+                const name = `${fullName}${districtLabel ? " - " + districtLabel : ""}`;
+
+                setCoordinatorOptions([
+                  {
+                    key: coord?.Coordinator_ID || resolvedCoordId,
+                    label: name,
+                  },
+                ]);
                 setCoordinator(coord?.Coordinator_ID || resolvedCoordId);
               }
-            } catch (e) { console.error('Failed to fetch coordinator by id', coordId, e); }
+            } catch (e) {
+              console.error("Failed to fetch coordinator by id", coordId, e);
+            }
           }
         }
-      } catch (err) { console.error('Failed to fetch coordinators', err); }
+      } catch (err) {
+        console.error("Failed to fetch coordinators", err);
+      }
     };
 
     if (isOpen) fetchCoordinators();
@@ -1095,16 +1631,18 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
   useEffect(() => {
     if (date) {
       const selected = new Date(date);
-      selected.setHours(0,0,0,0);
+
+      selected.setHours(0, 0, 0, 0);
       const today = new Date();
-      today.setHours(0,0,0,0);
+
+      today.setHours(0, 0, 0, 0);
       if (selected.getTime() < today.getTime()) {
-        setDateError('Event date cannot be in the past');
+        setDateError("Event date cannot be in the past");
       } else {
-        setDateError('');
+        setDateError("");
       }
     } else {
-      setDateError('');
+      setDateError("");
     }
   }, [date]);
 
@@ -1119,6 +1657,7 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
     // Validate required fields
     if (!eventTitle.trim()) {
       setTitleTouched(true);
+
       return;
     }
 
@@ -1129,16 +1668,20 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
 
     let startISO = "";
     let endISO = "";
+
     if (date) {
       const d = new Date(date);
+
       if (startTime) {
         const [sh, sm] = startTime.split(":").map((s) => parseInt(s, 10));
+
         d.setHours(sh || 0, sm || 0, 0, 0);
         startISO = d.toISOString();
       }
       if (endTime) {
         const e = new Date(date);
         const [eh, em] = endTime.split(":").map((s) => parseInt(s, 10));
+
         e.setHours(eh || 0, em || 0, 0, 0);
         endISO = e.toISOString();
       }
@@ -1157,12 +1700,19 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
       email,
       contactNumber,
     };
+
     onConfirm(eventData);
     // parent will close modal after create completes
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="2xl" placement="center" scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      placement="center"
+      scrollBehavior="inside"
+      size="2xl"
+      onClose={onClose}
+    >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3 pb-4">
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
@@ -1171,7 +1721,8 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
           <div>
             <h2 className="text-xl font-semibold">Create an advocacy event</h2>
             <p className="text-xs text-default-500 font-normal mt-0.5">
-              Start providing your information by selecting your blood type. Add details below to proceed.
+              Start providing your information by selecting your blood type. Add
+              details below to proceed.
             </p>
           </div>
         </ModalHeader>
@@ -1185,35 +1736,58 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               {(() => {
-                const rawUser = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+                const rawUser =
+                  typeof window !== "undefined"
+                    ? localStorage.getItem("unite_user")
+                    : null;
                 const user = rawUser ? JSON.parse(rawUser) : null;
                 const isAdmin = !!(
-                  user && (
-                    (user.staff_type && String(user.staff_type).toLowerCase().includes('admin')) ||
-                    (user.role && String(user.role).toLowerCase().includes('admin'))
-                  )
+                  user &&
+                  ((user.staff_type &&
+                    String(user.staff_type).toLowerCase().includes("admin")) ||
+                    (user.role &&
+                      String(user.role).toLowerCase().includes("admin")))
                 );
 
                 if (isAdmin) {
-                  const availableCount = (coordinatorOptions?.length || 0) + (coordinators?.length || 0);
+                  const availableCount =
+                    (coordinatorOptions?.length || 0) +
+                    (coordinators?.length || 0);
+
                   if (availableCount === 0) {
                     return (
-                      <Input type="text" value={"No coordinators available"} disabled variant="bordered" classNames={{ inputWrapper: 'border-default-200 h-10 bg-default-100', input: 'text-sm' }} />
+                      <Input
+                        disabled
+                        classNames={{
+                          inputWrapper:
+                            "border-default-200 h-10 bg-default-100",
+                          input: "text-sm",
+                        }}
+                        type="text"
+                        value={"No coordinators available"}
+                        variant="bordered"
+                      />
                     );
                   }
 
                   return (
                     <Select
-                      placeholder="Select one"
-                      selectedKeys={coordinator ? [coordinator] : []}
-                      onSelectionChange={(keys) => setCoordinator(Array.from(keys)[0] as string)}
-                      variant="bordered"
                       classNames={{
-                        trigger: "border-default-200 hover:border-default-400 h-10",
+                        trigger:
+                          "border-default-200 hover:border-default-400 h-10",
                         value: "text-sm",
                       }}
+                      placeholder="Select one"
+                      selectedKeys={coordinator ? [coordinator] : []}
+                      variant="bordered"
+                      onSelectionChange={(keys) =>
+                        setCoordinator(Array.from(keys)[0] as string)
+                      }
                     >
-                      {(coordinatorOptions.length ? coordinatorOptions : coordinators).map((coord) => (
+                      {(coordinatorOptions.length
+                        ? coordinatorOptions
+                        : coordinators
+                      ).map((coord) => (
                         <SelectItem key={coord.key}>{coord.label}</SelectItem>
                       ))}
                     </Select>
@@ -1221,31 +1795,49 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 }
 
                 const selected = coordinatorOptions[0];
+
                 return (
-                  <Input type="text" value={selected?.label || ''} disabled variant="bordered" classNames={{ inputWrapper: 'border-default-200 h-10 bg-default-100', input: 'text-sm' }} />
+                  <Input
+                    disabled
+                    classNames={{
+                      inputWrapper: "border-default-200 h-10 bg-default-100",
+                      input: "text-sm",
+                    }}
+                    type="text"
+                    value={selected?.label || ""}
+                    variant="bordered"
+                  />
                 );
               })()}
             </div>
 
-              {/* Event Title */}
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Event Title
-                  <span className="text-danger ml-1">*</span>
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Enter event title"
-                  value={eventTitle}
-                  onChange={(e) => setEventTitle((e.target as HTMLInputElement).value)}
-                  onBlur={() => setTitleTouched(true)}
-                  variant="bordered"
-                  classNames={{ input: "text-sm", inputWrapper: "border-default-200 hover:border-default-400 h-10" }}
-                />
-                {titleTouched && !eventTitle.trim() && (
-                  <p className="text-danger text-xs mt-1">Event title is required.</p>
-                )}
-              </div>
+            {/* Event Title */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                Event Title
+                <span className="text-danger ml-1">*</span>
+              </label>
+              <Input
+                classNames={{
+                  input: "text-sm",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
+                }}
+                placeholder="Enter event title"
+                type="text"
+                value={eventTitle}
+                variant="bordered"
+                onBlur={() => setTitleTouched(true)}
+                onChange={(e) =>
+                  setEventTitle((e.target as HTMLInputElement).value)
+                }
+              />
+              {titleTouched && !eventTitle.trim() && (
+                <p className="text-danger text-xs mt-1">
+                  Event title is required.
+                </p>
+              )}
+            </div>
 
             {/* Audience Type (free input) */}
             <div>
@@ -1254,37 +1846,74 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
+                classNames={{
+                  input: "text-sm",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
+                }}
                 placeholder="e.g. Students, Farmers, Community Members"
+                type="text"
                 value={audienceType}
-                onChange={(e) => setAudienceType(e.target.value)}
                 variant="bordered"
-                classNames={{ input: "text-sm", inputWrapper: "border-default-200 hover:border-default-400 h-10" }}
+                onChange={(e) => setAudienceType(e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-3 gap-3 items-end">
               <div className="col-span-1">
                 <label className="text-sm font-medium mb-1.5 block">Date</label>
-                <DatePicker 
-                  value={date} 
-                  onChange={setDate} 
-                  granularity="day" 
-                  hideTimeZone 
-                  variant="bordered" 
-                  classNames={{ base: "w-full", inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} 
+                <DatePicker
+                  hideTimeZone
+                  classNames={{
+                    base: "w-full",
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  granularity="day"
+                  value={date}
+                  variant="bordered"
+                  onChange={setDate}
                 />
                 {dateError && (
                   <p className="text-danger text-xs mt-1">{dateError}</p>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Start time</label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Start time
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  type="time"
+                  value={startTime}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setStartTime((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">End time</label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  End time
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  type="time"
+                  value={endTime}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setEndTime((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
             </div>
 
@@ -1295,15 +1924,16 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="e.g. 200"
-                value={numberOfParticipants}
-                onChange={(e) => setNumberOfParticipants(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="e.g. 200"
+                type="text"
+                value={numberOfParticipants}
+                variant="bordered"
+                onChange={(e) => setNumberOfParticipants(e.target.value)}
               />
             </div>
 
@@ -1313,15 +1943,15 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 Event Description
               </label>
               <Textarea
-                placeholder="The event is about..."
-                value={eventDescription}
-                onChange={(e) => setEventDescription(e.target.value)}
-                variant="bordered"
-                minRows={4}
                 classNames={{
                   input: "text-sm",
                   inputWrapper: "border-default-200 hover:border-default-400",
                 }}
+                minRows={4}
+                placeholder="The event is about..."
+                value={eventDescription}
+                variant="bordered"
+                onChange={(e) => setEventDescription(e.target.value)}
               />
             </div>
 
@@ -1332,26 +1962,53 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
-                type="text"
-                placeholder="Enter location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                variant="bordered"
                 classNames={{
                   input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper:
+                    "border-default-200 hover:border-default-400 h-10",
                 }}
+                placeholder="Enter location"
+                type="text"
+                value={location}
+                variant="bordered"
+                onChange={(e) => setLocation(e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Contact Email<span className="text-danger ml-1">*</span></label>
-                <Input type="email" placeholder="email@example.com" value={email} onChange={(e) => setEmail(e.target.value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Contact Email<span className="text-danger ml-1">*</span>
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  placeholder="email@example.com"
+                  type="email"
+                  value={email}
+                  variant="bordered"
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Contact Number<span className="text-danger ml-1">*</span></label>
-                <Input type="tel" placeholder="09xxxxxxxxx" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} variant="bordered" classNames={{ inputWrapper: "border-default-200 hover:border-default-400 h-10", input: "text-sm" }} />
+                <label className="text-sm font-medium mb-1.5 block">
+                  Contact Number<span className="text-danger ml-1">*</span>
+                </label>
+                <Input
+                  classNames={{
+                    inputWrapper:
+                      "border-default-200 hover:border-default-400 h-10",
+                    input: "text-sm",
+                  }}
+                  placeholder="09xxxxxxxxx"
+                  type="tel"
+                  value={contactNumber}
+                  variant="bordered"
+                  onChange={(e) => setContactNumber(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -1365,21 +2022,17 @@ export const CreateAdvocacyEventModal: React.FC<CreateAdvocacyEventModalProps> =
         </ModalBody>
 
         <ModalFooter>
-          <Button
-            variant="bordered"
-            onPress={onClose}
-            className="font-medium"
-          >
+          <Button className="font-medium" variant="bordered" onPress={onClose}>
             Cancel
           </Button>
           <Button
-            color="default"
-            onPress={handleCreate}
-            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
             aria-busy={!!isSubmitting}
+            className={`bg-black text-white font-medium ${!eventTitle.trim() || dateError || isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+            color="default"
+            disabled={!eventTitle.trim() || !!dateError || !!isSubmitting}
+            onPress={handleCreate}
           >
-            {isSubmitting ? 'Creating...' : 'Create Event'}
+            {isSubmitting ? "Creating..." : "Create Event"}
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -1399,15 +2052,15 @@ export default function EventCreationModalsDemo() {
   return (
     <div className="flex flex-col gap-4 p-8">
       <h1 className="text-2xl font-bold mb-4">Event Creation Modals</h1>
-      
+
       <div className="flex flex-wrap gap-3">
-        <Button onPress={() => setTrainingOpen(true)} color="primary">
+        <Button color="primary" onPress={() => setTrainingOpen(true)}>
           Create Training Event
         </Button>
-        <Button onPress={() => setBloodDriveOpen(true)} color="danger">
+        <Button color="danger" onPress={() => setBloodDriveOpen(true)}>
           Create Blood Drive Event
         </Button>
-        <Button onPress={() => setAdvocacyOpen(true)} color="success">
+        <Button color="success" onPress={() => setAdvocacyOpen(true)}>
           Create Advocacy Event
         </Button>
       </div>

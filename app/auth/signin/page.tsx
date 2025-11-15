@@ -6,7 +6,6 @@ import { Input } from "@heroui/input";
 import { Button } from "@heroui/button";
 import { Link } from "@heroui/link";
 import { Checkbox } from "@heroui/checkbox";
-import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function SignIn() {
@@ -27,11 +26,11 @@ export default function SignIn() {
 
     try {
       // Try staff/admin/coordinator login first
-  // Note: backend mounts auth routes at /api (not /api/auth)
+      // Note: backend mounts auth routes at /api (not /api/auth)
       let res = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -42,7 +41,7 @@ export default function SignIn() {
         res = await fetch(`${API_URL}/api/stakeholders/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: 'include',
+          credentials: "include",
           body: JSON.stringify(payload),
         });
         body = await res.json().catch(() => ({}));
@@ -51,6 +50,7 @@ export default function SignIn() {
       if (!res.ok || body.success === false) {
         setError(body.message || "Invalid credentials");
         setIsLoading(false);
+
         return;
       }
 
@@ -58,6 +58,7 @@ export default function SignIn() {
 
       // Persist auth details: token + user
       const storage = rememberMe ? localStorage : sessionStorage;
+
       if (token) storage.setItem("unite_token", token);
       if (data) storage.setItem("unite_user", JSON.stringify(data));
 
@@ -70,12 +71,22 @@ export default function SignIn() {
           role:
             data?.staff_type ||
             data?.role ||
-            (data?.Stakeholder_ID || data?.stakeholder_id || data?.Coordinator_ID ? "Stakeholder" : null),
+            (data?.Stakeholder_ID ||
+            data?.stakeholder_id ||
+            data?.Coordinator_ID
+              ? "Stakeholder"
+              : null),
           isAdmin:
             !!data?.isAdmin ||
-            String(data?.staff_type || "").toLowerCase().includes("admin") ||
-            (String(data?.role || "").toLowerCase().includes("sys") &&
-              String(data?.role || "").toLowerCase().includes("admin")),
+            String(data?.staff_type || "")
+              .toLowerCase()
+              .includes("admin") ||
+            (String(data?.role || "")
+              .toLowerCase()
+              .includes("sys") &&
+              String(data?.role || "")
+                .toLowerCase()
+                .includes("admin")),
           First_Name: data?.First_Name || data?.first_name || null,
           email: data?.Email || data?.email || null,
           id:
@@ -88,7 +99,9 @@ export default function SignIn() {
             data?.user_id ||
             null,
         };
-        if (typeof window !== "undefined") localStorage.setItem("unite_user", JSON.stringify(legacy));
+
+        if (typeof window !== "undefined")
+          localStorage.setItem("unite_user", JSON.stringify(legacy));
       } catch (e) {
         // swallow any client storage errors
       }
@@ -99,15 +112,21 @@ export default function SignIn() {
       // reliability we still perform a full navigation so SSR can read
       // HttpOnly cookies when present.
       try {
-        if (typeof window !== 'undefined') {
-          try { window.dispatchEvent(new CustomEvent('unite:auth-changed', { detail: { role: data?.role, isAdmin: data?.isAdmin } })); } catch (e) {}
+        if (typeof window !== "undefined") {
+          try {
+            window.dispatchEvent(
+              new CustomEvent("unite:auth-changed", {
+                detail: { role: data?.role, isAdmin: data?.isAdmin },
+              }),
+            );
+          } catch (e) {}
         }
       } catch (e) {}
 
       // Use a full navigation so the browser sends the HttpOnly cookie and
       // the Next.js server-layout can read it during SSR.
-      if (typeof window !== 'undefined') {
-        window.location.assign('/dashboard');
+      if (typeof window !== "undefined") {
+        window.location.assign("/dashboard");
       } else {
         router.push("/dashboard");
       }
@@ -128,53 +147,46 @@ export default function SignIn() {
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold mb-6 text-danger">Sign in</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label
-                htmlFor="email"
                 className="text-sm font-medium mb-1.5 block"
+                htmlFor="email"
               >
                 Email
-                <span className="text-danger ml-1" aria-label="required">
+                <span aria-label="required" className="text-danger ml-1">
                   *
                 </span>
               </label>
               <Input
-                id="email"
-                type="email"
-                placeholder="johndoe@email.com"
-                size="md"
-                variant="bordered"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 isRequired
                 autoComplete="email"
                 classNames={{
                   input: "text-sm",
                   inputWrapper: "border-default-200 hover:border-default-400",
                 }}
+                id="email"
+                placeholder="johndoe@email.com"
+                size="md"
+                type="email"
+                value={email}
+                variant="bordered"
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
             <div>
               <label
-                htmlFor="password"
                 className="text-sm font-medium mb-1.5 block"
+                htmlFor="password"
               >
                 Password
-                <span className="text-danger ml-1" aria-label="required">
+                <span aria-label="required" className="text-danger ml-1">
                   *
                 </span>
               </label>
               <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter password"
-                size="md"
-                variant="bordered"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 isRequired
                 autoComplete="current-password"
                 classNames={{
@@ -183,12 +195,12 @@ export default function SignIn() {
                 }}
                 endContent={
                   <button
-                    type="button"
-                    onClick={togglePasswordVisibility}
-                    className="focus:outline-none"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
+                    className="focus:outline-none"
+                    type="button"
+                    onClick={togglePasswordVisibility}
                   >
                     {showPassword ? (
                       <Eye
@@ -203,6 +215,13 @@ export default function SignIn() {
                     )}
                   </button>
                 }
+                id="password"
+                placeholder="Enter password"
+                size="md"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                variant="bordered"
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
           </div>
@@ -210,14 +229,14 @@ export default function SignIn() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               <Checkbox
-                id="remember"
-                isSelected={rememberMe}
-                onValueChange={setRememberMe}
-                size="sm"
-                color="default"
                 classNames={{
                   label: "text-sm text-danger font-medium",
                 }}
+                color="default"
+                id="remember"
+                isSelected={rememberMe}
+                size="sm"
+                onValueChange={setRememberMe}
               >
                 Keep me signed in
               </Checkbox>
@@ -227,8 +246,8 @@ export default function SignIn() {
             </div>
 
             <Link
-              href="/auth/forgot-password"
               className="text-sm text-danger font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
+              href="/auth/forgot-password"
             >
               Forgot Password?
             </Link>
@@ -242,12 +261,12 @@ export default function SignIn() {
 
           <div>
             <Button
-              type="submit"
-              size="md"
-              color="danger"
               className="w-full text-white"
-              isLoading={isLoading}
+              color="danger"
               endContent={!isLoading}
+              isLoading={isLoading}
+              size="md"
+              type="submit"
             >
               Continue
             </Button>

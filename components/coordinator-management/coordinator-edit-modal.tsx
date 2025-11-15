@@ -1,6 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
@@ -12,7 +18,12 @@ interface EditCoordinatorModalProps {
   onSaved?: () => void;
 }
 
-export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onSaved }: EditCoordinatorModalProps) {
+export default function EditCoordinatorModal({
+  isOpen,
+  onClose,
+  coordinator,
+  onSaved,
+}: EditCoordinatorModalProps) {
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -31,19 +42,48 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
   useEffect(() => {
     if (!coordinator) return;
     // coordinator may have nested Staff and District based on backend
-    const staff = coordinator.Staff || coordinator.staff || coordinator.staffData || {};
+    const staff =
+      coordinator.Staff || coordinator.staff || coordinator.staffData || {};
+
     setFirstName(staff.First_Name || staff.FirstName || staff.firstName || "");
-    setMiddleName(staff.Middle_Name || staff.MiddleName || staff.middleName || "");
+    setMiddleName(
+      staff.Middle_Name || staff.MiddleName || staff.middleName || "",
+    );
     setLastName(staff.Last_Name || staff.LastName || staff.lastName || "");
     setEmail(staff.Email || staff.email || "");
-    setPhoneNumber(staff.Phone_Number || staff.Phone_Number || staff.phoneNumber || staff.phone || "");
+    setPhoneNumber(
+      staff.Phone_Number ||
+        staff.Phone_Number ||
+        staff.phoneNumber ||
+        staff.phone ||
+        "",
+    );
 
-    const dist = coordinator.District || coordinator.District_ID || coordinator.DistrictId || coordinator.District || coordinator.district || null;
+    const dist =
+      coordinator.District ||
+      coordinator.District_ID ||
+      coordinator.DistrictId ||
+      coordinator.District ||
+      coordinator.district ||
+      null;
     // try to derive district id
-    const dId = coordinator.District_ID || coordinator.DistrictId || coordinator.DistrictId || coordinator.District?.District_ID || dist;
+    const dId =
+      coordinator.District_ID ||
+      coordinator.DistrictId ||
+      coordinator.DistrictId ||
+      coordinator.District?.District_ID ||
+      dist;
+
     setDistrictId(dId || null);
 
-    const prov = (coordinator.District && (coordinator.District.Province_Name || coordinator.District.Province)) || coordinator.Province_Name || coordinator.province || "";
+    const prov =
+      (coordinator.District &&
+        (coordinator.District.Province_Name ||
+          coordinator.District.Province)) ||
+      coordinator.Province_Name ||
+      coordinator.province ||
+      "";
+
     setProvince(prov || "");
   }, [coordinator]);
 
@@ -51,14 +91,27 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
     // fetch districts for the select dropdown
     (async () => {
       try {
-        const token = typeof window !== 'undefined' ? (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')) : null;
-        const headers: any = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`${API_URL}/api/districts?limit=1000`, { headers });
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_token") ||
+              sessionStorage.getItem("unite_token")
+            : null;
+        const headers: any = { "Content-Type": "application/json" };
+
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${API_URL}/api/districts?limit=1000`, {
+          headers,
+        });
         const text = await res.text();
         let body: any = null;
-        try { body = JSON.parse(text); } catch (e) { body = { data: [] }; }
+
+        try {
+          body = JSON.parse(text);
+        } catch (e) {
+          body = { data: [] };
+        }
         const data = body?.data || body || [];
+
         if (Array.isArray(data)) setDistricts(data);
       } catch (e) {
         // ignore
@@ -69,8 +122,16 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
   useEffect(() => {
     // when districtId changes, auto-fill province from list
     if (!districtId) return;
-    const pick = districts.find(d => (d.District_ID || d.id || d._id || String(d.District_ID) === String(districtId)));
-    if (pick) setProvince(pick.Province_Name || pick.Province || pick.province || "");
+    const pick = districts.find(
+      (d) =>
+        d.District_ID ||
+        d.id ||
+        d._id ||
+        String(d.District_ID) === String(districtId),
+    );
+
+    if (pick)
+      setProvince(pick.Province_Name || pick.Province || pick.province || "");
   }, [districtId, districts]);
 
   if (!coordinator) return null;
@@ -80,15 +141,24 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
     setIsSubmitting(true);
     setValidationErrors([]);
     try {
-      const coordId = coordinator.Coordinator_ID || coordinator.CoordinatorId || coordinator.id || coordinator._id;
-      if (!coordId) throw new Error('Coordinator id not available');
+      const coordId =
+        coordinator.Coordinator_ID ||
+        coordinator.CoordinatorId ||
+        coordinator.id ||
+        coordinator._id;
 
-      const token = localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token');
-      const headers: any = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (!coordId) throw new Error("Coordinator id not available");
+
+      const token =
+        localStorage.getItem("unite_token") ||
+        sessionStorage.getItem("unite_token");
+      const headers: any = { "Content-Type": "application/json" };
+
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
       // Build flat payload expected by backend validator and service
       const payload: any = {};
+
       if (firstName) payload.First_Name = firstName;
       // allow empty string for middle name to clear
       if (middleName !== undefined) payload.Middle_Name = middleName;
@@ -98,30 +168,46 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
       if (districtId) payload.District_ID = districtId;
       if (province !== undefined) payload.Province_Name = province;
 
-      const res = await fetch(`${API_URL}/api/coordinators/${coordId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_URL}/api/coordinators/${coordId}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      });
       const text = await res.text();
       let resp: any = null;
-      try { resp = JSON.parse(text); } catch (e) { resp = { message: text }; }
+
+      try {
+        resp = JSON.parse(text);
+      } catch (e) {
+        resp = { message: text };
+      }
       if (!res.ok) {
         if (resp && resp.errors && Array.isArray(resp.errors)) {
           setValidationErrors(resp.errors);
+
           return;
         }
-        throw new Error(resp.message || 'Failed to update coordinator');
+        throw new Error(resp.message || "Failed to update coordinator");
       }
 
       if (onSaved) onSaved();
       onClose();
     } catch (err: any) {
-      console.error('EditCoordinatorModal save error', err);
-      setValidationErrors([err?.message || 'Failed to save changes']);
+      console.error("EditCoordinatorModal save error", err);
+      setValidationErrors([err?.message || "Failed to save changes"]);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md" placement="center" scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      placement="center"
+      scrollBehavior="inside"
+      size="md"
+      onClose={onClose}
+    >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3 pb-4">
           <div>
@@ -134,26 +220,66 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="text-sm font-medium">First name</label>
-                <Input type="text" value={firstName} onChange={(e) => setFirstName((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+                <Input
+                  classNames={{ inputWrapper: "h-10" }}
+                  type="text"
+                  value={firstName}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setFirstName((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Middle name</label>
-                <Input type="text" value={middleName} onChange={(e) => setMiddleName((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+                <Input
+                  classNames={{ inputWrapper: "h-10" }}
+                  type="text"
+                  value={middleName}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setMiddleName((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Last name</label>
-                <Input type="text" value={lastName} onChange={(e) => setLastName((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+                <Input
+                  classNames={{ inputWrapper: "h-10" }}
+                  type="text"
+                  value={lastName}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setLastName((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">Contact Email</label>
-                <Input type="email" value={email} onChange={(e) => setEmail((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+                <Input
+                  classNames={{ inputWrapper: "h-10" }}
+                  type="email"
+                  value={email}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setEmail((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Contact Number</label>
-                <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber((e.target as HTMLInputElement).value)} variant="bordered" classNames={{ inputWrapper: 'h-10' }} />
+                <Input
+                  classNames={{ inputWrapper: "h-10" }}
+                  type="tel"
+                  value={phoneNumber}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setPhoneNumber((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
             </div>
 
@@ -164,10 +290,23 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
                   placeholder="Select district"
                   selectedKeys={districtId ? [String(districtId)] : []}
                   onSelectionChange={(keys: any) => {
-                    const id = Array.from(keys)[0] as string
-                    setDistrictId(id)
-                    const pick = districts.find((d) => String(d.District_ID) === String(id) || String(d.id) === String(id) || String(d._id) === String(id))
-                    if (pick) setProvince(pick.Province_Name || pick.Province || pick.province || "")
+                    const id = Array.from(keys)[0] as string;
+
+                    setDistrictId(id);
+                    const pick = districts.find(
+                      (d) =>
+                        String(d.District_ID) === String(id) ||
+                        String(d.id) === String(id) ||
+                        String(d._id) === String(id),
+                    );
+
+                    if (pick)
+                      setProvince(
+                        pick.Province_Name ||
+                          pick.Province ||
+                          pick.province ||
+                          "",
+                      );
                   }}
                 >
                   {(districts || []).map((d) => (
@@ -179,7 +318,13 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
               </div>
               <div>
                 <label className="text-sm font-medium">Province</label>
-                <Input type="text" value={province} disabled variant="bordered" classNames={{ inputWrapper: 'h-10 bg-default-100' }} />
+                <Input
+                  disabled
+                  classNames={{ inputWrapper: "h-10 bg-default-100" }}
+                  type="text"
+                  value={province}
+                  variant="bordered"
+                />
               </div>
             </div>
 
@@ -196,9 +341,16 @@ export default function EditCoordinatorModal({ isOpen, onClose, coordinator, onS
           </div>
         </ModalBody>
         <ModalFooter>
-          <Button variant="bordered" onPress={onClose}>Cancel</Button>
-          <Button color="default" onPress={handleSave} disabled={isSubmitting} className="bg-black text-white">
-            {isSubmitting ? 'Saving...' : 'Save changes'}
+          <Button variant="bordered" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-black text-white"
+            color="default"
+            disabled={isSubmitting}
+            onPress={handleSave}
+          >
+            {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
         </ModalFooter>
       </ModalContent>
