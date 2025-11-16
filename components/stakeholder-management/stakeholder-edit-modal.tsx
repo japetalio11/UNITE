@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import {
   Modal,
   ModalContent,
@@ -35,12 +36,18 @@ export default function EditStakeholderModal({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [organization, setOrganization] = useState("");
   const [cityMunicipality, setCityMunicipality] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [districts, setDistricts] = useState<any[]>([]);
   const [districtId, setDistrictId] = useState<string | null>(null);
   const [province, setProvince] = useState<string>("");
   const [selectedProvince, setSelectedProvince] = useState<string>("");
   const [municipalities, setMunicipalities] = useState<any[]>([]);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [provincesLoading, setProvincesLoading] = useState(false);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
+  const [districtsLoading, setDistrictsLoading] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -128,14 +135,21 @@ export default function EditStakeholderModal({
     // organization and city
     setOrganization(
       coordinator.Organization_Institution ||
+        coordinator.OrganizationInstitution ||
+        coordinator.organizationInstitution ||
         coordinator.Organization ||
         coordinator.organization ||
         coordinator.OrganizationName ||
         coordinator.Organization_Name ||
+        coordinator.organization_institution ||
         "",
     );
     setCityMunicipality(
-      coordinator.City_Municipality ||
+      coordinator.municipality ||
+        coordinator.Municipality ||
+        coordinator.municipality_id ||
+        coordinator.Municipality_ID ||
+        coordinator.City_Municipality ||
         coordinator.City ||
         coordinator.city ||
         coordinator.city_municipality ||
@@ -173,6 +187,98 @@ export default function EditStakeholderModal({
       }
     })();
   }, []);
+
+  // Fetch provinces to allow mapping object ids -> friendly names
+  useEffect(() => {
+    (async () => {
+      setProvincesLoading(true);
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token")
+            : null;
+        const headers: any = { "Content-Type": "application/json" };
+
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${API_URL}/api/locations/provinces`, { headers });
+        const text = await res.text();
+        let body: any = null;
+
+        try {
+          body = text ? JSON.parse(text) : null;
+        } catch (e) {
+          body = null;
+        }
+        const items = (body && (body.data || body.provinces)) || [];
+        const normalized = Array.isArray(items)
+          ? items.map((p: any) => ({ id: p._id || p.id || p.code || p.Province_ID || p.ProvinceId, name: p.name || p.Province_Name || p.Name || p.Province }))
+          : [];
+        setProvinces(normalized);
+
+        // If the stored `province` is an object id (or selectedProvince currently holds an id), map it to a friendly name
+        const provId = province || selectedProvince;
+        if (provId) {
+          const match = normalized.find((x: any) => String(x.id) === String(provId) || String(x.name) === String(provId));
+          if (match) {
+            setSelectedProvinceId(String(match.id));
+            setSelectedProvince(match.name || String(match.id));
+          }
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setProvincesLoading(false);
+      }
+    })();
+  }, [province]);
+
+  // When a province id is selected, fetch that province's districts and clear dependent selections
+  useEffect(() => {
+    if (!selectedProvinceId) return;
+
+    (async () => {
+      setDistrictsLoading(true);
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token") : null;
+        const headers: any = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_URL || ""}/api/locations/provinces/${encodeURIComponent(selectedProvinceId)}/districts?limit=1000`, { headers });
+        const text = await res.text();
+        let body: any = null;
+        try { body = text ? JSON.parse(text) : null; } catch { body = null; }
+        const items = (body && (body.data || body.districts)) || [];
+
+        const normalized = Array.isArray(items)
+          ? items.map((d: any) => ({ _id: d._id || d.id || d.District_ID, id: d._id || d.id || d.District_ID, name: d.name || d.District_Name || d.District || d.District_Number, District_ID: d.District_ID }))
+          : [];
+
+        setDistricts(normalized);
+
+        // If there is an existing districtId and it exists in the fetched list, keep it.
+        // Otherwise clear dependent selections on province change
+        if (districtId) {
+          const exists = normalized.find((d: any) => String(d._id || d.id || d.District_ID) === String(districtId) || String(d.District_ID) === String(districtId));
+          if (exists) {
+            // keep districtId; municipalities effect will run because districtId didn't change
+          } else {
+            setDistrictId(null);
+            setMunicipalities([]);
+            setCityMunicipality("");
+          }
+        } else {
+          // no existing district -> clear dependents
+          setDistrictId(null);
+          setMunicipalities([]);
+          setCityMunicipality("");
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setDistrictsLoading(false);
+      }
+    })();
+  }, [selectedProvinceId]);
 
   // If the passed `coordinator` is minimal (only id), attempt to fetch full details
   useEffect(() => {
@@ -213,22 +319,31 @@ export default function EditStakeholderModal({
 
         // Populate any missing location fields
         if (!districtId) {
-          const dId = data.District_ID || data.DistrictId || (data.District && data.District.District_ID) || null;
+          const dId = data.District_ID || data.DistrictId || (data.District && (data.District.District_ID || data.District._id || data.District.id)) || null;
 
           if (dId) setDistrictId(dId);
         }
         if (!province) {
-          const prov = data.Province_Name || data.province || (data.District && (data.District.Province_Name || data.District.Province)) || "";
+          const prov = data.Province_Name || data.province || (data.District && (data.District.Province_Name || data.District.Province || (data.District.Province && (data.District.Province._id || data.District.Province.id)))) || "";
 
           if (prov) {
             setProvince(prov);
             setSelectedProvince(prov);
+            // If the backend returned a province id string, set selectedProvinceId so we fetch its districts
+            if (String(prov).match(/^[0-9a-fA-F]{24}$/)) {
+              setSelectedProvinceId(String(prov));
+            }
           }
         }
         if (!cityMunicipality) {
           const city = data.City_Municipality || data.City || data.city || "";
 
           if (city) setCityMunicipality(city);
+        }
+        // also try to populate organization from detail endpoint if missing
+        if (!organization) {
+          const org = data.Organization_Institution || data.Organization || data.organization || data.organizationInstitution || data.OrganizationName || data.Organization_Name || null;
+          if (org) setOrganization(org);
         }
       } catch (e) {
         // ignore fetch errors
@@ -237,6 +352,11 @@ export default function EditStakeholderModal({
   }, [coordinator]);
 
   useEffect(() => {
+    // If user is a coordinator (not sysadmin) and we have a userDistrictId, ensure the district is prefilled and locked
+    if (!isSysAdmin && userDistrictId && !districtId) {
+      setDistrictId(String(userDistrictId));
+    }
+
     if (!districtId) return;
     const pick = districts.find(
       (d) =>
@@ -252,6 +372,10 @@ export default function EditStakeholderModal({
       setProvince(provName);
       // keep selectedProvince in sync when district is chosen programmatically
       setSelectedProvince(provName);
+      if (provinces && provinces.length > 0) {
+        const m = provinces.find((p) => String(p.name).toLowerCase() === String(provName).toLowerCase());
+        if (m) setSelectedProvinceId(String(m.id));
+      }
     }
 
     // load municipalities for this district
@@ -282,7 +406,23 @@ export default function EditStakeholderModal({
           body = null;
         }
         const items = (body && (body.data || body)) || [];
-        setMunicipalities(Array.isArray(items) ? items : []);
+        const munList = Array.isArray(items) ? items : [];
+        setMunicipalities(munList);
+
+        // If the existing cityMunicipality is a name (not an id), try to map it
+        // to the matching municipality _id so the Select shows the correct selected value.
+        if (cityMunicipality) {
+          const foundById = munList.find((m: any) => String(m._id) === String(cityMunicipality) || String(m.id) === String(cityMunicipality));
+          if (!foundById) {
+            const foundByName = munList.find((m: any) => {
+              const label = String(m.name || m.Name || m.City_Municipality || m.City || m).toLowerCase();
+              return label === String(cityMunicipality).toLowerCase();
+            });
+            if (foundByName) {
+              setCityMunicipality(String(foundByName._id || foundByName.id));
+            }
+          }
+        }
       } catch (e) {
         setMunicipalities([]);
       }
@@ -290,6 +430,64 @@ export default function EditStakeholderModal({
   }, [districtId, districts]);
 
   if (!coordinator) return null;
+
+  const displayedProvinceName = (() => {
+    // Try to resolve a friendly province name from the districts list or selected province/province state
+    // prefer explicit selectedProvince (likely a name)
+    if (selectedProvince && !(String(selectedProvince).match(/^[0-9a-fA-F]{24}$/))) {
+      const pick = districts.find(
+        (d) =>
+          String(d.Province_Name) === String(selectedProvince) ||
+          String(d.Province) === String(selectedProvince) ||
+          String(d.province) === String(selectedProvince),
+      );
+      if (pick) return pick.Province_Name || pick.Province || pick.province || String(selectedProvince);
+      return String(selectedProvince);
+    }
+
+    // if province is an object id, try provinces list first
+    if (province) {
+      const objIdLike = String(province).match(/^[0-9a-fA-F]{24}$/);
+      if (objIdLike) {
+        const pmatch = provinces.find((p) => String(p.id) === String(province));
+        if (pmatch) {
+          // ensure selectedProvinceId is set when we can map
+          if (!selectedProvinceId) setSelectedProvinceId(String(pmatch.id));
+          return pmatch.name || String(pmatch.id);
+        }
+
+        // fallback to districts mapping
+        if (districts && districts.length > 0) {
+          const pick = districts.find(
+            (d) =>
+              String(d.Province) === String(province) ||
+              String(d.Province_ID) === String(province) ||
+              (d.Province && String(d.Province._id) === String(province)) ||
+              String(d._id) === String(province) ||
+              String(d.id) === String(province),
+          );
+          if (pick) return pick.Province_Name || pick.Province || pick.province || String(province);
+        }
+      }
+
+      // otherwise return as-is (string name)
+      return String(province);
+    }
+
+    return "";
+  })();
+
+  const displayedDistrictName = (() => {
+    const pick = districts.find(
+      (d) =>
+        String(d.District_ID) === String(districtId) ||
+        String(d._id) === String(districtId) ||
+        String(d.id) === String(districtId),
+    );
+    if (pick) return pick.District_Name || pick.District || pick.name || String(districtId || "");
+    if (coordinator.District) return coordinator.District.District_Name || coordinator.District.name || coordinator.District.District_ID || "";
+    return districtId ? String(districtId) : "";
+  })();
 
   const handleSave = async () => {
     if (!coordinator) return;
@@ -327,6 +525,17 @@ export default function EditStakeholderModal({
         payload.Organization_Institution = organization || null;
       if (cityMunicipality !== undefined)
         payload.City_Municipality = cityMunicipality || null;
+      // include password change if provided (legacy and normalized)
+      if (newPassword && String(newPassword).trim().length > 0) {
+        payload.Password = newPassword;
+        payload.password = newPassword;
+      }
+
+      // normalized fields for backend compatibility
+      // only allow changing district when system admin (preserves coordinator lock)
+      if (isSysAdmin && districtId) payload.district = districtId;
+      // municipality can be changed by coordinators and admins; send normalized id when present
+      if (cityMunicipality !== undefined) payload.municipality = cityMunicipality || null;
 
       const res = await fetch(`${API_URL}/api/stakeholders/${coordId}`, {
         method: "PUT",
@@ -350,10 +559,24 @@ export default function EditStakeholderModal({
         throw new Error(resp.message || "Failed to update stakeholder");
       }
 
-      if (onSaved) onSaved();
+      if (onSaved) {
+        try {
+          await onSaved();
+        } catch (e) {
+          // ignore onSaved errors but continue to close/reload
+        }
+      }
       onClose();
+
+      // Force a full reload so the stakeholder page always refreshes to latest data
+      if (typeof window !== 'undefined') {
+        try {
+          window.location.reload();
+        } catch (e) {
+          // ignore reload errors
+        }
+      }
     } catch (err: any) {
-      console.error("EditStakeholderModal save error", err);
       setValidationErrors([err?.message || "Failed to save changes"]);
     } finally {
       setIsSubmitting(false);
@@ -422,7 +645,115 @@ export default function EditStakeholderModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium">Province</label>
+                {isSysAdmin ? (
+                  <Select
+                    placeholder={provincesLoading ? "Loading provinces..." : "Select province"}
+                    selectedKeys={selectedProvinceId ? [String(selectedProvinceId)] : []}
+                    onSelectionChange={(keys: any) => {
+                      const id = Array.from(keys)[0] as string;
+                      const match = provinces.find((p) => String(p.id) === String(id));
+                      if (match) {
+                        setSelectedProvinceId(String(match.id));
+                        setSelectedProvince(match.name || String(match.id));
+                        // reset district when province changes
+                        setDistrictId(null);
+                      }
+                    }}
+                  >
+                    {(provinces || []).map((p: any) => (
+                      <SelectItem key={String(p.id)} textValue={String(p.name)}>
+                        {String(p.name)}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    disabled
+                    classNames={{ inputWrapper: "h-12 bg-default-100" }}
+                    type="text"
+                    value={displayedProvinceName || province}
+                    variant="bordered"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">District</label>
+                <Select
+                  disabled={!isSysAdmin}
+                  placeholder={districts.length === 0 && !districtId ? "Select district" : "Select district"}
+                  selectedKeys={districtId ? [String(districtId)] : []}
+                  onSelectionChange={(keys: any) => {
+                    const id = Array.from(keys)[0] as string;
+
+                    setDistrictId(id);
+                    // clear municipality when district changes
+                    setCityMunicipality("");
+                    const pick = districts.find(
+                      (d) =>
+                        String(d.District_ID) === String(id) ||
+                        String(d.id) === String(id) ||
+                        String(d._id) === String(id),
+                    );
+
+                    if (pick) {
+                      setProvince(pick.Province_Name || pick.Province || pick.province || "");
+                      setSelectedProvince(pick.Province_Name || pick.Province || pick.province || "");
+                      // if pick carries a province id, keep selectedProvinceId in sync
+                      const provId = pick.Province_ID || pick.ProvinceId || (pick.Province && (pick.Province._id || pick.Province.id)) || null;
+                      if (provId) setSelectedProvinceId(String(provId));
+                    }
+                  }}
+                >
+                  {(() => {
+                    // determine the province name for filtering districts
+                    // If we have a selectedProvinceId, `districts` should already be the province-specific list (fetched by effect).
+                    // Use it directly when available. Otherwise fall back to filtering the global districts list by name.
+                    const list = (() => {
+                      if (selectedProvinceId && Array.isArray(districts) && districts.length > 0) {
+                        return districts;
+                      }
+
+                      const provName = (() => {
+                        if (selectedProvince) return selectedProvince;
+                        if (selectedProvinceId) {
+                          const p = provinces.find((x) => String(x.id) === String(selectedProvinceId));
+                          if (p) return p.name;
+                        }
+                        if (province) return province;
+                        return null;
+                      })();
+
+                      return (districts || []).filter((d) => (provName ? (d.Province_Name === provName || d.Province === provName || d.province === provName) : true));
+                    })();
+                    if (list.length > 0) {
+                      return list.map((d, idx) => {
+                        const label = d.name || d.District_Name || d.District || d.District_Number || d.District_ID || String(idx);
+                        const key = String(d._id || d.id || d.District_ID || idx);
+
+                        return (
+                          <SelectItem key={key} textValue={String(label)}>
+                            {String(label)}
+                          </SelectItem>
+                        );
+                      });
+                    }
+                    // fallback to show selected district when districts list is empty
+                    if (districtId || coordinator.District) {
+                      return (
+                        <SelectItem key={String(districtId || (coordinator.District && (coordinator.District.District_ID || coordinator.District._id || coordinator.District.id)))} textValue={String(displayedDistrictName)}>
+                          {String(displayedDistrictName)}
+                        </SelectItem>
+                      );
+                    }
+                    return null;
+                  })()}
+                </Select>
+              </div>
+
               <div>
                 <label className="text-sm font-medium">City / Municipality</label>
                 <Select
@@ -453,19 +784,6 @@ export default function EditStakeholderModal({
                     )
                     : null}
                 </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Organization / Institution</label>
-                <Input
-                  classNames={{ inputWrapper: "h-12" }}
-                  type="text"
-                  value={organization}
-                  variant="bordered"
-                  onChange={(e) =>
-                    setOrganization((e.target as HTMLInputElement).value)
-                  }
-                />
               </div>
             </div>
 
@@ -498,74 +816,41 @@ export default function EditStakeholderModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Province</label>
-                {isSysAdmin ? (
-                  <Select
-                    placeholder={districts.length === 0 ? "Loading provinces..." : "Select province"}
-                    selectedKeys={selectedProvince ? [String(selectedProvince)] : []}
-                    onSelectionChange={(keys: any) => {
-                      const p = Array.from(keys)[0] as string;
-
-                      setSelectedProvince(p);
-                      // reset district when province changes
-                      setDistrictId(null);
-                    }}
-                  >
-                    {Array.from(new Set((districts || []).map((d) => d.Province_Name).filter(Boolean))).map((p: any, idx: number) => (
-                        <SelectItem key={String(p || idx)} textValue={String(p)}>
-                          {String(p)}
-                        </SelectItem>
-                      ))}
-                  </Select>
-                ) : (
-                  <Input
-                    disabled
-                    classNames={{ inputWrapper: "h-12 bg-default-100" }}
-                    type="text"
-                    value={province}
-                    variant="bordered"
-                  />
-                )}
+                <label className="text-sm font-medium">Organization / Institution</label>
+                <Input
+                  classNames={{ inputWrapper: "h-12" }}
+                  type="text"
+                  value={organization}
+                  variant="bordered"
+                  onChange={(e) =>
+                    setOrganization((e.target as HTMLInputElement).value)
+                  }
+                />
               </div>
-
               <div>
-                <label className="text-sm font-medium">District</label>
-                <Select
-                  disabled={!isSysAdmin}
-                  placeholder="Select district"
-                  selectedKeys={districtId ? [String(districtId)] : []}
-                  onSelectionChange={(keys: any) => {
-                    const id = Array.from(keys)[0] as string;
-
-                    setDistrictId(id);
-                    const pick = districts.find(
-                      (d) =>
-                        String(d.District_ID) === String(id) ||
-                        String(d.id) === String(id) ||
-                        String(d._id) === String(id),
-                    );
-
-                    if (pick) {
-                      setProvince(pick.Province_Name || pick.Province || pick.province || "");
-                      setSelectedProvince(pick.Province_Name || pick.Province || pick.province || "");
-                    }
-                  }}
-                >
-                  {(districts || [])
-                    .filter((d) =>
-                      selectedProvince ? d.Province_Name === selectedProvince : true,
-                    )
-                    .map((d, idx) => {
-                      const label = d.District_Name || d.District_Number || d.District_ID || String(idx);
-                      const key = String(d.District_ID || d._id || d.id || idx);
-
-                      return (
-                        <SelectItem key={key} textValue={String(label)}>
-                          {String(label)}
-                        </SelectItem>
-                      );
-                    })}
-                </Select>
+                <label className="text-sm font-medium">Change Password</label>
+                <Input
+                  classNames={{ inputWrapper: "h-12" }}
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  variant="bordered"
+                  onChange={(e) => setNewPassword((e.target as HTMLInputElement).value)}
+                  placeholder="Leave blank to keep current password"
+                  endContent={
+                    <button
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="focus:outline-none"
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                    >
+                      {showPassword ? (
+                        <Eye size={18} className="text-default-800 pointer-events-none" />
+                      ) : (
+                        <EyeOff size={18} className="text-default-800 pointer-events-none" />
+                      )}
+                    </button>
+                  }
+                />
               </div>
             </div>
 
