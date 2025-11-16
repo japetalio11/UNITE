@@ -46,14 +46,34 @@ export default function CoordinatorTable({
   const [, /*unused*/ setUnused] = useState(false);
   // debug logs removed
   // Filter coordinators based on search query
+  const normalizeProvince = (c: any) => {
+    if (!c) return "";
+    // coordinator.province can be a string (name or id) or an object
+    const prov = c.province || c.Province || c.Province_Name || c.provinceName || null;
+    if (!prov) return "";
+    if (typeof prov === "string") return prov;
+    // object
+    return prov.name || prov.Name || prov.Province_Name || prov.province || "";
+  };
+
+  const normalizeDistrict = (c: any) => {
+    if (!c) return "";
+    const dist = c.district || c.District || c.District_ID || null;
+    if (!dist) return "";
+    if (typeof dist === "string") return dist;
+    return dist.name || dist.District_Name || dist.District_Number || dist.district || "";
+  };
+
   const filteredCoordinators = coordinators.filter((coordinator) => {
     const q = searchQuery.toLowerCase();
+    const prov = (normalizeProvince(coordinator) || "").toLowerCase();
+    const dist = (normalizeDistrict(coordinator) || "").toLowerCase();
 
     return (
       (coordinator.name || "").toLowerCase().includes(q) ||
       (coordinator.email || "").toLowerCase().includes(q) ||
-      (coordinator.province || "").toLowerCase().includes(q) ||
-      (coordinator.district || "").toLowerCase().includes(q)
+      prov.includes(q) ||
+      dist.includes(q)
     );
   });
 
@@ -125,10 +145,10 @@ export default function CoordinatorTable({
                   {coordinator.phone}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {coordinator.province}
+                  {normalizeProvince(coordinator) || '—'}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {coordinator.district}
+                  {normalizeDistrict(coordinator) || '—'}
                 </td>
                 <td className="px-6 py-4">
                   {/** Only show actions to admins. Non-admins get no action menu. */}

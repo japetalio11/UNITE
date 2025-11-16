@@ -41,6 +41,10 @@ export default function AddCoordinatorModal({
   isSubmitting = false,
 }: AddCoordinatorModalProps) {
   const [selectedProvince, setSelectedProvince] = useState<string>("");
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [provincesLoading, setProvincesLoading] = useState(false);
+  const [provincesError, setProvincesError] = useState<string | null>(null);
+
   const [districts, setDistricts] = useState<any[]>([]);
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>("");
   const [districtsLoading, setDistrictsLoading] = useState(false);
@@ -79,6 +83,12 @@ export default function AddCoordinatorModal({
       return;
     }
 
+    // Validate province/district selected
+    if (!data.province || !data.district) {
+      alert("Please select a Province and District before submitting.");
+      return;
+    }
+
     onSubmit(data);
   };
 
@@ -88,48 +98,85 @@ export default function AddCoordinatorModal({
     setSelectedProvince(province);
   };
 
-  const provinces = Array.from(
-    new Set(districts.map((d) => d.Province_Name)),
-  ).map((p) => ({ key: p, label: p }));
-
-  // Fetch districts from backend on mount
+  // Fetch provinces on mount
   useEffect(() => {
+    const fetchProvinces = async () => {
+      setProvincesLoading(true);
+      setProvincesError(null);
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const url = base ? `${base}/api/locations/provinces` : `/api/locations/provinces`;
+        let token = null;
+
+        try {
+          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+        } catch (e) {
+          token = null;
+        }
+        const headers: any = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(url, { headers });
+        const bodyText = await res.text();
+        let body: any = null;
+        try {
+          body = bodyText ? JSON.parse(bodyText) : null;
+        } catch {
+          throw new Error("Invalid JSON from provinces endpoint");
+        }
+        if (!res.ok) throw new Error(body?.message || `Failed to fetch provinces (status ${res.status})`);
+        const items = body.data || body.provinces || [];
+        // Normalize to { id, name }
+        const normalized = items.map((p: any) => ({ id: p._id || p.id || p._doc?._id || p.id, name: p.name || p.Name || p.Province_Name || p.Province_Name }));
+        setProvinces(normalized.filter(Boolean));
+      } catch (err: any) {
+        setProvincesError(err.message || "Failed to load provinces");
+      } finally {
+        setProvincesLoading(false);
+      }
+    };
+    fetchProvinces();
+  }, []);
+
+  // Fetch districts for selected province
+  useEffect(() => {
+    if (!selectedProvince) {
+      setDistricts([]);
+      setSelectedDistrictId("");
+      return;
+    }
+
     const fetchDistricts = async () => {
       setDistrictsLoading(true);
       setDistrictsError(null);
       try {
         const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
         const url = base
-          ? `${base}/api/districts?limit=1000`
-          : `/api/districts?limit=1000`;
-        let token = null;
+          ? `${base}/api/locations/provinces/${encodeURIComponent(selectedProvince)}/districts?limit=1000`
+          : `/api/locations/provinces/${encodeURIComponent(selectedProvince)}/districts?limit=1000`;
 
+        let token = null;
         try {
-          token =
-            localStorage.getItem("unite_token") ||
-            sessionStorage.getItem("unite_token");
+          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
         } catch (e) {
           token = null;
         }
-        const headers: any = {};
 
+        const headers: any = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const res = await fetch(url, { headers });
         const bodyText = await res.text();
         let body: any = null;
-
         try {
           body = bodyText ? JSON.parse(bodyText) : null;
         } catch {
           throw new Error("Invalid JSON from districts endpoint");
         }
-        if (!res.ok)
-          throw new Error(
-            body?.message || `Failed to fetch districts (status ${res.status})`,
-          );
-        const items = body.data || [];
-
-        setDistricts(items);
+        if (!res.ok) throw new Error(body?.message || `Failed to fetch districts (status ${res.status})`);
+        const items = body.data || body.districts || [];
+        const normalized = items.map((d: any) => ({ id: d._id || d.id || d.District_ID, name: d.name || d.Name || d.District_Name || d.District_Number }));
+        setDistricts(normalized.filter(Boolean));
       } catch (err: any) {
         setDistrictsError(err.message || "Failed to load districts");
       } finally {
@@ -138,7 +185,7 @@ export default function AddCoordinatorModal({
     };
 
     fetchDistricts();
-  }, []);
+  }, [selectedProvince]);
 
   return (
     <Modal
@@ -309,8 +356,31 @@ export default function AddCoordinatorModal({
                 variant="bordered"
               />
 
-              {/* District (left) and Province (right). Province is auto-filled and read-only based on district selection */}
+              {/* Province first, then District dropdown filtered by province */}
               <div className="grid grid-cols-2 gap-4">
+                <Select
+                  isRequired
+                  classNames={{
+                    label: "text-sm font-medium text-gray-900",
+                    trigger: "border-gray-200",
+                  }}
+                  label="Province"
+                  name="province"
+                  placeholder={provincesLoading ? "Loading provinces..." : "Choose Province"}
+                  radius="md"
+                  selectedKeys={selectedProvince ? [selectedProvince] : []}
+                  size="md"
+                  variant="bordered"
+                  onSelectionChange={(keys: any) => {
+                    const id = Array.from(keys)[0] as string;
+                    setSelectedProvince(id);
+                  }}
+                >
+                  {provinces.map((prov) => (
+                    <SelectItem key={prov.id}>{prov.name}</SelectItem>
+                  ))}
+                </Select>
+
                 <Select
                   isRequired
                   classNames={{
@@ -319,59 +389,23 @@ export default function AddCoordinatorModal({
                   }}
                   label="District"
                   name="district"
-                  placeholder={
-                    districtsLoading
-                      ? "Loading districts..."
-                      : "Choose District"
-                  }
+                  placeholder={districtsLoading ? "Loading districts..." : (selectedProvince ? "Choose District" : "Select province first")}
                   radius="md"
                   selectedKeys={selectedDistrictId ? [selectedDistrictId] : []}
                   size="md"
                   variant="bordered"
                   onSelectionChange={(keys: any) => {
                     const id = Array.from(keys)[0] as string;
-
                     setSelectedDistrictId(id);
-                    const d = districts.find(
-                      (x) => x.District_ID === id || x.District_ID === id,
-                    );
-
-                    if (d) setSelectedProvince(d.Province_Name || "");
                   }}
                 >
                   {districts.map((district) => (
-                    <SelectItem key={district.District_ID}>
-                      {district.District_Name ||
-                        district.District_Number ||
-                        district.District_ID}
-                    </SelectItem>
+                    <SelectItem key={district.id}>{district.name}</SelectItem>
                   ))}
                 </Select>
 
-                {/* Province is shown and cannot be modified directly */}
-                <Input
-                  disabled
-                  isRequired
-                  classNames={{
-                    label: "text-sm font-medium text-gray-900",
-                    inputWrapper: "border-gray-200 bg-gray-50",
-                  }}
-                  label="Province"
-                  name="province"
-                  placeholder="Province"
-                  radius="md"
-                  size="md"
-                  type="text"
-                  value={selectedProvince}
-                  variant="bordered"
-                />
-
-                {/* Hidden inputs so FormData includes these values on submit */}
-                <input
-                  name="district"
-                  type="hidden"
-                  value={selectedDistrictId}
-                />
+                {/* Hidden inputs so FormData includes these values on submit (IDs) */}
+                <input name="district" type="hidden" value={selectedDistrictId} />
                 <input name="province" type="hidden" value={selectedProvince} />
               </div>
             </ModalBody>

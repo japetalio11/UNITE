@@ -175,7 +175,12 @@ export default function CoordinatorManagement() {
         Password: data.password,
       };
 
+      // Send new coordinator data using province and district ObjectId refs
       const coordinatorData = {
+        // New normalized fields (ObjectId refs)
+        district: data.district || data.districtId,
+        province: data.province,
+        // Legacy compatibility fields
         District_ID: data.districtId || data.district,
         Province_Name: data.province,
       };
@@ -503,11 +508,90 @@ export default function CoordinatorManagement() {
         );
 
       const items = json.data || json.coordinators || [];
+
+      // Fetch lookup maps for provinces and districts so we can resolve
+      // ObjectId strings returned by the API into human-readable names.
+      let provincesMap: Record<string, string> = {};
+      let districtsMap: Record<string, any> = {};
+      try {
+        const provRes = await fetch((base ? `${base}` : "") + '/api/locations/provinces');
+        const provText = await provRes.text();
+        const provJson = provText ? JSON.parse(provText) : null;
+        const provItems = provJson?.data || [];
+        provincesMap = provItems.reduce((acc: any, p: any) => {
+          if (p._id) acc[p._id] = p.name || p.Province_Name || p.name;
+          return acc;
+        }, {});
+
+        const distRes = await fetch((base ? `${base}` : "") + '/api/districts?limit=1000');
+        const distText = await distRes.text();
+        const distJson = distText ? JSON.parse(distText) : null;
+        const distItems = distJson?.data || distJson?.districts || [];
+        districtsMap = distItems.reduce((acc: any, d: any) => {
+          if (d._id) acc[d._id] = d;
+          return acc;
+        }, {});
+      } catch (e) {
+        // If lookup fetch fails, we silently continue and fall back to legacy fields
+      }
+
       const mapped = items.map((c: any) => {
         const staff = c.Staff || {};
-        const district = c.District || null;
-        const province =
-          c.Province_Name || (district && district.Province_Name) || "";
+
+        // Support multiple possible shapes for province/district coming
+        // from backend during migration: new normalized refs may appear
+        // as `province`/`district` (object or id), or legacy fields may
+        // exist as `Province_Name` and `District` / `District_Name`.
+        const districtObj = c.district || c.District || null;
+        const provinceObj = c.province || c.Province || null;
+
+        const resolveProvinceName = () => {
+          // priority: populated province object -> legacy Province_Name -> district-contained province
+          if (provinceObj) {
+            if (typeof provinceObj === "string") {
+              // lookup by id
+              return provincesMap[provinceObj] || provinceObj;
+            }
+
+            return (
+              provinceObj.name || provinceObj.Province_Name || provinceObj.province || ""
+            );
+          }
+
+          if (c.Province_Name) return c.Province_Name;
+
+          if (districtObj && typeof districtObj === "object")
+            return districtObj.Province_Name || districtObj.province || "";
+
+          return "";
+        };
+
+        const resolveDistrictName = () => {
+          if (districtObj) {
+            if (typeof districtObj === "string") {
+              const found = districtsMap[districtObj];
+              if (found) {
+                if (found.District_Number) return `${ordinalSuffix(found.District_Number)} District`;
+                return found.name || found.District_Name || "";
+              }
+
+              return districtObj;
+            }
+
+            if (districtObj.District_Number)
+              return `${ordinalSuffix(districtObj.District_Number)} District`;
+            return (
+              districtObj.District_Name || districtObj.name || districtObj.district || ""
+            );
+          }
+
+          // legacy flattened fields
+          if (c.District_Name) return c.District_Name;
+          if (c.District_Number) return `${ordinalSuffix(c.District_Number)} District`;
+
+          return "";
+        };
+
         const fullName = [staff.First_Name, staff.Middle_Name, staff.Last_Name]
           .filter(Boolean)
           .join(" ");
@@ -517,8 +601,8 @@ export default function CoordinatorManagement() {
           name: fullName,
           email: staff.Email || "",
           phone: staff.Phone_Number || "",
-          province,
-          district: formatDistrict(district),
+          province: resolveProvinceName(),
+          district: resolveDistrictName(),
         };
       });
 
