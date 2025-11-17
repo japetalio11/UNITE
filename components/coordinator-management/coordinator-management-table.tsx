@@ -49,9 +49,12 @@ export default function CoordinatorTable({
   const normalizeProvince = (c: any) => {
     if (!c) return "";
     // coordinator.province can be a string (name or id) or an object
-    const prov = c.province || c.Province || c.Province_Name || c.provinceName || null;
+    const prov =
+      c.province || c.Province || c.Province_Name || c.provinceName || null;
+
     if (!prov) return "";
     if (typeof prov === "string") return prov;
+
     // object
     return prov.name || prov.Name || prov.Province_Name || prov.province || "";
   };
@@ -59,9 +62,17 @@ export default function CoordinatorTable({
   const normalizeDistrict = (c: any) => {
     if (!c) return "";
     const dist = c.district || c.District || c.District_ID || null;
+
     if (!dist) return "";
     if (typeof dist === "string") return dist;
-    return dist.name || dist.District_Name || dist.District_Number || dist.district || "";
+
+    return (
+      dist.name ||
+      dist.District_Name ||
+      dist.District_Number ||
+      dist.district ||
+      ""
+    );
   };
 
   const filteredCoordinators = coordinators.filter((coordinator) => {
@@ -145,10 +156,10 @@ export default function CoordinatorTable({
                   {coordinator.phone}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {normalizeProvince(coordinator) || '—'}
+                  {normalizeProvince(coordinator) || "—"}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {normalizeDistrict(coordinator) || '—'}
+                  {normalizeDistrict(coordinator) || "—"}
                 </td>
                 <td className="px-6 py-4">
                   {/** Only show actions to admins. Non-admins get no action menu. */}

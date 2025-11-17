@@ -1,8 +1,10 @@
 // Allow enabling debug logs at runtime in staging via NEXT_PUBLIC_ENABLE_DEBUG_LOGS
 // This variable is respected even when NODE_ENV is 'production' because it's
 // a NEXT_PUBLIC_ env var that Next.js inlines at build time.
-const enableDebugEnv = String(process.env.NEXT_PUBLIC_ENABLE_DEBUG_LOGS || '').toLowerCase() === 'true';
-const isDev = process.env.NODE_ENV !== 'production' || enableDebugEnv;
+const enableDebugEnv =
+  String(process.env.NEXT_PUBLIC_ENABLE_DEBUG_LOGS || "").toLowerCase() ===
+  "true";
+const isDev = process.env.NODE_ENV !== "production" || enableDebugEnv;
 
 export function debug(...args: any[]) {
   if (isDev) {

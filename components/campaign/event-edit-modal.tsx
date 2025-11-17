@@ -10,7 +10,6 @@ import {
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
-import { Select, SelectItem } from "@heroui/select";
 
 interface EditEventModalProps {
   isOpen: boolean;
@@ -112,9 +111,13 @@ export default function EditEventModal({
     // Prefill stakeholder selection when editing
     try {
       const sid =
-        request.MadeByStakeholderID || request.madeByStakeholderID ||
-        (request.event && (request.event.MadeByStakeholderID || request.event.madeByStakeholderID)) ||
-        request.stakeholder || null;
+        request.MadeByStakeholderID ||
+        request.madeByStakeholderID ||
+        (request.event &&
+          (request.event.MadeByStakeholderID ||
+            request.event.madeByStakeholderID)) ||
+        request.stakeholder ||
+        null;
 
       if (sid) {
         setStakeholder(String(sid));
@@ -136,7 +139,6 @@ export default function EditEventModal({
     (user.staff_type === "Admin" || user.staff_type === "Coordinator")
   );
   const isAdmin = user && user.staff_type === "Admin";
-
 
   const isStakeholder = user && user.staff_type === "Stakeholder";
 
@@ -254,11 +256,18 @@ export default function EditEventModal({
         if (!isStakeholder) return false; // Admins/coordinators can make any changes directly
 
         // Check if dates changed
-        if (startTime !== initialStartTime || endTime !== initialEndTime) return true;
+        if (startTime !== initialStartTime || endTime !== initialEndTime)
+          return true;
 
         // Check if target donation changed (for blood drives)
         if (String(categoryType).toLowerCase().includes("blood")) {
-          const originalGoal = (request.event?.Target_Donation || request.event?.categoryData?.Target_Donation || 0)?.toString() || "";
+          const originalGoal =
+            (
+              request.event?.Target_Donation ||
+              request.event?.categoryData?.Target_Donation ||
+              0
+            )?.toString() || "";
+
           if (goalCount !== originalGoal) return true;
         }
 
@@ -287,6 +296,7 @@ export default function EditEventModal({
         if (!res.ok) {
           if (resp && resp.errors && Array.isArray(resp.errors)) {
             setValidationErrors(resp.errors);
+
             return;
           }
           throw new Error(resp.message || "Failed to update request");
@@ -343,7 +353,8 @@ export default function EditEventModal({
         // Include the requester id based on role
         if (isAdminOrCoordinator) {
           body.adminId = user.staff_type === "Admin" ? user.id : undefined;
-          body.coordinatorId = user.staff_type === "Coordinator" ? user.id : undefined;
+          body.coordinatorId =
+            user.staff_type === "Coordinator" ? user.id : undefined;
         } else {
           body.MadeByStakeholderID = stakeholderId;
         }
@@ -353,11 +364,18 @@ export default function EditEventModal({
           if (!isStakeholder) return false; // Admins/coordinators don't require review
 
           // Check if dates changed
-          if (startTime !== initialStartTime || endTime !== initialEndTime) return true;
+          if (startTime !== initialStartTime || endTime !== initialEndTime)
+            return true;
 
           // Check if target donation changed (for blood drives)
           if (isBlood) {
-            const originalGoal = (request.event?.Target_Donation || request.event?.categoryData?.Target_Donation || 0)?.toString() || "";
+            const originalGoal =
+              (
+                request.event?.Target_Donation ||
+                request.event?.categoryData?.Target_Donation ||
+                0
+              )?.toString() || "";
+
             if (goalCount !== originalGoal) return true;
           }
 
@@ -378,6 +396,7 @@ export default function EditEventModal({
         if (!res.ok) {
           if (resp && resp.errors && Array.isArray(resp.errors)) {
             setValidationErrors(resp.errors);
+
             return;
           }
           throw new Error(resp.message || "Failed to create change request");
@@ -398,10 +417,8 @@ export default function EditEventModal({
 
   // render modal content with inputs; date fields intentionally shown but disabled
   const cat =
-    (request.category &&
-      (request.category.type || request.category.Type)) ||
-    (request.event &&
-      (request.event.categoryType || request.event.Category)) ||
+    (request.category && (request.category.type || request.category.Type)) ||
+    (request.event && (request.event.categoryType || request.event.Category)) ||
     "";
   const isBlood = String(cat).toLowerCase().includes("blood");
 
@@ -410,11 +427,18 @@ export default function EditEventModal({
     if (!isStakeholder) return false; // Admins/coordinators don't require review
 
     // Check if dates changed
-    if (startTime !== initialStartTime || endTime !== initialEndTime) return true;
+    if (startTime !== initialStartTime || endTime !== initialEndTime)
+      return true;
 
     // Check if target donation changed (for blood drives)
     if (isBlood) {
-      const originalGoal = (request.event?.Target_Donation || request.event?.categoryData?.Target_Donation || 0)?.toString() || "";
+      const originalGoal =
+        (
+          request.event?.Target_Donation ||
+          request.event?.categoryData?.Target_Donation ||
+          0
+        )?.toString() || "";
+
       if (goalCount !== originalGoal) return true;
     }
 
@@ -552,8 +576,10 @@ export default function EditEventModal({
                     <div>
                       <label className="text-sm font-medium">Goal count</label>
                       <Input
+                        classNames={{
+                          inputWrapper: `h-10 ${!isAdmin ? "bg-default-100" : ""}`,
+                        }}
                         disabled={!isAdmin}
-                        classNames={{ inputWrapper: `h-10 ${!isAdmin ? 'bg-default-100' : ''}` }}
                         type="number"
                         value={goalCount}
                         variant="bordered"

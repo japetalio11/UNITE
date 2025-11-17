@@ -357,10 +357,10 @@ export default function SettingsPage() {
                   <div>
                     <label className="inline-flex items-center cursor-pointer">
                       <input
+                        aria-label="Enable notifications"
                         checked={notificationsEnabled}
                         className="sr-only"
                         type="checkbox"
-                        aria-label="Enable notifications"
                         onChange={(e) =>
                           setNotificationsEnabled(e.target.checked)
                         }

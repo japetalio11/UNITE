@@ -705,6 +705,7 @@ export default function CampaignPage() {
     if (!requestId) {
       setErrorModalMessage("Unable to determine request id for cancellation");
       setErrorModalOpen(true);
+
       return;
     }
 
@@ -719,26 +720,26 @@ export default function CampaignPage() {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       // Get coordinator ID from user or request
-      const coordinatorId = user?.Coordinator_ID || user?.id || reqObj.coordinator_id;
+      const coordinatorId =
+        user?.Coordinator_ID || user?.id || reqObj.coordinator_id;
 
       if (!coordinatorId) {
-        setErrorModalMessage("Unable to determine coordinator for cancellation");
+        setErrorModalMessage(
+          "Unable to determine coordinator for cancellation",
+        );
         setErrorModalOpen(true);
+
         return;
       }
 
-      const res = await fetch(
-        `${API_URL}/api/requests/${requestId}`,
-        {
-          method: "DELETE",
-          headers,
-          body: JSON.stringify({ coordinatorId }),
-        },
-      );
+      const res = await fetch(`${API_URL}/api/requests/${requestId}`, {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ coordinatorId }),
+      });
       const resp = await res.json();
 
-      if (!res.ok)
-        throw new Error(resp.message || "Failed to cancel request");
+      if (!res.ok) throw new Error(resp.message || "Failed to cancel request");
 
       // refresh requests list to reflect cancellation
       await fetchRequests();
@@ -846,22 +847,45 @@ export default function CampaignPage() {
       // requester name - check who actually created the request
       let requestee = "";
 
-      if (r.made_by_role === 'Stakeholder' && r.stakeholder && r.stakeholder.staff) {
+      if (
+        r.made_by_role === "Stakeholder" &&
+        r.stakeholder &&
+        r.stakeholder.staff
+      ) {
         const s = r.stakeholder.staff;
-        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
-      } else if ((r.made_by_role === 'Coordinator' || r.made_by_role === 'SystemAdmin') && r.coordinator && r.coordinator.staff) {
+
+        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+          .trim()
+          .toLowerCase();
+      } else if (
+        (r.made_by_role === "Coordinator" ||
+          r.made_by_role === "SystemAdmin") &&
+        r.coordinator &&
+        r.coordinator.staff
+      ) {
         const s = r.coordinator.staff;
-        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
+
+        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+          .trim()
+          .toLowerCase();
       } else if (r.stakeholder && r.stakeholder.staff) {
         // Fallback: stakeholder data exists
         const s = r.stakeholder.staff;
-        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
+
+        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+          .trim()
+          .toLowerCase();
       } else if (r.coordinator && r.coordinator.staff) {
         // Final fallback: coordinator data
         const s = r.coordinator.staff;
-        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
+
+        requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+          .trim()
+          .toLowerCase();
       } else if (r.MadeByStakeholderID || ev.MadeByStakeholderID) {
-        requestee = (r.MadeByStakeholderID || ev.MadeByStakeholderID).toString().toLowerCase();
+        requestee = (r.MadeByStakeholderID || ev.MadeByStakeholderID)
+          .toString()
+          .toLowerCase();
       }
       if (!(title.includes(q) || requestee.includes(q))) return false;
     }
@@ -879,22 +903,45 @@ export default function CampaignPage() {
       if (advancedFilter.requester) {
         let requestee = "";
 
-        if (r.made_by_role === 'Stakeholder' && r.stakeholder && r.stakeholder.staff) {
+        if (
+          r.made_by_role === "Stakeholder" &&
+          r.stakeholder &&
+          r.stakeholder.staff
+        ) {
           const s = r.stakeholder.staff;
-          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
-        } else if ((r.made_by_role === 'Coordinator' || r.made_by_role === 'SystemAdmin') && r.coordinator && r.coordinator.staff) {
+
+          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+            .trim()
+            .toLowerCase();
+        } else if (
+          (r.made_by_role === "Coordinator" ||
+            r.made_by_role === "SystemAdmin") &&
+          r.coordinator &&
+          r.coordinator.staff
+        ) {
           const s = r.coordinator.staff;
-          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
+
+          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+            .trim()
+            .toLowerCase();
         } else if (r.stakeholder && r.stakeholder.staff) {
           // Fallback: stakeholder data exists
           const s = r.stakeholder.staff;
-          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
+
+          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+            .trim()
+            .toLowerCase();
         } else if (r.coordinator && r.coordinator.staff) {
           // Final fallback: coordinator data
           const s = r.coordinator.staff;
-          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`.trim().toLowerCase();
+
+          requestee = `${s.First_Name || ""} ${s.Last_Name || ""}`
+            .trim()
+            .toLowerCase();
         } else if (r.MadeByStakeholderID || ev.MadeByStakeholderID) {
-          requestee = (r.MadeByStakeholderID || ev.MadeByStakeholderID).toString().toLowerCase();
+          requestee = (r.MadeByStakeholderID || ev.MadeByStakeholderID)
+            .toString()
+            .toLowerCase();
         }
         if (!requestee.includes(String(advancedFilter.requester).toLowerCase()))
           return false;
@@ -1000,10 +1047,22 @@ export default function CampaignPage() {
 
                 // If creatorDistrict is still not set, try to get district based on stakeholder/coordinator presence
                 if (!creatorDistrict) {
-                  if (req.stakeholder && (req.stakeholder.District_Number || req.stakeholder.District_Name)) {
-                    creatorDistrict = req.stakeholder.District_Number || req.stakeholder.District_Name;
-                  } else if (req.coordinator && (req.coordinator.District_Number || req.coordinator.District_Name)) {
-                    creatorDistrict = req.coordinator.District_Number || req.coordinator.District_Name;
+                  if (
+                    req.stakeholder &&
+                    (req.stakeholder.District_Number ||
+                      req.stakeholder.District_Name)
+                  ) {
+                    creatorDistrict =
+                      req.stakeholder.District_Number ||
+                      req.stakeholder.District_Name;
+                  } else if (
+                    req.coordinator &&
+                    (req.coordinator.District_Number ||
+                      req.coordinator.District_Name)
+                  ) {
+                    creatorDistrict =
+                      req.coordinator.District_Number ||
+                      req.coordinator.District_Name;
                   }
                 }
 
@@ -1031,9 +1090,12 @@ export default function CampaignPage() {
                 const statusRaw = event.Status || req.Status || "Pending";
                 const status = statusRaw.includes("Reject")
                   ? "Rejected"
-                  : statusRaw.includes("Approved") || statusRaw.includes("Complete") || statusRaw.includes("Completed")
+                  : statusRaw.includes("Approved") ||
+                      statusRaw.includes("Complete") ||
+                      statusRaw.includes("Completed")
                     ? "Approved"
-                    : statusRaw.includes("Cancel") || statusRaw.includes("Cancelled")
+                    : statusRaw.includes("Cancel") ||
+                        statusRaw.includes("Cancelled")
                       ? "Cancelled"
                       : "Pending";
 
@@ -1132,6 +1194,7 @@ export default function CampaignPage() {
                     request={req}
                     status={status as any}
                     title={title}
+                    onCancelEvent={() => handleCancelEvent(req)}
                     onEditEvent={() => handleOpenEdit(req)}
                     onRescheduleEvent={(
                       currentDate: string,
@@ -1141,7 +1204,6 @@ export default function CampaignPage() {
                       handleRescheduleEvent(req, currentDate, newDateISO, note)
                     }
                     onViewEvent={() => handleOpenView(req)}
-                    onCancelEvent={() => handleCancelEvent(req)}
                   />
                 );
               })}

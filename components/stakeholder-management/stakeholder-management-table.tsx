@@ -61,7 +61,14 @@ export default function StakeholderTable({
         .includes(q) ||
       (coordinator.province || "").toLowerCase().includes(q) ||
       (coordinator.district || "").toLowerCase().includes(q) ||
-      ((municipalityCache && municipalityCache[String(coordinator.municipality)]) || coordinator.municipality || "").toLowerCase().includes(q)
+      (
+        (municipalityCache &&
+          municipalityCache[String(coordinator.municipality)]) ||
+        coordinator.municipality ||
+        ""
+      )
+        .toLowerCase()
+        .includes(q)
     );
   });
 
@@ -148,7 +155,10 @@ export default function StakeholderTable({
                   {coordinator.district || "—"}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {(municipalityCache && municipalityCache[String(coordinator.municipality)]) || coordinator.municipality || "—"}
+                  {(municipalityCache &&
+                    municipalityCache[String(coordinator.municipality)]) ||
+                    coordinator.municipality ||
+                    "—"}
                 </td>
                 <td className="px-6 py-4">
                   <Dropdown>

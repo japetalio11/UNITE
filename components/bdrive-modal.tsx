@@ -100,18 +100,18 @@ export default function BdriveModal({
                 {/* Coordinator */}
                 <div className="space-y-2">
                   <label
-                    htmlFor="coordinator"
                     className="block text-sm font-medium text-gray-700"
+                    htmlFor="coordinator"
                   >
                     Coordinator
                   </label>
                   <Input
-                    id="coordinator"
                     required
                     classNames={{
                       inputWrapper: "h-11",
                       input: "text-sm",
                     }}
+                    id="coordinator"
                     name="coordinator"
                     placeholder="Enter coordinator name"
                     value={formData.coordinator}
@@ -123,13 +123,12 @@ export default function BdriveModal({
                   {/* Start Date */}
                   <div className="space-y-2">
                     <label
-                      htmlFor="startDate"
                       className="block text-sm font-medium text-gray-700"
+                      htmlFor="startDate"
                     >
                       Start Date
                     </label>
                     <Input
-                      id="startDate"
                       required
                       classNames={{
                         inputWrapper: "h-11",
@@ -143,6 +142,7 @@ export default function BdriveModal({
                           <CalendarIcon className="w-4 h-4" />
                         </button>
                       }
+                      id="startDate"
                       name="startDate"
                       type="date"
                       value={formData.startDate}
@@ -153,13 +153,12 @@ export default function BdriveModal({
                   {/* End Date */}
                   <div className="space-y-2">
                     <label
-                      htmlFor="endDate"
                       className="block text-sm font-medium text-gray-700"
+                      htmlFor="endDate"
                     >
                       End Date
                     </label>
                     <Input
-                      id="endDate"
                       required
                       classNames={{
                         inputWrapper: "h-11",
@@ -173,6 +172,7 @@ export default function BdriveModal({
                           <CalendarIcon className="w-4 h-4" />
                         </button>
                       }
+                      id="endDate"
                       name="endDate"
                       type="date"
                       value={formData.endDate}
@@ -184,18 +184,18 @@ export default function BdriveModal({
                 {/* Goal Count */}
                 <div className="space-y-2">
                   <label
-                    htmlFor="goalCount"
                     className="block text-sm font-medium text-gray-700"
+                    htmlFor="goalCount"
                   >
                     Goal Count
                   </label>
                   <Input
-                    id="goalCount"
                     required
                     classNames={{
                       inputWrapper: "h-11",
                       input: "text-sm",
                     }}
+                    id="goalCount"
                     name="goalCount"
                     placeholder="Enter goal count"
                     type="number"
@@ -207,15 +207,15 @@ export default function BdriveModal({
                 {/* Event Description */}
                 <div className="space-y-2">
                   <label
-                    htmlFor="eventDescription"
                     className="block text-sm font-medium text-gray-700"
+                    htmlFor="eventDescription"
                   >
                     Event Description
                   </label>
                   <textarea
-                    id="eventDescription"
                     required
                     className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]"
+                    id="eventDescription"
                     name="eventDescription"
                     placeholder="Enter event description"
                     value={formData.eventDescription}
@@ -226,18 +226,18 @@ export default function BdriveModal({
                 {/* Location */}
                 <div className="space-y-2">
                   <label
-                    htmlFor="location"
                     className="block text-sm font-medium text-gray-700"
+                    htmlFor="location"
                   >
                     Location
                   </label>
                   <Input
-                    id="location"
                     required
                     classNames={{
                       inputWrapper: "h-11",
                       input: "text-sm",
                     }}
+                    id="location"
                     name="location"
                     placeholder="Enter location"
                     startContent={<MapPin className="w-4 h-4 text-gray-400" />}
@@ -249,18 +249,18 @@ export default function BdriveModal({
                 {/* Contact Information */}
                 <div className="space-y-2">
                   <label
-                    htmlFor="contactInfo"
                     className="block text-sm font-medium text-gray-700"
+                    htmlFor="contactInfo"
                   >
                     Contact Information
                   </label>
                   <Input
-                    id="contactInfo"
                     required
                     classNames={{
                       inputWrapper: "h-11",
                       input: "text-sm",
                     }}
+                    id="contactInfo"
                     name="contactInfo"
                     placeholder="Enter contact information"
                     value={formData.contactInfo}

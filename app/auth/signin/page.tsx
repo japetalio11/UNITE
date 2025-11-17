@@ -57,13 +57,13 @@ export default function SignIn() {
       const { token, data } = body;
 
       // Debug: Log response data to help diagnose production issues
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Login] Response data:', {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Login] Response data:", {
           hasToken: !!token,
           hasData: !!data,
           staffType: data?.StaffType || data?.staff_type || data?.role,
           isAdmin: data?.isAdmin,
-          dataKeys: data ? Object.keys(data) : []
+          dataKeys: data ? Object.keys(data) : [],
         });
       }
 
@@ -79,23 +79,25 @@ export default function SignIn() {
       // hydration even when the app used sessionStorage or a different key.
       try {
         // Get StaffType from response - backend now includes this field
-        const staffType = data?.StaffType || data?.staff_type || data?.role || null;
+        const staffType =
+          data?.StaffType || data?.staff_type || data?.role || null;
         const staffTypeStr = String(staffType || "").toLowerCase();
-        
+
         // Determine if user is Admin: StaffType === 'Admin' or explicit isAdmin flag
         // This is critical for sidebar to show correct icons
-        const isAdminUser = 
-          !!data?.isAdmin || 
-          staffType === 'Admin' || 
-          staffTypeStr === 'admin' ||
-          (staffTypeStr.includes('sys') && staffTypeStr.includes('admin'));
-        
+        const isAdminUser =
+          !!data?.isAdmin ||
+          staffType === "Admin" ||
+          staffTypeStr === "admin" ||
+          (staffTypeStr.includes("sys") && staffTypeStr.includes("admin"));
+
         const legacy = {
           role: staffType,
           StaffType: staffType, // CRITICAL: Sidebar needs this exact field name
           staff_type: staffType, // Also include lowercase variant for compatibility
           isAdmin: isAdminUser,
-          First_Name: data?.First_Name || data?.first_name || data?.FirstName || null,
+          First_Name:
+            data?.First_Name || data?.first_name || data?.FirstName || null,
           email: data?.Email || data?.email || null,
           id:
             data?.id ||
@@ -115,14 +117,14 @@ export default function SignIn() {
 
         if (typeof window !== "undefined") {
           localStorage.setItem("unite_user", JSON.stringify(legacy));
-          
+
           // Debug: Verify what was stored
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Login] Stored legacy object:', {
+          if (process.env.NODE_ENV === "development") {
+            console.log("[Login] Stored legacy object:", {
               StaffType: legacy.StaffType,
               role: legacy.role,
               isAdmin: legacy.isAdmin,
-              hasStaffType: !!legacy.StaffType
+              hasStaffType: !!legacy.StaffType,
             });
           }
         }

@@ -195,6 +195,7 @@ const EventCard: React.FC<EventCardProps> = ({
     setValidationError(null);
     if (!cancelNote || cancelNote.trim().length === 0) {
       setValidationError("Please provide a reason for cancelling this event");
+
       return;
     }
 
@@ -204,13 +205,21 @@ const EventCard: React.FC<EventCardProps> = ({
 
       if (requestId) {
         // Use performRequestAction for cancellation to ensure proper status update
-        await performRequestAction(requestId, "admin-action", "Cancelled", cancelNote.trim());
+        await performRequestAction(
+          requestId,
+          "admin-action",
+          "Cancelled",
+          cancelNote.trim(),
+        );
       } else if (onCancelEvent) {
         onCancelEvent();
       }
     } catch (e) {
-      console.error('Cancel error:', e);
-      alert('Failed to cancel event: ' + ((e as Error).message || 'Unknown error'));
+      console.error("Cancel error:", e);
+      alert(
+        "Failed to cancel event: " + ((e as Error).message || "Unknown error"),
+      );
+
       return;
     }
 
@@ -228,23 +237,34 @@ const EventCard: React.FC<EventCardProps> = ({
   const handleDelete = async () => {
     try {
       // Use the most up-to-date request data available
-      let r = fullRequest || request || (request && (request as any).event) || {};
+      let r =
+        fullRequest || request || (request && (request as any).event) || {};
       const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
 
       if (!requestId) {
-        alert('Request ID not found');
+        alert("Request ID not found");
+
         return;
       }
 
       // If we don't have fresh data or the status isn't cancelled, fetch the latest
-      if (!fullRequest || (r.Status !== 'Cancelled' && r.status !== 'Cancelled')) {
+      if (
+        !fullRequest ||
+        (r.Status !== "Cancelled" && r.status !== "Cancelled")
+      ) {
         try {
-          const token = typeof window !== "undefined" ? localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token") : null;
+          const token =
+            typeof window !== "undefined"
+              ? localStorage.getItem("unite_token") ||
+                sessionStorage.getItem("unite_token")
+              : null;
           const headers: any = { "Content-Type": "application/json" };
+
           if (token) headers["Authorization"] = `Bearer ${token}`;
 
           const url = `${API_BASE}/api/requests/${encodeURIComponent(requestId)}`;
           let res;
+
           if (token) {
             res = await fetchWithAuth(url, { method: "GET" });
           } else {
@@ -252,87 +272,121 @@ const EventCard: React.FC<EventCardProps> = ({
           }
           const body = await res.json().catch(() => ({}));
           const data = body?.data || body?.request || body;
+
           r = data || r;
         } catch (fetchError) {
-          console.warn('Failed to fetch latest request data:', fetchError);
+          console.warn("Failed to fetch latest request data:", fetchError);
         }
       }
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token") : null;
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token")
+          : null;
       const headers: any = { "Content-Type": "application/json" };
+
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       let res;
+
       if (token) {
-        res = await fetchWithAuth(`${API_BASE}/api/requests/${encodeURIComponent(requestId)}/delete`, { method: "DELETE" });
+        res = await fetchWithAuth(
+          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/delete`,
+          { method: "DELETE" },
+        );
       } else {
-        res = await fetch(`${API_BASE}/api/requests/${encodeURIComponent(requestId)}/delete`, { method: "DELETE", headers, credentials: "include" });
+        res = await fetch(
+          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/delete`,
+          { method: "DELETE", headers, credentials: "include" },
+        );
       }
 
       const resp = await res.json();
-      if (!res.ok) throw new Error(resp.message || 'Failed to delete request');
+
+      if (!res.ok) throw new Error(resp.message || "Failed to delete request");
 
       // Create deletion notification for coordinator
       try {
         const coordinatorId = r?.coordinator_id || r?.Coordinator_ID || null;
         const eventId = r?.Event_ID || r?.EventId || null;
-        
+
         if (coordinatorId && eventId) {
-          const notificationRes = await fetch(`${API_BASE}/api/notifications/request-deletion`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              coordinatorId,
-              requestId,
-              eventId
-            }),
-            credentials: "include"
-          });
-          
+          const notificationRes = await fetch(
+            `${API_BASE}/api/notifications/request-deletion`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                coordinatorId,
+                requestId,
+                eventId,
+              }),
+              credentials: "include",
+            },
+          );
+
           if (!notificationRes.ok) {
-            console.warn('Failed to create coordinator deletion notification');
+            console.warn("Failed to create coordinator deletion notification");
           }
         }
       } catch (notificationError) {
-        console.warn('Error creating coordinator deletion notification:', notificationError);
+        console.warn(
+          "Error creating coordinator deletion notification:",
+          notificationError,
+        );
       }
 
       // Create deletion notification for stakeholder (owner)
       try {
-        const stakeholderId = r?.stakeholder_id || r?.Stakeholder_ID || 
-                             (r?.made_by_role === 'Stakeholder' ? r?.made_by_id : null) || null;
+        const stakeholderId =
+          r?.stakeholder_id ||
+          r?.Stakeholder_ID ||
+          (r?.made_by_role === "Stakeholder" ? r?.made_by_id : null) ||
+          null;
         const eventId = r?.Event_ID || r?.EventId || null;
-        
+
         if (stakeholderId && eventId) {
-          const stakeholderNotificationRes = await fetch(`${API_BASE}/api/notifications/stakeholder-deletion`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              stakeholderId,
-              requestId,
-              eventId
-            }),
-            credentials: "include"
-          });
-          
+          const stakeholderNotificationRes = await fetch(
+            `${API_BASE}/api/notifications/stakeholder-deletion`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                stakeholderId,
+                requestId,
+                eventId,
+              }),
+              credentials: "include",
+            },
+          );
+
           if (!stakeholderNotificationRes.ok) {
-            console.warn('Failed to create stakeholder deletion notification');
+            console.warn("Failed to create stakeholder deletion notification");
           }
         }
       } catch (stakeholderNotificationError) {
-        console.warn('Error creating stakeholder deletion notification:', stakeholderNotificationError);
+        console.warn(
+          "Error creating stakeholder deletion notification:",
+          stakeholderNotificationError,
+        );
       }
 
       // Notify other parts of the app to refresh lists
       try {
-        window.dispatchEvent(new CustomEvent("unite:requests-changed", { detail: { requestId } }));
+        window.dispatchEvent(
+          new CustomEvent("unite:requests-changed", { detail: { requestId } }),
+        );
       } catch (e) {}
 
       setDeleteOpen(false);
       setSuccessModal(true);
     } catch (e) {
-      console.error('Delete error:', e);
-      alert('Failed to delete request: ' + ((e as Error).message || 'Unknown error'));
+      console.error("Delete error:", e);
+      alert(
+        "Failed to delete request: " +
+          ((e as Error).message || "Unknown error"),
+      );
     } finally {
       setDeleteOpen(false);
     }
@@ -353,18 +407,27 @@ const EventCard: React.FC<EventCardProps> = ({
       try {
         const r = request || (request && (request as any).event) || {};
         const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
-        console.log('Accepting request with ID:', requestId);
+
+        console.log("Accepting request with ID:", requestId);
 
         if (requestId) {
-          await performRequestAction(requestId, "admin-action", "Accepted", note || "");
+          await performRequestAction(
+            requestId,
+            "admin-action",
+            "Accepted",
+            note || "",
+          );
         } else if (onAcceptEvent) {
           try {
             onAcceptEvent(note);
           } catch (e) {}
         }
       } catch (e) {
-        console.error('Accept error:', e);
-        alert('Failed to accept request: ' + ((e as Error).message || 'Unknown error'));
+        console.error("Accept error:", e);
+        alert(
+          "Failed to accept request: " +
+            ((e as Error).message || "Unknown error"),
+        );
       } finally {
         setAcceptOpen(false);
       }
@@ -379,7 +442,12 @@ const EventCard: React.FC<EventCardProps> = ({
         const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
 
         if (requestId) {
-          await performRequestAction(requestId, "admin-action", "Rejected", note || "");
+          await performRequestAction(
+            requestId,
+            "admin-action",
+            "Rejected",
+            note || "",
+          );
         } else if (onRejectEvent) {
           try {
             onRejectEvent(note);
@@ -647,8 +715,8 @@ const EventCard: React.FC<EventCardProps> = ({
   // Unified function to perform request actions for any actor type
   const performRequestAction = async (
     requestId: string,
-    actorType: 'admin-action' | 'coordinator-action' | 'stakeholder-action',
-    action: 'Accepted' | 'Rejected' | 'Rescheduled' | 'Cancelled',
+    actorType: "admin-action" | "coordinator-action" | "stakeholder-action",
+    action: "Accepted" | "Rejected" | "Rescheduled" | "Cancelled",
     note?: string,
     rescheduledDate?: string | null,
   ) => {
@@ -678,7 +746,7 @@ const EventCard: React.FC<EventCardProps> = ({
         const legacyBody = {
           action,
           note: note || "",
-          ...(rescheduledDate && { rescheduledDate })
+          ...(rescheduledDate && { rescheduledDate }),
         };
 
         res = await fetch(
@@ -1015,13 +1083,18 @@ const EventCard: React.FC<EventCardProps> = ({
         return defaultMenu;
       }
 
-      if (status === "Approved" || status === "Completed" || (request && (request as any).Status === "Completed")) {
+      if (
+        status === "Approved" ||
+        status === "Completed" ||
+        (request && (request as any).Status === "Completed")
+      ) {
         return approvedMenu;
       } else if (status === "Pending") {
         return pendingMenu;
       } else if (status === "Cancelled") {
         // Special menu for cancelled events - only sys admins can delete
         const v = getViewer();
+
         if (v.isAdmin) {
           return (
             <DropdownMenu aria-label="Event actions menu" variant="faded">
@@ -1093,6 +1166,7 @@ const EventCard: React.FC<EventCardProps> = ({
       // Check if this is a cancelled request (request.Status === "Cancelled") regardless of event status
       if (request && (request as any).Status === "Cancelled") {
         const v = getViewer();
+
         if (v.isAdmin) {
           return (
             <DropdownMenu aria-label="Event actions menu" variant="faded">
@@ -1170,29 +1244,29 @@ const EventCard: React.FC<EventCardProps> = ({
   // Determine a human-friendly pending-stage label for Pending requests
   const getPendingStageLabel = (): string | null => {
     const r = request || (request && (request as any).event) || {};
-    
+
     // First check the request Status field for new workflow statuses
     const requestStatus = r?.Status || r?.status || null;
-    
-    if (requestStatus === 'Pending_Stakeholder_Review') {
+
+    if (requestStatus === "Pending_Stakeholder_Review") {
       return "Waiting for stakeholder review";
     }
-    if (requestStatus === 'Pending_Coordinator_Review') {
+    if (requestStatus === "Pending_Coordinator_Review") {
       return "Waiting for coordinator review";
     }
-    if (requestStatus === 'Pending_Admin_Review') {
+    if (requestStatus === "Pending_Admin_Review") {
       return "Waiting for admin review";
     }
-    if (requestStatus === 'Rescheduled_By_Admin') {
+    if (requestStatus === "Rescheduled_By_Admin") {
       return "Rescheduled by admin";
     }
-    if (requestStatus === 'Rescheduled_By_Coordinator') {
+    if (requestStatus === "Rescheduled_By_Coordinator") {
       return "Rescheduled by coordinator";
     }
-    if (requestStatus === 'Rescheduled_By_Stakeholder') {
+    if (requestStatus === "Rescheduled_By_Stakeholder") {
       return "Rescheduled by stakeholder";
     }
-    
+
     // Fallback to old logic for backward compatibility
     if (status !== "Pending") return null;
     const adminAction =
@@ -1244,11 +1318,13 @@ const EventCard: React.FC<EventCardProps> = ({
     if (!dateStr) return "—";
     try {
       const date = new Date(dateStr);
+
       if (isNaN(date.getTime())) return dateStr; // Return original if invalid
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch (e) {
       return dateStr || "—";
@@ -1268,6 +1344,7 @@ const EventCard: React.FC<EventCardProps> = ({
 
       if (!madeByStakeholder) return false;
       const viewerId = getViewerId();
+
       if (!viewerId) return false;
 
       return String(viewerId) === String(madeByStakeholder);
@@ -1379,25 +1456,42 @@ const EventCard: React.FC<EventCardProps> = ({
                 (r as any).StakeholderFinalAction ??
                 (r as any).stakeholderFinalAction ??
                 null;
-              const isEdit = r.originalData && Object.keys(r.originalData).length > 0;
-              const isRescheduled = adminAction && String(adminAction).toLowerCase().includes("resched");
-              const isStakeholderRescheduled = stakeholderAction && String(stakeholderAction).toLowerCase().includes("resched");
-              const isRejected = adminAction && String(adminAction).toLowerCase().includes("reject");
-              const isCancelled = adminAction && String(adminAction).toLowerCase().includes("cancel");
+              const isEdit =
+                r.originalData && Object.keys(r.originalData).length > 0;
+              const isRescheduled =
+                adminAction &&
+                String(adminAction).toLowerCase().includes("resched");
+              const isStakeholderRescheduled =
+                stakeholderAction &&
+                String(stakeholderAction).toLowerCase().includes("resched");
+              const isRejected =
+                adminAction &&
+                String(adminAction).toLowerCase().includes("reject");
+              const isCancelled =
+                adminAction &&
+                String(adminAction).toLowerCase().includes("cancel");
 
               if (isStakeholderRescheduled) {
                 // Stakeholder rescheduled request
                 return (
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-sm font-medium">Stakeholder Rescheduled Event</h4>
+                      <h4 className="text-sm font-medium">
+                        Stakeholder Rescheduled Event
+                      </h4>
                     </div>
                     <div>
                       <p className="text-xs text-default-800">
-                        Original Date: {r?.RequestedDate || r?.Date || date || "—"}
+                        Original Date:{" "}
+                        {r?.RequestedDate || r?.Date || date || "—"}
                       </p>
                       <p className="text-xs text-default-800">
-                        New Date: {formatDate(r?.RescheduledDate || r?.Rescheduled_Date || r?.rescheduledDate)}
+                        New Date:{" "}
+                        {formatDate(
+                          r?.RescheduledDate ||
+                            r?.Rescheduled_Date ||
+                            r?.rescheduledDate,
+                        )}
                       </p>
                       <p className="text-xs text-default-600">
                         Note: {r?.StakeholderNote || "—"}
@@ -1414,10 +1508,16 @@ const EventCard: React.FC<EventCardProps> = ({
                     </div>
                     <div>
                       <p className="text-xs text-default-800">
-                        Original Date: {r?.RequestedDate || r?.Date || date || "—"}
+                        Original Date:{" "}
+                        {r?.RequestedDate || r?.Date || date || "—"}
                       </p>
                       <p className="text-xs text-default-800">
-                        New Date: {formatDate(r?.RescheduledDate || r?.Rescheduled_Date || r?.rescheduledDate)}
+                        New Date:{" "}
+                        {formatDate(
+                          r?.RescheduledDate ||
+                            r?.Rescheduled_Date ||
+                            r?.rescheduledDate,
+                        )}
                       </p>
                       <p className="text-xs text-default-600">
                         Note: {r?.AdminNote || "—"}
@@ -1427,7 +1527,10 @@ const EventCard: React.FC<EventCardProps> = ({
                     {stakeholderAction ? (
                       <div className="mt-2 p-2 border border-default-200 rounded">
                         {(() => {
-                          const s = String(stakeholderAction || "").toLowerCase();
+                          const s = String(
+                            stakeholderAction || "",
+                          ).toLowerCase();
+
                           if (s.includes("accept"))
                             return (
                               <div className="px-2 py-1 rounded-full bg-success-50 text-success-700 text-xs font-semibold inline-block">
@@ -1440,6 +1543,7 @@ const EventCard: React.FC<EventCardProps> = ({
                                 Stakeholder: Rejected
                               </div>
                             );
+
                           return (
                             <div className="px-2 py-1 rounded-full bg-default-50 text-default-700 text-xs font-semibold inline-block">
                               Stakeholder: {String(stakeholderAction)}
@@ -1459,10 +1563,16 @@ const EventCard: React.FC<EventCardProps> = ({
                     </div>
                     <div>
                       <p className="text-xs text-default-800">
-                        Original Date: {r?.RequestedDate || r?.Date || date || "—"}
+                        Original Date:{" "}
+                        {r?.RequestedDate || r?.Date || date || "—"}
                       </p>
                       <p className="text-xs text-default-800">
-                        New Date: {formatDate(r?.RescheduledDate || r?.Rescheduled_Date || r?.rescheduledDate)}
+                        New Date:{" "}
+                        {formatDate(
+                          r?.RescheduledDate ||
+                            r?.Rescheduled_Date ||
+                            r?.rescheduledDate,
+                        )}
                       </p>
                       <p className="text-xs text-default-600">
                         Note: {r?.AdminNote || "—"}
@@ -1472,7 +1582,10 @@ const EventCard: React.FC<EventCardProps> = ({
                     {stakeholderAction ? (
                       <div className="mt-2 p-2 border border-default-200 rounded">
                         {(() => {
-                          const s = String(stakeholderAction || "").toLowerCase();
+                          const s = String(
+                            stakeholderAction || "",
+                          ).toLowerCase();
+
                           if (s.includes("accept"))
                             return (
                               <div className="px-2 py-1 rounded-full bg-success-50 text-success-700 text-xs font-semibold inline-block">
@@ -1485,6 +1598,7 @@ const EventCard: React.FC<EventCardProps> = ({
                                 Stakeholder: Rejected
                               </div>
                             );
+
                           return (
                             <div className="px-2 py-1 rounded-full bg-default-50 text-default-700 text-xs font-semibold inline-block">
                               Stakeholder: {String(stakeholderAction)}
@@ -1533,7 +1647,8 @@ const EventCard: React.FC<EventCardProps> = ({
                   null;
                 const requesterEmail =
                   r?.Email || r?.email || r?.requesterEmail || null;
-                const requestedDate = r?.RequestedDate || r?.Date || date || null;
+                const requestedDate =
+                  r?.RequestedDate || r?.Date || date || null;
                 const startTime =
                   r?.StartTime || r?.start_time || r?.Start || null;
                 const endTime = r?.EndTime || r?.end_time || r?.End || null;
@@ -1547,6 +1662,7 @@ const EventCard: React.FC<EventCardProps> = ({
                   r?.event?.categoryData?.type ||
                   category ||
                   null;
+
                 return (
                   <div className="space-y-4">
                     <div>
@@ -1615,6 +1731,7 @@ const EventCard: React.FC<EventCardProps> = ({
                             found !== undefined && found !== null
                               ? String(found)
                               : "—";
+
                           return (
                             <p className="text-xs text-default-800">
                               Target donation / Blood count: {display}
@@ -1626,7 +1743,9 @@ const EventCard: React.FC<EventCardProps> = ({
                     {eventType &&
                     String(eventType).toLowerCase().includes("training") ? (
                       <div>
-                        <h4 className="text-sm font-medium">Training Details</h4>
+                        <h4 className="text-sm font-medium">
+                          Training Details
+                        </h4>
                         {(() => {
                           const trainingType =
                             r?.training_type ||
@@ -1644,6 +1763,7 @@ const EventCard: React.FC<EventCardProps> = ({
                             r?.category?.MaxParticipants ||
                             r?.categoryData?.MaxParticipants ||
                             null;
+
                           return (
                             <>
                               <p className="text-xs text-default-800">
@@ -1660,7 +1780,9 @@ const EventCard: React.FC<EventCardProps> = ({
                     {eventType &&
                     String(eventType).toLowerCase().includes("advocacy") ? (
                       <div>
-                        <h4 className="text-sm font-medium">Advocacy Details</h4>
+                        <h4 className="text-sm font-medium">
+                          Advocacy Details
+                        </h4>
                         {(() => {
                           const targetAudience =
                             r?.event?.categoryData?.TargetAudience ||
@@ -1678,6 +1800,7 @@ const EventCard: React.FC<EventCardProps> = ({
                             r?.expected_audience_size ||
                             r?.ExpectedAudienceSize ||
                             null;
+
                           return (
                             <>
                               <p className="text-xs text-default-800">
@@ -1697,6 +1820,7 @@ const EventCard: React.FC<EventCardProps> = ({
                         <div className="flex items-center gap-3">
                           {(() => {
                             const a = String(adminAction || "").toLowerCase();
+
                             if (a.includes("accept")) {
                               return (
                                 <div className="px-2 py-1 rounded-full bg-success-50 text-success-700 text-xs font-semibold">
@@ -1718,6 +1842,7 @@ const EventCard: React.FC<EventCardProps> = ({
                                 </div>
                               );
                             }
+
                             return (
                               <div className="px-2 py-1 rounded-full bg-default-50 text-default-700 text-xs font-semibold">
                                 {String(adminAction)}
@@ -1733,9 +1858,11 @@ const EventCard: React.FC<EventCardProps> = ({
                           <div className="text-xs text-default-800 mt-2">
                             <p>
                               New date/time:{" "}
-                              {formatDate(r?.RescheduledDate ||
-                                r?.Rescheduled_Date ||
-                                r?.rescheduledDate)}
+                              {formatDate(
+                                r?.RescheduledDate ||
+                                  r?.Rescheduled_Date ||
+                                  r?.rescheduledDate,
+                              )}
                             </p>
                           </div>
                         ) : null}
@@ -1750,7 +1877,10 @@ const EventCard: React.FC<EventCardProps> = ({
                     {stakeholderAction ? (
                       <div className="mt-2 p-2 border border-default-200 rounded">
                         {(() => {
-                          const s = String(stakeholderAction || "").toLowerCase();
+                          const s = String(
+                            stakeholderAction || "",
+                          ).toLowerCase();
+
                           if (s.includes("accept"))
                             return (
                               <div className="px-2 py-1 rounded-full bg-success-50 text-success-700 text-xs font-semibold inline-block">
@@ -1763,6 +1893,7 @@ const EventCard: React.FC<EventCardProps> = ({
                                 Stakeholder: Rejected
                               </div>
                             );
+
                           return (
                             <div className="px-2 py-1 rounded-full bg-default-50 text-default-700 text-xs font-semibold inline-block">
                               Stakeholder: {String(stakeholderAction)}
@@ -1786,13 +1917,17 @@ const EventCard: React.FC<EventCardProps> = ({
                 {};
               const requestStatus = r?.Status || r?.status || null;
               const v = getViewer();
-              
+
               // Check new workflow statuses first
-              if (requestStatus === 'Pending_Stakeholder_Review') {
+              if (requestStatus === "Pending_Stakeholder_Review") {
                 // Only stakeholders can act on stakeholder review requests
-                const stakeholderId = r?.stakeholder_id || r?.Stakeholder_ID || null;
-                const viewerIsStakeholder = v.id && stakeholderId && String(v.id) === String(stakeholderId);
-                
+                const stakeholderId =
+                  r?.stakeholder_id || r?.Stakeholder_ID || null;
+                const viewerIsStakeholder =
+                  v.id &&
+                  stakeholderId &&
+                  String(v.id) === String(stakeholderId);
+
                 if (viewerIsStakeholder) {
                   return (
                     <>
@@ -1813,12 +1948,20 @@ const EventCard: React.FC<EventCardProps> = ({
                               r?.RequestId ||
                               r?.requestId ||
                               null;
+
                             if (requestId) {
-                              await performRequestAction(requestId, 'stakeholder-action', 'Accepted');
+                              await performRequestAction(
+                                requestId,
+                                "stakeholder-action",
+                                "Accepted",
+                              );
                             }
                           } catch (e) {
-                            console.error('Stakeholder accept error:', e);
-                            alert('Failed to accept request: ' + ((e as Error).message || 'Unknown error'));
+                            console.error("Stakeholder accept error:", e);
+                            alert(
+                              "Failed to accept request: " +
+                                ((e as Error).message || "Unknown error"),
+                            );
                           }
                         }}
                       >
@@ -1834,8 +1977,13 @@ const EventCard: React.FC<EventCardProps> = ({
                               r?.RequestId ||
                               r?.requestId ||
                               null;
+
                             if (requestId) {
-                              await performRequestAction(requestId, 'stakeholder-action', 'Rejected');
+                              await performRequestAction(
+                                requestId,
+                                "stakeholder-action",
+                                "Rejected",
+                              );
                             }
                           } catch (e) {}
                         }}
@@ -1845,20 +1993,27 @@ const EventCard: React.FC<EventCardProps> = ({
                     </>
                   );
                 }
+
                 return (
                   <Button variant="bordered" onPress={() => setViewOpen(false)}>
                     Close
                   </Button>
                 );
               }
-              
-              if (requestStatus === 'Pending_Coordinator_Review') {
+
+              if (requestStatus === "Pending_Coordinator_Review") {
                 // Coordinators and sys admins can act on coordinator review requests
-                const coordinatorId = r?.coordinator_id || r?.Coordinator_ID || null;
-                const viewerIsCoordinator = v.id && coordinatorId && String(v.id) === String(coordinatorId);
-                
+                const coordinatorId =
+                  r?.coordinator_id || r?.Coordinator_ID || null;
+                const viewerIsCoordinator =
+                  v.id &&
+                  coordinatorId &&
+                  String(v.id) === String(coordinatorId);
+
                 if (viewerIsCoordinator || v.isAdmin) {
-                  const isEditRequest = r.originalData && Object.keys(r.originalData).length > 0;
+                  const isEditRequest =
+                    r.originalData && Object.keys(r.originalData).length > 0;
+
                   return (
                     <>
                       <Button
@@ -1878,11 +2033,20 @@ const EventCard: React.FC<EventCardProps> = ({
                               r?.RequestId ||
                               r?.requestId ||
                               null;
+
                             if (requestId) {
                               if (v.isAdmin) {
-                                await performRequestAction(requestId, 'admin-action', 'Accepted');
+                                await performRequestAction(
+                                  requestId,
+                                  "admin-action",
+                                  "Accepted",
+                                );
                               } else {
-                                await performRequestAction(requestId, 'coordinator-action', 'Accepted');
+                                await performRequestAction(
+                                  requestId,
+                                  "coordinator-action",
+                                  "Accepted",
+                                );
                               }
                             }
                           } catch (e) {}
@@ -1900,11 +2064,20 @@ const EventCard: React.FC<EventCardProps> = ({
                               r?.RequestId ||
                               r?.requestId ||
                               null;
+
                             if (requestId) {
                               if (v.isAdmin) {
-                                await performRequestAction(requestId, 'admin-action', 'Rejected');
+                                await performRequestAction(
+                                  requestId,
+                                  "admin-action",
+                                  "Rejected",
+                                );
                               } else {
-                                await performRequestAction(requestId, 'coordinator-action', 'Rejected');
+                                await performRequestAction(
+                                  requestId,
+                                  "coordinator-action",
+                                  "Rejected",
+                                );
                               }
                             }
                           } catch (e) {}
@@ -1926,17 +2099,20 @@ const EventCard: React.FC<EventCardProps> = ({
                     </>
                   );
                 }
+
                 return (
                   <Button variant="bordered" onPress={() => setViewOpen(false)}>
                     Close
                   </Button>
                 );
               }
-              
-              if (requestStatus === 'Pending_Admin_Review') {
+
+              if (requestStatus === "Pending_Admin_Review") {
                 // Admins and coordinators can act on admin review requests
-                if (v.isAdmin || v.role === 'Coordinator') {
-                  const isEditRequest = r.originalData && Object.keys(r.originalData).length > 0;
+                if (v.isAdmin || v.role === "Coordinator") {
+                  const isEditRequest =
+                    r.originalData && Object.keys(r.originalData).length > 0;
+
                   return (
                     <>
                       <Button
@@ -1978,13 +2154,14 @@ const EventCard: React.FC<EventCardProps> = ({
                     </>
                   );
                 }
+
                 return (
                   <Button variant="bordered" onPress={() => setViewOpen(false)}>
                     Close
                   </Button>
                 );
               }
-              
+
               // Fallback to old logic for backward compatibility
               const adminAction =
                 (r as any).AdminAction ?? (r as any).adminAction ?? null;
@@ -2005,7 +2182,11 @@ const EventCard: React.FC<EventCardProps> = ({
                 String(v.id) === String(madeByStakeholder);
 
               // Admin/coordinator view when stakeholder rescheduled
-              if (stakeholderAction && String(stakeholderAction).toLowerCase().includes("resched") && (v.isAdmin || v.role === 'Coordinator')) {
+              if (
+                stakeholderAction &&
+                String(stakeholderAction).toLowerCase().includes("resched") &&
+                (v.isAdmin || v.role === "Coordinator")
+              ) {
                 return (
                   <>
                     <Button
@@ -2025,16 +2206,31 @@ const EventCard: React.FC<EventCardProps> = ({
                             r?.RequestId ||
                             r?.requestId ||
                             null;
+
                           if (requestId) {
                             if (v.isAdmin) {
-                              await performRequestAction(requestId, 'admin-action', 'Accepted');
+                              await performRequestAction(
+                                requestId,
+                                "admin-action",
+                                "Accepted",
+                              );
                             } else {
-                              await performRequestAction(requestId, 'coordinator-action', 'Accepted');
+                              await performRequestAction(
+                                requestId,
+                                "coordinator-action",
+                                "Accepted",
+                              );
                             }
                           }
                         } catch (e) {
-                          console.error('Accept stakeholder reschedule error:', e);
-                          alert('Failed to accept reschedule: ' + ((e as Error).message || 'Unknown error'));
+                          console.error(
+                            "Accept stakeholder reschedule error:",
+                            e,
+                          );
+                          alert(
+                            "Failed to accept reschedule: " +
+                              ((e as Error).message || "Unknown error"),
+                          );
                         }
                       }}
                     >
@@ -2050,11 +2246,20 @@ const EventCard: React.FC<EventCardProps> = ({
                             r?.RequestId ||
                             r?.requestId ||
                             null;
+
                           if (requestId) {
                             if (v.isAdmin) {
-                              await performRequestAction(requestId, 'admin-action', 'Rejected');
+                              await performRequestAction(
+                                requestId,
+                                "admin-action",
+                                "Rejected",
+                              );
                             } else {
-                              await performRequestAction(requestId, 'coordinator-action', 'Rejected');
+                              await performRequestAction(
+                                requestId,
+                                "coordinator-action",
+                                "Rejected",
+                              );
                             }
                           }
                         } catch (e) {}
@@ -2068,7 +2273,9 @@ const EventCard: React.FC<EventCardProps> = ({
 
               // Admin view before decision
               if (!adminAction && v.isAdmin) {
-                const isEditRequest = r.originalData && Object.keys(r.originalData).length > 0;
+                const isEditRequest =
+                  r.originalData && Object.keys(r.originalData).length > 0;
+
                 return (
                   <>
                     <Button
@@ -2387,12 +2594,12 @@ const EventCard: React.FC<EventCardProps> = ({
               </label>
               <textarea
                 className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger focus:border-transparent"
+                placeholder="Please explain why this event is being cancelled..."
                 rows={4}
                 value={cancelNote}
                 onChange={(e) =>
                   setCancelNote((e.target as HTMLTextAreaElement).value)
                 }
-                placeholder="Please explain why this event is being cancelled..."
               />
             </div>
 
@@ -2532,7 +2739,8 @@ const EventCard: React.FC<EventCardProps> = ({
           </ModalHeader>
           <ModalBody>
             <p className="text-sm text-default-600">
-              Are you sure you want to delete this request? This action cannot be undone.
+              Are you sure you want to delete this request? This action cannot
+              be undone.
             </p>
           </ModalBody>
           <ModalFooter>

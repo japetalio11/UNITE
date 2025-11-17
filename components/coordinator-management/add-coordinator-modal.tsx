@@ -86,6 +86,7 @@ export default function AddCoordinatorModal({
     // Validate province/district selected
     if (!data.province || !data.district) {
       alert("Please select a Province and District before submitting.");
+
       return;
     }
 
@@ -105,29 +106,42 @@ export default function AddCoordinatorModal({
       setProvincesError(null);
       try {
         const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-        const url = base ? `${base}/api/locations/provinces` : `/api/locations/provinces`;
+        const url = base
+          ? `${base}/api/locations/provinces`
+          : `/api/locations/provinces`;
         let token = null;
 
         try {
-          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+          token =
+            localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token");
         } catch (e) {
           token = null;
         }
         const headers: any = {};
+
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         const res = await fetch(url, { headers });
         const bodyText = await res.text();
         let body: any = null;
+
         try {
           body = bodyText ? JSON.parse(bodyText) : null;
         } catch {
           throw new Error("Invalid JSON from provinces endpoint");
         }
-        if (!res.ok) throw new Error(body?.message || `Failed to fetch provinces (status ${res.status})`);
+        if (!res.ok)
+          throw new Error(
+            body?.message || `Failed to fetch provinces (status ${res.status})`,
+          );
         const items = body.data || body.provinces || [];
         // Normalize to { id, name }
-        const normalized = items.map((p: any) => ({ id: p._id || p.id || p._doc?._id || p.id, name: p.name || p.Name || p.Province_Name || p.Province_Name }));
+        const normalized = items.map((p: any) => ({
+          id: p._id || p.id || p._doc?._id || p.id,
+          name: p.name || p.Name || p.Province_Name || p.Province_Name,
+        }));
+
         setProvinces(normalized.filter(Boolean));
       } catch (err: any) {
         setProvincesError(err.message || "Failed to load provinces");
@@ -135,6 +149,7 @@ export default function AddCoordinatorModal({
         setProvincesLoading(false);
       }
     };
+
     fetchProvinces();
   }, []);
 
@@ -143,6 +158,7 @@ export default function AddCoordinatorModal({
     if (!selectedProvince) {
       setDistricts([]);
       setSelectedDistrictId("");
+
       return;
     }
 
@@ -156,26 +172,38 @@ export default function AddCoordinatorModal({
           : `/api/locations/provinces/${encodeURIComponent(selectedProvince)}/districts?limit=1000`;
 
         let token = null;
+
         try {
-          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+          token =
+            localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token");
         } catch (e) {
           token = null;
         }
 
         const headers: any = {};
+
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         const res = await fetch(url, { headers });
         const bodyText = await res.text();
         let body: any = null;
+
         try {
           body = bodyText ? JSON.parse(bodyText) : null;
         } catch {
           throw new Error("Invalid JSON from districts endpoint");
         }
-        if (!res.ok) throw new Error(body?.message || `Failed to fetch districts (status ${res.status})`);
+        if (!res.ok)
+          throw new Error(
+            body?.message || `Failed to fetch districts (status ${res.status})`,
+          );
         const items = body.data || body.districts || [];
-        const normalized = items.map((d: any) => ({ id: d._id || d.id || d.District_ID, name: d.name || d.Name || d.District_Name || d.District_Number }));
+        const normalized = items.map((d: any) => ({
+          id: d._id || d.id || d.District_ID,
+          name: d.name || d.Name || d.District_Name || d.District_Number,
+        }));
+
         setDistricts(normalized.filter(Boolean));
       } catch (err: any) {
         setDistrictsError(err.message || "Failed to load districts");
@@ -214,8 +242,8 @@ export default function AddCoordinatorModal({
                 </div>
               </div>
               <p className="text-sm font-normal text-gray-500 mt-2 ml-0">
-                Please enter the coordinator&apos;s information below to add them to
-                the system.
+                Please enter the coordinator&apos;s information below to add
+                them to the system.
               </p>
             </ModalHeader>
 
@@ -366,19 +394,29 @@ export default function AddCoordinatorModal({
                   }}
                   label="Province"
                   name="province"
-                  placeholder={provincesLoading ? "Loading provinces..." : "Choose Province"}
+                  placeholder={
+                    provincesLoading
+                      ? "Loading provinces..."
+                      : "Choose Province"
+                  }
                   radius="md"
                   selectedKeys={selectedProvince ? [selectedProvince] : []}
                   size="md"
                   variant="bordered"
                   onSelectionChange={(keys: any) => {
                     const id = Array.from(keys)[0] as string;
+
                     setSelectedProvince(id);
                   }}
                 >
                   {provinces.map((prov) => (
-                      <SelectItem key={String(prov.id)} textValue={String(prov.name)}>{String(prov.name)}</SelectItem>
-                    ))}
+                    <SelectItem
+                      key={String(prov.id)}
+                      textValue={String(prov.name)}
+                    >
+                      {String(prov.name)}
+                    </SelectItem>
+                  ))}
                 </Select>
 
                 <Select
@@ -389,23 +427,39 @@ export default function AddCoordinatorModal({
                   }}
                   label="District"
                   name="district"
-                  placeholder={districtsLoading ? "Loading districts..." : (selectedProvince ? "Choose District" : "Select province first")}
+                  placeholder={
+                    districtsLoading
+                      ? "Loading districts..."
+                      : selectedProvince
+                        ? "Choose District"
+                        : "Select province first"
+                  }
                   radius="md"
                   selectedKeys={selectedDistrictId ? [selectedDistrictId] : []}
                   size="md"
                   variant="bordered"
                   onSelectionChange={(keys: any) => {
                     const id = Array.from(keys)[0] as string;
+
                     setSelectedDistrictId(id);
                   }}
                 >
                   {districts.map((district) => (
-                    <SelectItem key={String(district.id)} textValue={String(district.name)}>{String(district.name)}</SelectItem>
+                    <SelectItem
+                      key={String(district.id)}
+                      textValue={String(district.name)}
+                    >
+                      {String(district.name)}
+                    </SelectItem>
                   ))}
                 </Select>
 
                 {/* Hidden inputs so FormData includes these values on submit (IDs) */}
-                <input name="district" type="hidden" value={selectedDistrictId} />
+                <input
+                  name="district"
+                  type="hidden"
+                  value={selectedDistrictId}
+                />
                 <input name="province" type="hidden" value={selectedProvince} />
               </div>
             </ModalBody>

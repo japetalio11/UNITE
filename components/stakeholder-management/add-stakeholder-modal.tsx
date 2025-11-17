@@ -50,7 +50,8 @@ export default function AddStakeholderModal({
   const [showPassword, setShowPassword] = useState(false);
   const [showRetypePassword, setShowRetypePassword] = useState(false);
   const [cityInput, setCityInput] = useState<string>("");
-  const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string>("");
+  const [selectedMunicipalityId, setSelectedMunicipalityId] =
+    useState<string>("");
   const [municipalities, setMunicipalities] = useState<any[]>([]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -65,17 +66,28 @@ export default function AddStakeholderModal({
     // Try to resolve from local `municipalities` list by id or name.
     let resolvedMunicipalityId: string | null = selectedMunicipalityId || null;
 
-    const cityLabel = (formData.get("cityMunicipality") as string) || cityInput || "";
+    const cityLabel =
+      (formData.get("cityMunicipality") as string) || cityInput || "";
 
     if (!resolvedMunicipalityId && selectedDistrictId) {
       // try to match by name (case-insensitive) in loaded municipalities
       try {
         const found = (municipalities || []).find((m: any) => {
-          const name = String(m.name || m.Name || m.City_Municipality || m.City || m).toLowerCase();
+          const name = String(
+            m.name || m.Name || m.City_Municipality || m.City || m,
+          ).toLowerCase();
+
           return name === String(cityLabel || "").toLowerCase();
         });
 
-        if (found) resolvedMunicipalityId = String(found._id || found.id || found.Municipality_ID || found.MunicipalityId || "");
+        if (found)
+          resolvedMunicipalityId = String(
+            found._id ||
+              found.id ||
+              found.Municipality_ID ||
+              found.MunicipalityId ||
+              "",
+          );
       } catch (e) {
         // ignore
       }
@@ -86,9 +98,14 @@ export default function AddStakeholderModal({
       // allow the consume of dismiss handler if available
       if (onClearError) onClearError();
       // set UI error and abort submit
-      const msg = "Please select a City / Municipality from the list for the chosen District.";
+      const msg =
+        "Please select a City / Municipality from the list for the chosen District.";
+
       // use onSubmit flow to surface UI error rather than console
-      (e.currentTarget as HTMLFormElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (e.currentTarget as HTMLFormElement).scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       // set error via onClearError parent or rely on modalError prop from parent; fallback to alert
       try {
         // if parent exposes a setter via onClearError we already called it to clear previous
@@ -98,6 +115,7 @@ export default function AddStakeholderModal({
       // set a temporary DOM-level alert by focusing modal — prefer parent modalError flow
       // We can't call setModalError here because this component receives modalError from parent.
       alert(msg);
+
       return;
     }
 
@@ -144,9 +162,11 @@ export default function AddStakeholderModal({
 
   const computedProvince =
     // prefer selected province name from provinces state
-    (provinces.find((p) => String(p._id || p.id) === String(selectedProvinceId))?.name ||
-      (districts.find((d) => String(d.District_ID) === String(selectedDistrictId))?.Province_Name ||
-        ""));
+    provinces.find((p) => String(p._id || p.id) === String(selectedProvinceId))
+      ?.name ||
+    districts.find((d) => String(d.District_ID) === String(selectedDistrictId))
+      ?.Province_Name ||
+    "";
 
   const ordinalSuffix = (n: number | string) => {
     const num = Number(n);
@@ -178,7 +198,10 @@ export default function AddStakeholderModal({
     if (typeof d === "string") return String(d);
 
     const maybeName =
-      d.District_Name || d.DistrictName || d.name || d.Name ||
+      d.District_Name ||
+      d.DistrictName ||
+      d.name ||
+      d.Name ||
       (d.District_Number ? formatDistrict(d) : null);
 
     if (maybeName) return String(maybeName);
@@ -194,7 +217,15 @@ export default function AddStakeholderModal({
     const missing = districts.filter((d) => {
       if (!d) return false;
       if (typeof d === "string") return true;
-      return !(d.District_Name || d.name || d.District_Number || d.District_ID || d._id || d.id);
+
+      return !(
+        d.District_Name ||
+        d.name ||
+        d.District_Number ||
+        d.District_ID ||
+        d._id ||
+        d.id
+      );
     });
 
     if (missing.length === 0) return;
@@ -202,7 +233,9 @@ export default function AddStakeholderModal({
     const ids = Array.from(
       new Set(
         missing
-          .map((d) => (typeof d === "string" ? d : d.District_ID || d._id || d.id))
+          .map((d) =>
+            typeof d === "string" ? d : d.District_ID || d._id || d.id,
+          )
           .filter(Boolean),
       ),
     );
@@ -223,6 +256,7 @@ export default function AddStakeholderModal({
         }
 
         const headers: any = {};
+
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         const fetches = ids.map((id) => {
@@ -252,9 +286,10 @@ export default function AddStakeholderModal({
 
         setDistricts((prev) =>
           prev.map((d) => {
-            const id = typeof d === "string" ? d : d.District_ID || d._id || d.id;
-            const found = fetched.find((f: any) =>
-              String(f.District_ID || f._id || f.id) === String(id),
+            const id =
+              typeof d === "string" ? d : d.District_ID || d._id || d.id;
+            const found = fetched.find(
+              (f: any) => String(f.District_ID || f._id || f.id) === String(id),
             );
 
             return found || d;
@@ -358,6 +393,7 @@ export default function AddStakeholderModal({
     const fetchDistrictsForProvince = async () => {
       if (!selectedProvinceId) {
         setDistricts([]);
+
         return;
       }
 
@@ -411,6 +447,7 @@ export default function AddStakeholderModal({
     const loadMunicipalities = async () => {
       if (!selectedDistrictId) {
         setMunicipalities([]);
+
         return;
       }
 
@@ -423,7 +460,8 @@ export default function AddStakeholderModal({
 
         try {
           token =
-            localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
+            localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token");
         } catch (e) {
           token = null;
         }
@@ -441,6 +479,7 @@ export default function AddStakeholderModal({
         }
 
         const items = (body && (body.data || body)) || [];
+
         setMunicipalities(Array.isArray(items) ? items : []);
       } catch (e) {
         setMunicipalities([]);
@@ -460,11 +499,21 @@ export default function AddStakeholderModal({
       );
 
       if (d) {
-        const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null;
+        const provId =
+          d.Province_ID ||
+          d.ProvinceId ||
+          d.province ||
+          d.provinceId ||
+          d.province_id ||
+          null;
 
         if (provId) setSelectedProvinceId(String(provId));
         else {
-          const prov = provinces.find((p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName));
+          const prov = provinces.find(
+            (p) =>
+              (p.name || p.Province_Name) ===
+              (d.Province_Name || d.ProvinceName),
+          );
 
           if (prov) setSelectedProvinceId(String(prov._id || prov.id));
         }
@@ -578,7 +627,7 @@ export default function AddStakeholderModal({
                 }
                 const rec = j?.data || j?.stakeholder || j || null;
 
-                    if (rec) {
+                if (rec) {
                   const foundUid =
                     rec?.District_ID ||
                     rec?.district_id ||
@@ -598,13 +647,24 @@ export default function AddStakeholderModal({
                     );
 
                     if (d) {
-                      const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null;
+                      const provId =
+                        d.Province_ID ||
+                        d.ProvinceId ||
+                        d.province ||
+                        d.provinceId ||
+                        d.province_id ||
+                        null;
 
                       if (provId) setSelectedProvinceId(String(provId));
                       else {
-                        const prov = provinces.find((p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName));
+                        const prov = provinces.find(
+                          (p) =>
+                            (p.name || p.Province_Name) ===
+                            (d.Province_Name || d.ProvinceName),
+                        );
 
-                        if (prov) setSelectedProvinceId(String(prov._id || prov.id));
+                        if (prov)
+                          setSelectedProvinceId(String(prov._id || prov.id));
                       }
                     }
 
@@ -624,11 +684,21 @@ export default function AddStakeholderModal({
         const d = districts.find((x) => String(x.District_ID) === String(uid));
 
         if (d) {
-          const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null;
+          const provId =
+            d.Province_ID ||
+            d.ProvinceId ||
+            d.province ||
+            d.provinceId ||
+            d.province_id ||
+            null;
 
           if (provId) setSelectedProvinceId(String(provId));
           else {
-            const prov = provinces.find((p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName));
+            const prov = provinces.find(
+              (p) =>
+                (p.name || p.Province_Name) ===
+                (d.Province_Name || d.ProvinceName),
+            );
 
             if (prov) setSelectedProvinceId(String(prov._id || prov.id));
           }
@@ -668,19 +738,27 @@ export default function AddStakeholderModal({
                 </div>
               </div>
               <p className="text-sm font-normal text-gray-500 mt-2 ml-0">
-                Please enter the stakeholder&apos;s information below to add them to
-                the system.
+                Please enter the stakeholder&apos;s information below to add
+                them to the system.
               </p>
             </ModalHeader>
 
-            <ModalBody className={"gap-5 py-6 relative max-h-[65vh] overflow-y-auto"}>
+            <ModalBody
+              className={"gap-5 py-6 relative max-h-[65vh] overflow-y-auto"}
+            >
               {/* Inline modal error (overlay, does not change layout) */}
               {modalError && (
                 <div className="absolute left-6 right-6 top-4 z-20 px-4 py-2 bg-red-50 border border-red-100 text-sm text-red-700 rounded">
                   <div className="flex items-start justify-between">
                     <div className="pr-3">{modalError}</div>
                     <div>
-                      <button className="ml-3 text-xs text-red-500 underline" type="button" onClick={() => { if (onClearError) onClearError(); }}>
+                      <button
+                        className="ml-3 text-xs text-red-500 underline"
+                        type="button"
+                        onClick={() => {
+                          if (onClearError) onClearError();
+                        }}
+                      >
                         Dismiss
                       </button>
                     </div>
@@ -777,18 +855,27 @@ export default function AddStakeholderModal({
                     label="Province"
                     name="province"
                     placeholder={
-                      provinces.length === 0 ? "Loading provinces..." : "Choose Province"
+                      provinces.length === 0
+                        ? "Loading provinces..."
+                        : "Choose Province"
                     }
                     radius="md"
                     selectedKeys={
-                      selectedProvinceId ? new Set([String(selectedProvinceId)]) : new Set()
+                      selectedProvinceId
+                        ? new Set([String(selectedProvinceId)])
+                        : new Set()
                     }
                     size="md"
                     variant="bordered"
-                    onSelectionChange={(keys: any) => handleProvinceChange(keys)}
+                    onSelectionChange={(keys: any) =>
+                      handleProvinceChange(keys)
+                    }
                   >
                     {provinces.map((p) => (
-                      <SelectItem key={String(p._id || p.id)} textValue={String(p.name || p.Province_Name || p.label)}>
+                      <SelectItem
+                        key={String(p._id || p.id)}
+                        textValue={String(p.name || p.Province_Name || p.label)}
+                      >
                         {String(p.name || p.Province_Name || p.label)}
                       </SelectItem>
                     ))}
@@ -830,7 +917,9 @@ export default function AddStakeholderModal({
                       }
                       radius="md"
                       selectedKeys={
-                        selectedDistrictId ? new Set([String(selectedDistrictId)]) : new Set()
+                        selectedDistrictId
+                          ? new Set([String(selectedDistrictId)])
+                          : new Set()
                       }
                       size="md"
                       variant="bordered"
@@ -839,20 +928,34 @@ export default function AddStakeholderModal({
 
                         setSelectedDistrictId(String(id));
                         const d = districts.find(
-                          (x) => String(x.District_ID) === String(id) || String(x._id) === String(id) || String(x.id) === String(id),
+                          (x) =>
+                            String(x.District_ID) === String(id) ||
+                            String(x._id) === String(id) ||
+                            String(x.id) === String(id),
                         );
 
                         if (d) {
-                          const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null;
+                          const provId =
+                            d.Province_ID ||
+                            d.ProvinceId ||
+                            d.province ||
+                            d.provinceId ||
+                            d.province_id ||
+                            null;
 
                           if (provId) setSelectedProvinceId(String(provId));
                           else {
                             // try to map by name if only name is present
                             const prov = provinces.find(
-                              (p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName),
+                              (p) =>
+                                (p.name || p.Province_Name) ===
+                                (d.Province_Name || d.ProvinceName),
                             );
 
-                            if (prov) setSelectedProvinceId(String(prov._id || prov.id));
+                            if (prov)
+                              setSelectedProvinceId(
+                                String(prov._id || prov.id),
+                              );
                           }
                         }
                       }}
@@ -860,13 +963,23 @@ export default function AddStakeholderModal({
                       {districts
                         .filter((d) =>
                           selectedProvinceId
-                            ? String(d.Province_ID || d.ProvinceId || d.province || d.provinceId) === String(selectedProvinceId)
+                            ? String(
+                                d.Province_ID ||
+                                  d.ProvinceId ||
+                                  d.province ||
+                                  d.provinceId,
+                              ) === String(selectedProvinceId)
                             : true,
                         )
                         .map((district, idx) => {
                           const label = getDistrictLabel(district, idx);
 
-                          const key = String(district.District_ID || district._id || district.id || idx);
+                          const key = String(
+                            district.District_ID ||
+                              district._id ||
+                              district.id ||
+                              idx,
+                          );
 
                           return (
                             <SelectItem key={key} textValue={String(label)}>
@@ -884,10 +997,10 @@ export default function AddStakeholderModal({
                       }}
                       label="District"
                       name="district_display"
+                      placeholder="Select province first"
                       radius="md"
                       size="md"
                       type="text"
-                      placeholder="Select province first"
                       value={districtLabel}
                       variant="bordered"
                     />
@@ -912,11 +1025,18 @@ export default function AddStakeholderModal({
                 )}
 
                 {/* Hidden inputs so FormData includes these values on submit */}
-                <input name="district" type="hidden" value={selectedDistrictId} />
+                <input
+                  name="district"
+                  type="hidden"
+                  value={selectedDistrictId}
+                />
                 <input name="province" type="hidden" value={computedProvince} />
-                <input name="provinceId" type="hidden" value={selectedProvinceId} />
+                <input
+                  name="provinceId"
+                  type="hidden"
+                  value={selectedProvinceId}
+                />
                 {/* The Select for municipality uses `cityMunicipality` as the form name, so no extra hidden input required */}
-
               </div>
 
               {/* Municipality (dropdown) then Organization / Institution on same row */}
@@ -931,52 +1051,78 @@ export default function AddStakeholderModal({
                       }}
                       label="City / Municipality"
                       name="cityMunicipality"
-                      placeholder={municipalities.length === 0 ? (cityInput || "Select municipality") : "Select municipality"}
-                      selectedKeys={cityInput ? new Set([String(cityInput)]) : new Set()}
+                      placeholder={
+                        municipalities.length === 0
+                          ? cityInput || "Select municipality"
+                          : "Select municipality"
+                      }
                       radius="md"
+                      selectedKeys={
+                        cityInput ? new Set([String(cityInput)]) : new Set()
+                      }
                       size="md"
                       variant="bordered"
-                        onSelectionChange={(keys: any) => {
-                          const val = Array.from(keys)[0] as string;
+                      onSelectionChange={(keys: any) => {
+                        const val = Array.from(keys)[0] as string;
 
-                          // Try to map selection back to the municipality object so we
-                          // can submit the DB _id separately (backend expects `municipality` id).
-                          if (municipalities && municipalities.length > 0) {
-                            const found = municipalities.find((m: any) =>
-                              String(m._id) === String(val) || String(m.id) === String(val) || String(m.name || m.Name || m.City_Municipality) === String(val),
+                        // Try to map selection back to the municipality object so we
+                        // can submit the DB _id separately (backend expects `municipality` id).
+                        if (municipalities && municipalities.length > 0) {
+                          const found = municipalities.find(
+                            (m: any) =>
+                              String(m._id) === String(val) ||
+                              String(m.id) === String(val) ||
+                              String(
+                                m.name || m.Name || m.City_Municipality,
+                              ) === String(val),
+                          );
+
+                          if (found) {
+                            setSelectedMunicipalityId(
+                              String(found._id || found.id),
+                            );
+                            setCityInput(
+                              String(
+                                found.name ||
+                                  found.Name ||
+                                  found.City_Municipality ||
+                                  found,
+                              ),
                             );
 
-                            if (found) {
-                              setSelectedMunicipalityId(String(found._id || found.id));
-                              setCityInput(String(found.name || found.Name || found.City_Municipality || found));
-                              return;
-                            }
+                            return;
                           }
+                        }
 
-                          // If no municipalities list or a freeform value, fall back to storing the label
-                          setSelectedMunicipalityId(String(val || ""));
-                          setCityInput(val || "");
-                        }}
+                        // If no municipalities list or a freeform value, fall back to storing the label
+                        setSelectedMunicipalityId(String(val || ""));
+                        setCityInput(val || "");
+                      }}
                     >
                       {/* If backend returned municipalities, render them; otherwise fall back to single computedCity option */}
-                      {municipalities && municipalities.length > 0
-                        ? municipalities.map((m: any, idx: number) => {
-                            const label = m.name || m.Name || m.City_Municipality || String(m);
-                            const key = String(m._id || m.id || label || idx);
+                      {municipalities && municipalities.length > 0 ? (
+                        municipalities.map((m: any, idx: number) => {
+                          const label =
+                            m.name ||
+                            m.Name ||
+                            m.City_Municipality ||
+                            String(m);
+                          const key = String(m._id || m.id || label || idx);
 
-                            return (
-                              <SelectItem key={key} textValue={String(label)}>
-                                {String(label)}
-                              </SelectItem>
-                            );
-                          })
-                        : computedCity
-                        ? (
-                          <SelectItem key={String(computedCity)} textValue={String(computedCity)}>
-                            {String(computedCity)}
-                          </SelectItem>
-                        )
-                        : null}
+                          return (
+                            <SelectItem key={key} textValue={String(label)}>
+                              {String(label)}
+                            </SelectItem>
+                          );
+                        })
+                      ) : computedCity ? (
+                        <SelectItem
+                          key={String(computedCity)}
+                          textValue={String(computedCity)}
+                        >
+                          {String(computedCity)}
+                        </SelectItem>
+                      ) : null}
                     </Select>
                   ) : (
                     <Input
@@ -997,9 +1143,17 @@ export default function AddStakeholderModal({
                   )}
 
                   {/* Mirror selected municipality into a hidden input so FormData includes it (Select is not a native form control) */}
-                  <input name="cityMunicipality" type="hidden" value={cityInput} />
+                  <input
+                    name="cityMunicipality"
+                    type="hidden"
+                    value={cityInput}
+                  />
                   {/* Provide the DB id for municipality expected by backend as `municipality` */}
-                  <input name="municipality" type="hidden" value={selectedMunicipalityId} />
+                  <input
+                    name="municipality"
+                    type="hidden"
+                    value={selectedMunicipalityId}
+                  />
                 </div>
 
                 <Input

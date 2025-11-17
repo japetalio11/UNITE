@@ -49,12 +49,12 @@ export default async function SysAdminDashboardLayout({
     userInfoProp?.raw?.staffType ||
     null;
   const staffTypeLower = staffType ? String(staffType).toLowerCase() : "";
-  // Check if user is system admin: explicit isAdmin flag, StaffType === 'Admin', 
+  // Check if user is system admin: explicit isAdmin flag, StaffType === 'Admin',
   // role === 'Admin', or system admin variant (contains both 'sys' and 'admin')
   const serverIsSystemAdmin = Boolean(
     userInfoProp?.isAdmin ||
-      (staffTypeLower === 'admin') ||
-      (roleLower === 'admin') ||
+      staffTypeLower === "admin" ||
+      roleLower === "admin" ||
       (roleLower.includes("sys") && roleLower.includes("admin")),
   );
   const serverIsCoordinator = Boolean(

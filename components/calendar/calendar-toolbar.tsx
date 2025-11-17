@@ -29,7 +29,7 @@ import {
   CreateTrainingEventModal,
   CreateBloodDriveEventModal,
   CreateAdvocacyEventModal,
-} from "@/components/calendar/event-creation-modal";
+} from "@/components/campaign/event-creation-modal";
 
 interface CalendarToolbarProps {
   onExport?: () => void;

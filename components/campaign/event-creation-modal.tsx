@@ -240,10 +240,25 @@ export const CreateTrainingEventModal: React.FC<
         }
 
         // Special handling for stakeholders: auto-select their coordinator and themselves
-        const roleStr = String(info?.role || user?.staff_type || user?.role || "").toLowerCase();
-        console.log("Stakeholder check: roleStr =", roleStr, "user =", user, "info =", info);
+        const roleStr = String(
+          info?.role || user?.staff_type || user?.role || "",
+        ).toLowerCase();
+
+        console.log(
+          "Stakeholder check: roleStr =",
+          roleStr,
+          "user =",
+          user,
+          "info =",
+          info,
+        );
         if (user && roleStr.includes("stakeholder")) {
-          const sid = info?.raw?.id || user.Stakeholder_ID || user.StakeholderId || user.id;
+          const sid =
+            info?.raw?.id ||
+            user.Stakeholder_ID ||
+            user.StakeholderId ||
+            user.id;
+
           console.log("Stakeholder detected: sid =", sid);
           if (sid) {
             try {
@@ -252,10 +267,12 @@ export const CreateTrainingEventModal: React.FC<
                 { headers, credentials: "include" },
               );
               const stBody = await stRes.json();
+
               console.log("Stakeholder fetch response:", stRes.ok, stBody);
               if (stRes.ok && stBody.data) {
                 const st = stBody.data;
                 const districtId = st.district;
+
                 console.log("Stakeholder district ID:", districtId);
                 if (districtId) {
                   const coordRes = await fetch(
@@ -263,8 +280,18 @@ export const CreateTrainingEventModal: React.FC<
                     { headers, credentials: "include" },
                   );
                   const coordBody = await coordRes.json();
-                  console.log("Coordinator fetch response:", coordRes.ok, coordBody);
-                  if (coordRes.ok && coordBody.data && Array.isArray(coordBody.data) && coordBody.data.length > 0) {
+
+                  console.log(
+                    "Coordinator fetch response:",
+                    coordRes.ok,
+                    coordBody,
+                  );
+                  if (
+                    coordRes.ok &&
+                    coordBody.data &&
+                    Array.isArray(coordBody.data) &&
+                    coordBody.data.length > 0
+                  ) {
                     const coordOpts = coordBody.data.map((c: any) => {
                       const staff = c.Staff || c.staff || null;
                       const district = c.District || c.district || null;
@@ -287,10 +314,17 @@ export const CreateTrainingEventModal: React.FC<
                     setCoordinatorOptions(coordOpts);
                     if (coordOpts.length > 0) {
                       setCoordinator(coordOpts[0].key);
-                      console.log("Coordinator set to:", coordOpts[0].key, coordOpts[0].label);
+                      console.log(
+                        "Coordinator set to:",
+                        coordOpts[0].key,
+                        coordOpts[0].label,
+                      );
                     }
                   } else {
-                    console.error("No coordinators found for district:", districtId);
+                    console.error(
+                      "No coordinators found for district:",
+                      districtId,
+                    );
                   }
                 } else {
                   console.error("No district ID found for stakeholder");
@@ -300,7 +334,8 @@ export const CreateTrainingEventModal: React.FC<
                 setStakeholderOptions([
                   {
                     key: String(sid),
-                    label: `${st.firstName || st.First_Name || ""} ${st.lastName || st.Last_Name || ""}`.trim(),
+                    label:
+                      `${st.firstName || st.First_Name || ""} ${st.lastName || st.Last_Name || ""}`.trim(),
                   },
                 ]);
                 console.log("Set stakeholder for stakeholder user");
@@ -309,6 +344,7 @@ export const CreateTrainingEventModal: React.FC<
               console.error("Failed to fetch for stakeholder", e);
             }
           }
+
           return;
         }
 
@@ -683,7 +719,10 @@ export const CreateTrainingEventModal: React.FC<
                     ? localStorage.getItem("unite_user")
                     : null;
                 const user = rawUser ? JSON.parse(rawUser) : null;
-                const isStakeholder = !!(user?.Stakeholder_ID || (user?.id && user.id.toLowerCase().startsWith("stkh_")));
+                const isStakeholder = !!(
+                  user?.Stakeholder_ID ||
+                  (user?.id && user.id.toLowerCase().startsWith("stkh_"))
+                );
 
                 if (isStakeholder) {
                   const name =
@@ -1108,10 +1147,29 @@ export const CreateBloodDriveEventModal: React.FC<
         }
 
         // Special handling for stakeholders: auto-select their coordinator and themselves
-        const roleStr = String(info?.role || user?.staff_type || user?.role || "").toLowerCase();
-        console.log("Stakeholder check: roleStr =", roleStr, "user =", user, "info =", info);
-        if (user && (user.Stakeholder_ID || (user.id && user.id.toLowerCase().startsWith("stkh_")))) {
-          const sid = info?.raw?.id || user.Stakeholder_ID || user.StakeholderId || user.id;
+        const roleStr = String(
+          info?.role || user?.staff_type || user?.role || "",
+        ).toLowerCase();
+
+        console.log(
+          "Stakeholder check: roleStr =",
+          roleStr,
+          "user =",
+          user,
+          "info =",
+          info,
+        );
+        if (
+          user &&
+          (user.Stakeholder_ID ||
+            (user.id && user.id.toLowerCase().startsWith("stkh_")))
+        ) {
+          const sid =
+            info?.raw?.id ||
+            user.Stakeholder_ID ||
+            user.StakeholderId ||
+            user.id;
+
           console.log("Stakeholder detected: sid =", sid);
           if (sid) {
             try {
@@ -1120,10 +1178,12 @@ export const CreateBloodDriveEventModal: React.FC<
                 { headers, credentials: "include" },
               );
               const stBody = await stRes.json();
+
               console.log("Stakeholder fetch response:", stRes.ok, stBody);
               if (stRes.ok && stBody.data) {
                 const st = stBody.data;
                 const districtId = st.district;
+
                 console.log("Stakeholder district ID:", districtId);
                 if (districtId) {
                   const coordRes = await fetch(
@@ -1131,8 +1191,18 @@ export const CreateBloodDriveEventModal: React.FC<
                     { headers, credentials: "include" },
                   );
                   const coordBody = await coordRes.json();
-                  console.log("Coordinator fetch response:", coordRes.ok, coordBody);
-                  if (coordRes.ok && coordBody.data && Array.isArray(coordBody.data) && coordBody.data.length > 0) {
+
+                  console.log(
+                    "Coordinator fetch response:",
+                    coordRes.ok,
+                    coordBody,
+                  );
+                  if (
+                    coordRes.ok &&
+                    coordBody.data &&
+                    Array.isArray(coordBody.data) &&
+                    coordBody.data.length > 0
+                  ) {
                     const coordOpts = coordBody.data.map((c: any) => {
                       const staff = c.Staff || c.staff || null;
                       const district = c.District || c.district || null;
@@ -1155,10 +1225,17 @@ export const CreateBloodDriveEventModal: React.FC<
                     setCoordinatorOptions(coordOpts);
                     if (coordOpts.length > 0) {
                       setCoordinator(coordOpts[0].key);
-                      console.log("Coordinator set to:", coordOpts[0].key, coordOpts[0].label);
+                      console.log(
+                        "Coordinator set to:",
+                        coordOpts[0].key,
+                        coordOpts[0].label,
+                      );
                     }
                   } else {
-                    console.error("No coordinators found for district:", districtId);
+                    console.error(
+                      "No coordinators found for district:",
+                      districtId,
+                    );
                   }
                 } else {
                   console.error("No district ID found for stakeholder");
@@ -1168,7 +1245,8 @@ export const CreateBloodDriveEventModal: React.FC<
                 setStakeholderOptions([
                   {
                     key: String(sid),
-                    label: `${st.firstName || st.First_Name || ""} ${st.lastName || st.Last_Name || ""}`.trim(),
+                    label:
+                      `${st.firstName || st.First_Name || ""} ${st.lastName || st.Last_Name || ""}`.trim(),
                   },
                 ]);
                 console.log("Set stakeholder for stakeholder user");
@@ -1177,6 +1255,7 @@ export const CreateBloodDriveEventModal: React.FC<
               console.error("Failed to fetch for stakeholder", e);
             }
           }
+
           return;
         }
 
@@ -1612,7 +1691,10 @@ export const CreateBloodDriveEventModal: React.FC<
                     ? localStorage.getItem("unite_user")
                     : null;
                 const user = rawUser ? JSON.parse(rawUser) : null;
-                const isStakeholder = !!(user?.Stakeholder_ID || (user?.id && user.id.toLowerCase().startsWith("stkh_")));
+                const isStakeholder = !!(
+                  user?.Stakeholder_ID ||
+                  (user?.id && user.id.toLowerCase().startsWith("stkh_"))
+                );
 
                 if (isStakeholder) {
                   const name =
@@ -2040,10 +2122,26 @@ export const CreateAdvocacyEventModal: React.FC<
         }
 
         // Special handling for stakeholders: auto-select their coordinator and themselves
-        const isStakeholder = !!(user?.Stakeholder_ID || (user?.id && user.id.toLowerCase().startsWith("stkh_")));
-        console.log("Stakeholder check: isStakeholder =", isStakeholder, "user =", user, "info =", info);
+        const isStakeholder = !!(
+          user?.Stakeholder_ID ||
+          (user?.id && user.id.toLowerCase().startsWith("stkh_"))
+        );
+
+        console.log(
+          "Stakeholder check: isStakeholder =",
+          isStakeholder,
+          "user =",
+          user,
+          "info =",
+          info,
+        );
         if (user && isStakeholder) {
-          const sid = info?.raw?.id || user.Stakeholder_ID || user.StakeholderId || user.id;
+          const sid =
+            info?.raw?.id ||
+            user.Stakeholder_ID ||
+            user.StakeholderId ||
+            user.id;
+
           console.log("Stakeholder detected: sid =", sid);
           if (sid) {
             try {
@@ -2052,10 +2150,12 @@ export const CreateAdvocacyEventModal: React.FC<
                 { headers, credentials: "include" },
               );
               const stBody = await stRes.json();
+
               console.log("Stakeholder fetch response:", stRes.ok, stBody);
               if (stRes.ok && stBody.data) {
                 const st = stBody.data;
                 const districtId = st.district;
+
                 console.log("Stakeholder district ID:", districtId);
                 if (districtId) {
                   const coordRes = await fetch(
@@ -2063,8 +2163,18 @@ export const CreateAdvocacyEventModal: React.FC<
                     { headers, credentials: "include" },
                   );
                   const coordBody = await coordRes.json();
-                  console.log("Coordinator fetch response:", coordRes.ok, coordBody);
-                  if (coordRes.ok && coordBody.data && Array.isArray(coordBody.data) && coordBody.data.length > 0) {
+
+                  console.log(
+                    "Coordinator fetch response:",
+                    coordRes.ok,
+                    coordBody,
+                  );
+                  if (
+                    coordRes.ok &&
+                    coordBody.data &&
+                    Array.isArray(coordBody.data) &&
+                    coordBody.data.length > 0
+                  ) {
                     const coordOpts = coordBody.data.map((c: any) => {
                       const staff = c.Staff || c.staff || null;
                       const district = c.District || c.district || null;
@@ -2087,10 +2197,17 @@ export const CreateAdvocacyEventModal: React.FC<
                     setCoordinatorOptions(coordOpts);
                     if (coordOpts.length > 0) {
                       setCoordinator(coordOpts[0].key);
-                      console.log("Coordinator set to:", coordOpts[0].key, coordOpts[0].label);
+                      console.log(
+                        "Coordinator set to:",
+                        coordOpts[0].key,
+                        coordOpts[0].label,
+                      );
                     }
                   } else {
-                    console.error("No coordinators found for district:", districtId);
+                    console.error(
+                      "No coordinators found for district:",
+                      districtId,
+                    );
                   }
                 } else {
                   console.error("No district ID found for stakeholder");
@@ -2100,7 +2217,8 @@ export const CreateAdvocacyEventModal: React.FC<
                 setStakeholderOptions([
                   {
                     key: String(sid),
-                    label: `${st.firstName || st.First_Name || ""} ${st.lastName || st.Last_Name || ""}`.trim(),
+                    label:
+                      `${st.firstName || st.First_Name || ""} ${st.lastName || st.Last_Name || ""}`.trim(),
                   },
                 ]);
                 console.log("Set stakeholder for stakeholder user");
@@ -2109,6 +2227,7 @@ export const CreateAdvocacyEventModal: React.FC<
               console.error("Failed to fetch for stakeholder", e);
             }
           }
+
           return;
         }
 
@@ -2527,7 +2646,10 @@ export const CreateAdvocacyEventModal: React.FC<
                     ? localStorage.getItem("unite_user")
                     : null;
                 const user = rawUser ? JSON.parse(rawUser) : null;
-                const isStakeholder = !!(user?.Stakeholder_ID || (user?.id && user.id.toLowerCase().startsWith("stkh_")));
+                const isStakeholder = !!(
+                  user?.Stakeholder_ID ||
+                  (user?.id && user.id.toLowerCase().startsWith("stkh_"))
+                );
 
                 if (isStakeholder) {
                   const name =

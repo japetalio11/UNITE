@@ -513,22 +513,31 @@ export default function CoordinatorManagement() {
       // ObjectId strings returned by the API into human-readable names.
       let provincesMap: Record<string, string> = {};
       let districtsMap: Record<string, any> = {};
+
       try {
-        const provRes = await fetch((base ? `${base}` : "") + '/api/locations/provinces');
+        const provRes = await fetch(
+          (base ? `${base}` : "") + "/api/locations/provinces",
+        );
         const provText = await provRes.text();
         const provJson = provText ? JSON.parse(provText) : null;
         const provItems = provJson?.data || [];
+
         provincesMap = provItems.reduce((acc: any, p: any) => {
           if (p._id) acc[p._id] = p.name || p.Province_Name || p.name;
+
           return acc;
         }, {});
 
-        const distRes = await fetch((base ? `${base}` : "") + '/api/districts?limit=1000');
+        const distRes = await fetch(
+          (base ? `${base}` : "") + "/api/districts?limit=1000",
+        );
         const distText = await distRes.text();
         const distJson = distText ? JSON.parse(distText) : null;
         const distItems = distJson?.data || distJson?.districts || [];
+
         districtsMap = distItems.reduce((acc: any, d: any) => {
           if (d._id) acc[d._id] = d;
+
           return acc;
         }, {});
       } catch (e) {
@@ -554,7 +563,10 @@ export default function CoordinatorManagement() {
             }
 
             return (
-              provinceObj.name || provinceObj.Province_Name || provinceObj.province || ""
+              provinceObj.name ||
+              provinceObj.Province_Name ||
+              provinceObj.province ||
+              ""
             );
           }
 
@@ -570,8 +582,11 @@ export default function CoordinatorManagement() {
           if (districtObj) {
             if (typeof districtObj === "string") {
               const found = districtsMap[districtObj];
+
               if (found) {
-                if (found.District_Number) return `${ordinalSuffix(found.District_Number)} District`;
+                if (found.District_Number)
+                  return `${ordinalSuffix(found.District_Number)} District`;
+
                 return found.name || found.District_Name || "";
               }
 
@@ -580,14 +595,19 @@ export default function CoordinatorManagement() {
 
             if (districtObj.District_Number)
               return `${ordinalSuffix(districtObj.District_Number)} District`;
+
             return (
-              districtObj.District_Name || districtObj.name || districtObj.district || ""
+              districtObj.District_Name ||
+              districtObj.name ||
+              districtObj.district ||
+              ""
             );
           }
 
           // legacy flattened fields
           if (c.District_Name) return c.District_Name;
-          if (c.District_Number) return `${ordinalSuffix(c.District_Number)} District`;
+          if (c.District_Number)
+            return `${ordinalSuffix(c.District_Number)} District`;
 
           return "";
         };
