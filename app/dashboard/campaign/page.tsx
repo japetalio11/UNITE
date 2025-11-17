@@ -216,14 +216,42 @@ export default function CampaignPage() {
       }
     })();
     try {
-      const info = getUserInfo();
+      const raw = localStorage.getItem("unite_user");
 
-      try {
-        debug("[Campaign] getUserInfo:", info);
-      } catch (e) {}
-      if (info?.displayName) setCurrentUserName(info.displayName);
-      else if (info?.raw?.name) setCurrentUserName(info.raw.name);
-      if (info?.email) setCurrentUserEmail(info.email);
+      if (raw) {
+        const u = JSON.parse(raw);
+        const first =
+          u.First_Name ||
+          u.FirstName ||
+          u.first_name ||
+          u.firstName ||
+          u.First ||
+          "";
+        const middle =
+          u.Middle_Name ||
+          u.MiddleName ||
+          u.middle_name ||
+          u.middleName ||
+          u.Middle ||
+          "";
+        const last =
+          u.Last_Name ||
+          u.LastName ||
+          u.last_name ||
+          u.lastName ||
+          u.Last ||
+          "";
+        const parts = [first, middle, last]
+          .map((p: any) => (p || "").toString().trim())
+          .filter(Boolean);
+        const full = parts.join(" ");
+        const email =
+          u.Email || u.email || u.Email_Address || u.emailAddress || "";
+
+        if (full) setCurrentUserName(full);
+        else if (u.name) setCurrentUserName(u.name);
+        if (email) setCurrentUserEmail(email);
+      }
     } catch (err) {
       // ignore malformed localStorage entry
     }

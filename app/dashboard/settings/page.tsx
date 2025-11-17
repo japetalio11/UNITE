@@ -69,25 +69,25 @@ export default function SettingsPage() {
         // ignore backend failures (still proceed to clear client state)
       }
 
-      // Clear client-side auth state
+    // Clear client-side auth state
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("hospitalId");
+      // remove common keys used by other parts of the app
+      localStorage.removeItem("unite_settings");
+      localStorage.removeItem("unite_user");
+      localStorage.removeItem("unite_token");
       try {
-        localStorage.removeItem("token");
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("hospitalId");
-        // remove common keys used by other parts of the app
-        localStorage.removeItem("unite_settings");
-        try {
-          if (typeof document !== "undefined") {
-            document.cookie = "unite_user=; Max-Age=0; path=/";
-            // Try clearing common auth cookie names
-            document.cookie = "connect.sid=; Max-Age=0; path=/";
-          }
-        } catch (e) {}
+        if (typeof document !== "undefined") {
+          document.cookie = "unite_user=; Max-Age=0; path=/";
+          // Try clearing common auth cookie names
+          document.cookie = "connect.sid=; Max-Age=0; path=/";
+        }
       } catch (e) {}
-
-      // notify other components in the page (sidebar listens for unite:auth-changed)
+    } catch (e) {}      // notify other components in the page (sidebar listens for unite:auth-changed)
       try {
         window.dispatchEvent(
           new CustomEvent("unite:auth-changed", { detail: null }),

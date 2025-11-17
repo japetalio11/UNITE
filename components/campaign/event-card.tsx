@@ -1280,8 +1280,17 @@ const EventCard: React.FC<EventCardProps> = ({
       (r as any).coordinatorFinalAction ??
       null;
 
+    // Check if there's a stakeholder involved in this request
+    const hasStakeholder =
+      r?.stakeholder_id ||
+      r?.Stakeholder_ID ||
+      r?.StakeholderId ||
+      r?.MadeByStakeholderID ||
+      r?.stakeholder?.Stakeholder_ID ||
+      null;
+
     if (!adminAction) return "Waiting for admin review";
-    if (!stakeholderAction) return "Waiting for stakeholder confirmation";
+    if (hasStakeholder && !stakeholderAction) return "Waiting for stakeholder confirmation";
     if (!coordinatorAction) return "Waiting for coordinator confirmation";
 
     return null;
@@ -2446,6 +2455,60 @@ const EventCard: React.FC<EventCardProps> = ({
                     </>
                   );
                 }
+              }
+
+              // Fallback for rescheduled requests by admin: coordinators can accept/reject
+              if (adminAction && String(adminAction).toLowerCase().includes("resched") && v.role === "Coordinator") {
+                return (
+                  <>
+                    <Button variant="bordered" onPress={() => setViewOpen(false)}>
+                      Close
+                    </Button>
+                    <Button
+                      className="bg-black text-white"
+                      color="default"
+                      onPress={async () => {
+                        setViewOpen(false);
+                        try {
+                          const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
+                          if (requestId) {
+                            await performRequestAction(
+                              requestId,
+                              "coordinator-action",
+                              "Accepted",
+                            );
+                          }
+                        } catch (e) {
+                          console.error("Accept reschedule error:", e);
+                          alert(
+                            "Failed to accept reschedule: " +
+                              ((e as Error).message || "Unknown error"),
+                          );
+                        }
+                      }}
+                    >
+                      Accept Reschedule
+                    </Button>
+                    <Button
+                      variant="bordered"
+                      onPress={async () => {
+                        setViewOpen(false);
+                        try {
+                          const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
+                          if (requestId) {
+                            await performRequestAction(
+                              requestId,
+                              "coordinator-action",
+                              "Rejected",
+                            );
+                          }
+                        } catch (e) {}
+                      }}
+                    >
+                      Reject Reschedule
+                    </Button>
+                  </>
+                );
               }
 
               // Default fallback action: close
