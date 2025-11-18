@@ -342,6 +342,7 @@ export default function CalendarPage() {
     let mounted = true;
 
     const fetchData = async () => {
+      const startTime = Date.now();
       setEventsLoading(true);
       // Fetch all public events and filter client-side for approved events in the current month
       let normalizedMonth: Record<string, any[]> = {};
@@ -421,7 +422,15 @@ export default function CalendarPage() {
         }
         // Optionally log: console.error('Failed to fetch calendar data', error);
       } finally {
-        if (mounted) setEventsLoading(false);
+        if (mounted) {
+          // Ensure minimum 1.5 second loading time for better UX
+          const elapsed = Date.now() - startTime;
+          const minDuration = 1500; // 1.5 seconds
+          if (elapsed < minDuration) {
+            await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+          }
+          setEventsLoading(false);
+        }
       }
     };
 
@@ -1789,7 +1798,44 @@ export default function CalendarPage() {
 
                   return (
                     <div key={index} className="min-h-[500px]">
-                      {dayEvents.length === 0 ? (
+                      {eventsLoading ? (
+                        // Skeleton loading for events
+                        <div className="space-y-3">
+                          {[...Array(3)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="bg-white rounded-lg border border-gray-200 p-3 animate-pulse"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                                <div className="h-6 w-6 bg-gray-200 rounded"></div>
+                              </div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+                                <div className="h-3 bg-gray-200 rounded w-20"></div>
+                              </div>
+                              <div className="flex gap-2 mb-3">
+                                <div className="h-6 bg-gray-200 rounded w-16"></div>
+                                <div className="h-6 bg-gray-200 rounded w-20"></div>
+                              </div>
+                              <div className="mb-2">
+                                <div className="h-3 bg-gray-200 rounded w-12 mb-1"></div>
+                                <div className="h-3 bg-gray-200 rounded w-16"></div>
+                              </div>
+                              <div className="mb-3">
+                                <div className="h-3 bg-gray-200 rounded w-14 mb-1"></div>
+                                <div className="h-3 bg-gray-200 rounded w-24"></div>
+                              </div>
+                              <div className="border-t border-gray-200 pt-2">
+                                <div className="flex justify-between items-center">
+                                  <div className="h-3 bg-gray-200 rounded w-16"></div>
+                                  <div className="h-5 bg-gray-200 rounded w-12"></div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : dayEvents.length === 0 ? (
                         <div className="h-20 flex items-center justify-center text-gray-400 text-xs">
                           No events
                         </div>
@@ -1937,38 +1983,51 @@ export default function CalendarPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        {day.events.map((event, eventIndex) => (
-                          <div
-                            key={eventIndex}
-                            className="text-xs p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm"
-                            role="button"
-                            style={{
-                              backgroundColor: `${event.color}22`,
-                              color: event.color,
-                            }}
-                            tabIndex={0}
-                            title={`${eventLabelsMap[event.type as EventType]} : ${event.startTime || ""}${event.endTime ? ` - ${event.endTime}` : ""}`}
-                            onClick={() => handleOpenViewEvent(event.raw)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                handleOpenViewEvent(event.raw);
-                              }
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="truncate block">
-                                {event.title}
-                              </span>
-                              {event.startTime ? (
-                                <span className="text-xs font-semibold ml-1">
-                                  {event.startTime}
+                      {eventsLoading ? (
+                        // Skeleton loading for month events
+                        <div className="space-y-1">
+                          {[...Array(Math.floor(Math.random() * 3) + 1)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="h-6 bg-gray-200 rounded animate-pulse"
+                              style={{ width: `${Math.random() * 40 + 60}%` }}
+                            ></div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {day.events.map((event, eventIndex) => (
+                            <div
+                              key={eventIndex}
+                              className="text-xs p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm"
+                              role="button"
+                              style={{
+                                backgroundColor: `${event.color}22`,
+                                color: event.color,
+                              }}
+                              tabIndex={0}
+                              title={`${eventLabelsMap[event.type as EventType]} : ${event.startTime || ""}${event.endTime ? ` - ${event.endTime}` : ""}`}
+                              onClick={() => handleOpenViewEvent(event.raw)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  handleOpenViewEvent(event.raw);
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="truncate block">
+                                  {event.title}
                                 </span>
-                              ) : null}
+                                {event.startTime ? (
+                                  <span className="text-xs font-semibold ml-1">
+                                    {event.startTime}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

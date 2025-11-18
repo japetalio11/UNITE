@@ -30,6 +30,7 @@ interface CoordinatorTableProps {
   onDeleteCoordinator?: (id: string, name?: string) => void;
   searchQuery: string;
   isAdmin?: boolean;
+  loading?: boolean;
 }
 
 export default function CoordinatorTable({
@@ -42,6 +43,7 @@ export default function CoordinatorTable({
   onDeleteCoordinator,
   searchQuery,
   isAdmin,
+  loading,
 }: CoordinatorTableProps) {
   const [, /*unused*/ setUnused] = useState(false);
   // debug logs removed
@@ -91,6 +93,69 @@ export default function CoordinatorTable({
   const isAllSelected =
     filteredCoordinators.length > 0 &&
     filteredCoordinators.every((c) => selectedCoordinators.includes(c.id));
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/80">
+                <th className="px-6 py-3.5 text-left w-12">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Coordinator
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Phone Number
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Province
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  District
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <tr key={index} className="animate-pulse">
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-4"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-48"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-28"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-8 h-8"></div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">

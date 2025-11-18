@@ -13,6 +13,8 @@ import EventCard from "@/components/campaign/event-card";
 import EventViewModal from "@/components/campaign/event-view-modal";
 import EditEventModal from "@/components/campaign/event-edit-modal";
 
+import { useLoading } from "@/components/loading-overlay";
+
 /**
  * Campaign Page Component
  * Main campaign management page with topbar, toolbar, and content area.
@@ -22,6 +24,8 @@ export default function CampaignPage() {
   // Defer initializing selectedDate to after hydration to avoid any
   // server/client time differences during initial render.
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  const { setIsLoading } = useLoading();
 
   useEffect(() => {
     if (!selectedDate) setSelectedDate(new Date());
@@ -60,6 +64,8 @@ export default function CampaignPage() {
   const [viewLoading, setViewLoading] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editRequest, setEditRequest] = useState<any>(null);
+
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -190,6 +196,12 @@ export default function CampaignPage() {
   };
 
   useEffect(() => {
+    // Check if we should show loading overlay from login
+    if (typeof window !== "undefined" && sessionStorage.getItem("showLoadingOverlay") === "true") {
+      sessionStorage.removeItem("showLoadingOverlay");
+      setIsLoading(true);
+    }
+
     // load requests and also initialize the displayed user name/email for the topbar
     fetchRequests();
     // fetch published events for the calendar
@@ -222,8 +234,9 @@ export default function CampaignPage() {
         const u = JSON.parse(raw);
         const first =
           u.First_Name ||
-          u.FirstName ||
+          u.First_Name ||
           u.first_name ||
+          u.FirstName ||
           u.firstName ||
           u.First ||
           "";
@@ -255,6 +268,9 @@ export default function CampaignPage() {
     } catch (err) {
       // ignore malformed localStorage entry
     }
+
+    // Mark initial load as done after setting states
+    setInitialLoadDone(true);
   }, []);
 
   // reset to first page whenever filters/search change
@@ -317,6 +333,13 @@ export default function CampaignPage() {
     };
     // Intentionally run once on mount to register the listener
   }, []);
+
+  // Hide global loading overlay after initial data loads
+  useEffect(() => {
+    if (initialLoadDone) {
+      setIsLoading(false);
+    }
+  }, [initialLoadDone, setIsLoading]);
 
   // Sample event data
   const events = [
