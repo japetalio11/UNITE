@@ -8,6 +8,8 @@ import { Link } from "@heroui/link";
 import { Checkbox } from "@heroui/checkbox";
 import { Eye, EyeOff } from "lucide-react";
 
+import { useLoading } from "@/components/loading-overlay";
+
 export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -15,6 +17,7 @@ export default function SignIn() {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { setIsLoading: setGlobalLoading } = useLoading();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,6 +152,11 @@ export default function SignIn() {
           } catch (e) {}
         }
       } catch (e) {}
+
+      // Set flag to show loading overlay on dashboard navigation
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("showLoadingOverlay", "true");
+      }
 
       // Use a full navigation so the browser sends the HttpOnly cookie and
       // the Next.js server-layout can read it during SSR.

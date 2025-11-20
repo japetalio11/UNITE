@@ -41,7 +41,7 @@ export default function StakeholderManagement() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [signupRequests, setSignupRequests] = useState<any[]>([]);
   const [stakeholders, setStakeholders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [filters, setFilters] = useState<{
@@ -85,6 +85,80 @@ export default function StakeholderManagement() {
     null,
   );
   const router = useRouter();
+
+  const ordinalSuffix = (n: number | string) => {
+    const num = Number(n);
+
+    if (Number.isNaN(num)) return String(n);
+    const j = num % 10,
+      k = num % 100;
+
+    if (j === 1 && k !== 11) return `${num}st`;
+    if (j === 2 && k !== 12) return `${num}nd`;
+    if (j === 3 && k !== 13) return `${num}rd`;
+
+    return `${num}th`;
+  };
+
+  const formatDistrict = (districtObj: any) => {
+    if (!districtObj) return "";
+    // Support both legacy and new district shapes
+    if (districtObj.District_Number)
+      return `${ordinalSuffix(districtObj.District_Number)} District`;
+    if (districtObj.District_Name) return districtObj.District_Name;
+    if (districtObj.name) return districtObj.name;
+    if (districtObj.District_Name) return districtObj.District_Name;
+
+    return "";
+  };
+
+  const updateStakeholderNames = () => {
+    setStakeholders(prev => prev.map(s => {
+      let districtObj = s.District || s.District_Details || null;
+
+      if (!districtObj && districtsMap && (s.District_ID || s.DistrictId)) {
+        districtObj = districtsMap[String(s.District_ID || s.DistrictId)] || null;
+      }
+
+      let newProvince = "";
+      if (s.Province_Name) newProvince = s.Province_Name;
+      else if (districtObj && districtObj.province) {
+        if (typeof districtObj.province === "string" || typeof districtObj.province === "number") {
+          newProvince = provincesMap[String(districtObj.province)] || "";
+        } else if (districtObj.province && (districtObj.province.name || districtObj.province.Province_Name)) {
+          newProvince = districtObj.province.name || districtObj.province.Province_Name || "";
+        }
+      }
+      if (!newProvince && s.province) {
+        newProvince = provincesMap[String(s.province)] || "";
+      }
+
+      let newDistrict = "";
+      if (districtObj) {
+        newDistrict = formatDistrict(districtObj);
+      } else if (s.District_Name) {
+        newDistrict = s.District_Name;
+      } else if (s.District_ID || s.district) {
+        const idCandidate = s.District_ID || s.district;
+        const m = String(idCandidate).match(/(\d+)$/);
+
+        if (m) {
+          const num = Number(m[1]);
+
+          if (!Number.isNaN(num))
+            newDistrict = `${ordinalSuffix(num)} District`;
+        } else {
+          newDistrict = String(idCandidate);
+        }
+      }
+
+      return {
+        ...s,
+        province: newProvince || s.province,
+        district: newDistrict || s.district,
+      };
+    }));
+  };
 
   useEffect(() => {
     try {
@@ -222,6 +296,13 @@ export default function StakeholderManagement() {
 
     loadProvinces();
   }, []);
+
+  // Update stakeholder names when provinces are loaded
+  useEffect(() => {
+    if (provincesMap) {
+      updateStakeholderNames();
+    }
+  }, [provincesMap]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -667,31 +748,7 @@ export default function StakeholderManagement() {
     province?: string;
     districtId?: string;
   }) => {
-    const ordinalSuffix = (n: number | string) => {
-      const num = Number(n);
-
-      if (Number.isNaN(num)) return String(n);
-      const j = num % 10,
-        k = num % 100;
-
-      if (j === 1 && k !== 11) return `${num}st`;
-      if (j === 2 && k !== 12) return `${num}nd`;
-      if (j === 3 && k !== 13) return `${num}rd`;
-
-      return `${num}th`;
-    };
-
-    const formatDistrict = (districtObj: any) => {
-      if (!districtObj) return "";
-      // Support both legacy and new district shapes
-      if (districtObj.District_Number)
-        return `${ordinalSuffix(districtObj.District_Number)} District`;
-      if (districtObj.District_Name) return districtObj.District_Name;
-      if (districtObj.name) return districtObj.name;
-      if (districtObj.District_Name) return districtObj.District_Name;
-
-      return "";
-    };
+    const startTime = Date.now();
 
     setLoading(true);
     setError(null);
@@ -887,33 +944,14 @@ export default function StakeholderManagement() {
 
           if (candidate) districtObj = candidate;
         }
-        // Compute province display: prefer explicit Province_Name, else use district->province or province id
-        let province = s.Province_Name || "";
+        // Compute province display: prefer explicit Province_Name, else use populated province
+        let province = s.Province_Name || s.province?.name || "";
 
-        if (!province && districtObj) {
-          // districtObj.province may be an id or a populated object
-          if (
-            typeof districtObj.province === "string" ||
-            typeof districtObj.province === "number"
-          ) {
-            province = provincesMap[String(districtObj.province)] || "";
-          } else if (
-            districtObj.province &&
-            (districtObj.province.name || districtObj.province.Province_Name)
-          ) {
-            province =
-              districtObj.province.name ||
-              districtObj.province.Province_Name ||
-              "";
-          }
-        }
-        // If still empty but the stakeholder payload included a province id, resolve it
-        if (!province && s.province) {
-          province = provincesMap[String(s.province)] || "";
-        }
         let districtDisplay = "";
 
-        if (districtObj) {
+        if (s.district?.name) {
+          districtDisplay = s.district.name;
+        } else if (districtObj) {
           districtDisplay = formatDistrict(districtObj);
         } else if (s.District_Name) {
           districtDisplay = s.District_Name;
@@ -931,6 +969,66 @@ export default function StakeholderManagement() {
             districtDisplay = String(idCandidate);
           }
         }
+
+        return {
+          id: s.Stakeholder_ID || s.id || "",
+          name: fullName,
+          email: s.Email || s.email || "",
+          phone: s.Phone_Number || s.phoneNumber || s.phone || "",
+          province: province || "",
+          municipality:
+            s.municipality?.name ||
+            s.City_Municipality ||
+            s.Municipality ||
+            s.City ||
+            s.cityMunicipality ||
+            s.municipality ||
+            s.municipality_id ||
+            "",
+          // Resolve organization from multiple possible shapes, including nested objects
+          organization: ((): string => {
+            const tryValues = [
+              s.Organization_Institution,
+              s.Organization,
+              s.organization,
+              s.OrganizationName,
+              s.Organization_Name,
+              s.organization_institution,
+              s.Organisation,
+              s.organisation,
+              s.OrganizationInstitution,
+              s.data && s.data.Organization_Institution,
+              s.data && s.data.organization,
+              s.stakeholder && s.stakeholder.Organization_Institution,
+              s.stakeholder && s.stakeholder.organization,
+              s.result && s.result.Organization_Institution,
+              s.details && s.details.Organization_Institution,
+            ];
+
+            for (const v of tryValues) {
+              if (v !== undefined && v !== null && String(v).trim() !== "")
+                return String(v).trim();
+            }
+            // As a last resort, do a shallow scan for any key name that looks like organization/institution
+            for (const k of Object.keys(s || {})) {
+              const key = String(k).toLowerCase();
+
+              if (
+                key.includes("organ") ||
+                key.includes("institut") ||
+                key.includes("organisation")
+              ) {
+                const v = s[k];
+
+                if (v !== undefined && v !== null && String(v).trim() !== "")
+                  return String(v).trim();
+              }
+            }
+
+            return "";
+          })(),
+          district: districtDisplay,
+        };
 
         return {
           id: s.Stakeholder_ID || s.id || "",
@@ -1608,19 +1706,28 @@ export default function StakeholderManagement() {
       }
 
       setStakeholders(finalMapped);
+
+      // Add artificial delay for fast fetches to show loading animation longer
+      const elapsedTime = Date.now() - startTime;
+      const minLoadingTime = 1500; // 1.5 seconds
+      if (elapsedTime < minLoadingTime) {
+        await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+      }
+
+      setLoading(false);
     } catch (err: any) {
       setError(err.message || "Unknown error");
-    } finally {
       setLoading(false);
     }
+    updateStakeholderNames();
   };
 
   // If we prefetch districts after the initial load, re-run stakeholder fetch so
   // province/district can be resolved from the districtsMap.
   useEffect(() => {
     if (districtsMap) {
-      // re-fetch to pick up province names from districtsMap when available
-      fetchStakeholders();
+      // update to pick up province names from districtsMap when available
+      updateStakeholderNames();
     }
   }, [districtsMap]);
 
@@ -1632,7 +1739,6 @@ export default function StakeholderManagement() {
   }, [searchQuery]);
 
   async function fetchSignupRequests() {
-    setLoading(true);
     try {
       const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
       const url = base ? `${base}/api/signup-requests` : `/api/signup-requests`;
@@ -1668,14 +1774,16 @@ export default function StakeholderManagement() {
     } catch (err: any) {
       console.error("Failed to fetch signup requests:", err);
       setError(err.message || "Failed to fetch signup requests");
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStakeholders();
-    fetchSignupRequests();
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchStakeholders(), fetchSignupRequests()]);
+      // Don't set loading to false here - let fetchStakeholders handle it with its delay
+    };
+    init();
   }, []);
 
   const handleAcceptRequest = async (id: string) => {
@@ -1767,10 +1875,6 @@ export default function StakeholderManagement() {
 
       {/* Table Content */}
       <div className="px-6 py-4 bg-gray-50">
-        {loading && (
-          <p className="text-sm text-gray-500">Loading stakeholders...</p>
-        )}
-        {error && <p className="text-sm text-red-500">{error}</p>}
         <StakeholderTable
           coordinators={
             selectedTab === "pending"
@@ -1800,6 +1904,7 @@ export default function StakeholderManagement() {
           onSelectCoordinator={handleSelectStakeholder}
           onUpdateCoordinator={handleUpdateStakeholder}
           searchQuery={searchQuery}
+          loading={loading}
           // Pass true only when user is both a system admin and has StaffType='Admin'
           isAdmin={canManageStakeholders}
           isRequests={selectedTab === "pending"}

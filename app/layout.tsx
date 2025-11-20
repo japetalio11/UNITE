@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import clsx from "clsx";
 
 import { Providers } from "./providers";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
@@ -33,6 +34,7 @@ export default function RootLayout({
         )}
       >
         <Providers themeProps={{ attribute: "class", defaultTheme: "light" }}>
+          <LoadingOverlay />
           {children}
         </Providers>
       </body>

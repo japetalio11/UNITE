@@ -34,7 +34,7 @@ export default function CoordinatorManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [coordinators, setCoordinators] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [filters, setFilters] = useState<{
@@ -392,6 +392,8 @@ export default function CoordinatorManagement() {
     province?: string;
     districtId?: string;
   }) => {
+    const startTime = Date.now();
+
     const ordinalSuffix = (n: number | string) => {
       const num = Number(n);
 
@@ -627,15 +629,27 @@ export default function CoordinatorManagement() {
       });
 
       setCoordinators(mapped);
+
+      // Add artificial delay for fast fetches to show loading animation longer
+      const elapsedTime = Date.now() - startTime;
+      const minLoadingTime = 1500; // 1.5 seconds
+      if (elapsedTime < minLoadingTime) {
+        await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+      }
+
+      setLoading(false);
     } catch (err: any) {
       setError(err.message || "Unknown error");
-    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCoordinators();
+    const init = async () => {
+      await fetchCoordinators();
+      setLoading(false);
+    };
+    init();
   }, []);
 
   return (
@@ -665,10 +679,6 @@ export default function CoordinatorManagement() {
 
       {/* Table Content */}
       <div className="px-6 py-4 bg-gray-50">
-        {loading && (
-          <p className="text-sm text-gray-500">Loading coordinators...</p>
-        )}
-        {error && <p className="text-sm text-red-500">{error}</p>}
         <CoordinatorTable
           coordinators={coordinators}
           selectedCoordinators={selectedCoordinators}
@@ -680,6 +690,7 @@ export default function CoordinatorManagement() {
           searchQuery={searchQuery}
           // Pass true only when user is both a system admin and has StaffType='Admin'
           isAdmin={canManageCoordinators}
+          loading={loading}
         />
       </div>
 
