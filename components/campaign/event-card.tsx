@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { DatePicker } from "@heroui/date-picker";
 import { Card, CardHeader, CardBody, CardFooter } from "@heroui/card";
 import { Chip } from "@heroui/chip";
@@ -32,8 +32,32 @@ import {
 } from "lucide-react";
 
 import ManageStaffModal from "../manage-staff-modal";
+import EventActionMenu from "./EventActionMenu";
+import RescheduleModal from "./modals/RescheduleModal";
+import ConfirmModal from "./modals/ConfirmModal";
+import {
+  performRequestAction as svcPerformRequestAction,
+  performStakeholderConfirm as svcPerformStakeholderConfirm,
+  fetchRequestDetails as svcFetchRequestDetails,
+  deleteRequest as svcDeleteRequest,
+} from "./services/requestsService";
 
 import { fetchWithAuth } from "@/utils/fetchWithAuth";
+
+import {
+  useAllowedActionSet,
+  hasAllowedActionFactory,
+  getViewer,
+  getViewerId,
+  formatDate,
+} from "./event-card.utils";
+
+import {
+  BOOLEAN_FLAG_TO_ACTION,
+  ACTION_SYNONYMS,
+  FALLBACK_ACTION_MAP,
+  API_BASE,
+} from "./event-card.constants";
 
 interface EventCardProps {
   title: string;
@@ -94,91 +118,62 @@ const EventCard: React.FC<EventCardProps> = ({
   const [successModal, setSuccessModal] = useState(false);
   const [fullRequest, setFullRequest] = useState<any>(null);
 
+  const resolvedRequest =
+    fullRequest ||
+    request ||
+    (request && (request as any).event) ||
+    null;
+
+  const resolvedRequestId =
+    resolvedRequest?.Request_ID ||
+    resolvedRequest?.RequestId ||
+    resolvedRequest?._id ||
+    resolvedRequest?.requestId ||
+    null;
+
+
+  const resolveActorEndpoint = () => {
+    const viewer = getViewer();
+    const roleString = String(viewer.role || "").toLowerCase();
+
+    if (viewer.isAdmin) return "admin-action";
+    if (roleString.includes("coordinator")) return "coordinator-action";
+    if (roleString.includes("stakeholder")) return "stakeholder-action";
+
+    return "admin-action";
+  };
+
+  const allowedActionSet = useAllowedActionSet({ request, fullRequest, resolvedRequest });
+  const hasAllowedAction = React.useCallback(hasAllowedActionFactory(allowedActionSet), [allowedActionSet]);
+
+  const hasAnyAllowedAction = (names: string[]) =>
+    names.some((name) => hasAllowedAction(name));
+
   // Manage staff state
   // Manage staff modal is handled by the shared ManageStaffModal component
 
-  // Reschedule dialog state
-  const [rescheduledDate, setRescheduledDate] = useState<any>(null);
-  const [note, setNote] = useState("");
-  const [rejectNote, setRejectNote] = useState("");
-  const [cancelNote, setCancelNote] = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  const handleReschedule = async () => {
-    setValidationError(null);
-    if (!rescheduledDate) {
-      setValidationError("Please choose a new date");
-
-      return;
-    }
-    // Ensure rescheduled date is not before today
+  // Reschedule handler used by RescheduleModal
+  const handleRescheduleConfirm = async (currentDateStr: string, rescheduledISO: string, noteText: string) => {
     try {
-      const rs = new Date(rescheduledDate);
-
-      rs.setHours(0, 0, 0, 0);
-      const today = new Date();
-
-      today.setHours(0, 0, 0, 0);
-      if (rs.getTime() < today.getTime()) {
-        setValidationError("Rescheduled date cannot be before today");
-
-        return;
+      if (onRescheduleEvent) {
+        onRescheduleEvent(currentDateStr, rescheduledISO, noteText);
+      } else {
+        if (resolvedRequestId) {
+          await performRequestAction(
+            resolvedRequestId,
+            resolveActorEndpoint(),
+            "Rescheduled",
+            noteText,
+            rescheduledISO,
+          );
+        }
       }
     } catch (e) {
-      setValidationError("Invalid date selected");
-
-      return;
+      console.error("Reschedule error:", e);
+    } finally {
+      setRescheduleOpen(false);
     }
 
-    if (!note || note.trim().length === 0) {
-      setValidationError("Please provide a reason for rescheduling");
-
-      return;
-    }
-
-    // pass current displayed date and new date (as ISO date string)
-    const current = date || "";
-    const newDateISO =
-      typeof rescheduledDate === "string"
-        ? new Date(rescheduledDate).toISOString()
-        : rescheduledDate instanceof Date
-          ? rescheduledDate.toISOString()
-          : new Date(rescheduledDate).toISOString();
-
-    if (onRescheduleEvent) {
-      onRescheduleEvent(current, newDateISO, note.trim());
-    } else {
-      // fallback: perform admin action directly
-      (async () => {
-        try {
-          const r = request || (request && (request as any).event) || {};
-          const requestId =
-            r?.Request_ID ||
-            r?.RequestId ||
-            r?.requestId ||
-            r?.RequestId ||
-            null;
-
-          if (requestId) {
-            await performRequestAction(
-              requestId,
-              "admin-action",
-              "Rescheduled",
-              note.trim(),
-              newDateISO,
-            );
-          }
-        } catch (e) {}
-      })();
-    }
-
-    // reset modal state
-    setRescheduleOpen(false);
-    setRescheduledDate(null);
-    setNote("");
-    setValidationError(null);
-
-    // Refresh the view modal data if it's open
     if (viewOpen) {
       await openViewRequest();
     }
@@ -191,44 +186,31 @@ const EventCard: React.FC<EventCardProps> = ({
     setCancelOpen(false);
   };
 
-  const handleCancelWithNote = async () => {
-    setValidationError(null);
-    if (!cancelNote || cancelNote.trim().length === 0) {
-      setValidationError("Please provide a reason for cancelling this event");
-
-      return;
-    }
-
+  const handleCancelWithNote = async (note?: string) => {
     try {
-      const r = request || (request && (request as any).event) || {};
-      const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
+      const n = note ? note.trim() : "";
+      if (!n) {
+        throw new Error("Please provide a reason for cancelling this event");
+      }
 
-      if (requestId) {
-        // Use performRequestAction for cancellation to ensure proper status update
+      if (resolvedRequestId) {
         await performRequestAction(
-          requestId,
-          "admin-action",
+          resolvedRequestId,
+          resolveActorEndpoint(),
           "Cancelled",
-          cancelNote.trim(),
+          n,
         );
       } else if (onCancelEvent) {
         onCancelEvent();
       }
     } catch (e) {
       console.error("Cancel error:", e);
-      alert(
-        "Failed to cancel event: " + ((e as Error).message || "Unknown error"),
-      );
-
+      alert("Failed to cancel event: " + ((e as Error).message || "Unknown error"));
       return;
     }
 
-    // reset modal state
     setCancelOpen(false);
-    setCancelNote("");
-    setValidationError(null);
 
-    // Refresh the view modal data if it's open
     if (viewOpen) {
       await openViewRequest();
     }
@@ -237,8 +219,7 @@ const EventCard: React.FC<EventCardProps> = ({
   const handleDelete = async () => {
     try {
       // Use the most up-to-date request data available
-      let r =
-        fullRequest || request || (request && (request as any).event) || {};
+      let r = resolvedRequest || {};
       const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
 
       if (!requestId) {
@@ -248,36 +229,17 @@ const EventCard: React.FC<EventCardProps> = ({
       }
 
       // If we don't have fresh data or the status isn't cancelled, fetch the latest
-      if (
-        !fullRequest ||
-        (r.Status !== "Cancelled" && r.status !== "Cancelled")
-      ) {
+      if (!fullRequest || (r.Status !== "Cancelled" && r.status !== "Cancelled")) {
         try {
-          const token =
-            typeof window !== "undefined"
-              ? localStorage.getItem("unite_token") ||
-                sessionStorage.getItem("unite_token")
-              : null;
-          const headers: any = { "Content-Type": "application/json" };
-
-          if (token) headers["Authorization"] = `Bearer ${token}`;
-
-          const url = `${API_BASE}/api/requests/${encodeURIComponent(requestId)}`;
-          let res;
-
-          if (token) {
-            res = await fetchWithAuth(url, { method: "GET" });
-          } else {
-            res = await fetch(url, { headers, credentials: "include" });
-          }
-          const body = await res.json().catch(() => ({}));
-          const data = body?.data || body?.request || body;
-
+          const data = await svcFetchRequestDetails(requestId);
           r = data || r;
         } catch (fetchError) {
           console.warn("Failed to fetch latest request data:", fetchError);
         }
       }
+
+      // perform deletion via service
+      const resp = await svcDeleteRequest(requestId);
 
       const token =
         typeof window !== "undefined"
@@ -285,26 +247,7 @@ const EventCard: React.FC<EventCardProps> = ({
             sessionStorage.getItem("unite_token")
           : null;
       const headers: any = { "Content-Type": "application/json" };
-
       if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      let res;
-
-      if (token) {
-        res = await fetchWithAuth(
-          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/delete`,
-          { method: "DELETE" },
-        );
-      } else {
-        res = await fetch(
-          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/delete`,
-          { method: "DELETE", headers, credentials: "include" },
-        );
-      }
-
-      const resp = await res.json();
-
-      if (!res.ok) throw new Error(resp.message || "Failed to delete request");
 
       // Create deletion notification for coordinator
       try {
@@ -405,15 +348,10 @@ const EventCard: React.FC<EventCardProps> = ({
   const handleAccept = (note?: string) => {
     (async () => {
       try {
-        const r = request || (request && (request as any).event) || {};
-        const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
-
-        console.log("Accepting request with ID:", requestId);
-
-        if (requestId) {
+        if (resolvedRequestId) {
           await performRequestAction(
-            requestId,
-            "admin-action",
+            resolvedRequestId,
+            resolveActorEndpoint(),
             "Accepted",
             note || "",
           );
@@ -438,13 +376,10 @@ const EventCard: React.FC<EventCardProps> = ({
   const handleRejectWithNote = (note?: string) => {
     (async () => {
       try {
-        const r = request || (request && (request as any).event) || {};
-        const requestId = r?.Request_ID || r?.RequestId || r?.requestId || null;
-
-        if (requestId) {
+        if (resolvedRequestId) {
           await performRequestAction(
-            requestId,
-            "admin-action",
+            resolvedRequestId,
+            resolveActorEndpoint(),
             "Rejected",
             note || "",
           );
@@ -463,20 +398,27 @@ const EventCard: React.FC<EventCardProps> = ({
 
   // Menu for Approved status
   // Helper to derive flags from request/event or fallback to allowedActions
-  const flagFor = (flagName: string, actionName?: string) => {
+  const flagFor = (
+    flagName: string,
+    actionName?: string | string[],
+  ): boolean => {
     try {
-      const r = request || {};
+      const r = resolvedRequest || request || {};
       const explicit =
-        (r && (r as any)[flagName]) ?? (r && r.event && r.event[flagName]);
+        (r as any)?.[flagName] ?? (r as any)?.event?.[flagName];
 
-      if (explicit !== undefined && explicit !== null) return Boolean(explicit);
-      const allowed =
-        (r && r.allowedActions) ||
-        (r && r.event && r.event.allowedActions) ||
-        null;
+      if (explicit !== undefined && explicit !== null) {
+        return Boolean(explicit);
+      }
 
-      if (Array.isArray(allowed) && actionName)
-        return allowed.includes(actionName);
+      if (actionName && hasAllowedAction(actionName)) {
+        return true;
+      }
+
+      const fallback = FALLBACK_ACTION_MAP[flagName];
+      if (fallback && hasAllowedAction(fallback)) {
+        return true;
+      }
 
       return false;
     } catch (e) {
@@ -484,297 +426,19 @@ const EventCard: React.FC<EventCardProps> = ({
     }
   };
 
-  const approvedMenu = (
-    <DropdownMenu aria-label="Event actions menu" variant="faded">
-      <DropdownSection showDivider title="Actions">
-        {flagFor("canView", "view") ? (
-          <DropdownItem
-            key="view-event"
-            description="View event details"
-            startContent={<Eye />}
-            onPress={onViewEvent}
-          >
-            View Event
-          </DropdownItem>
-        ) : null}
-        {flagFor("canView", "view") && status !== "Approved" ? (
-          <DropdownItem
-            key="view-request"
-            description="View request details"
-            startContent={<FileText />}
-            onPress={async () => {
-              await openViewRequest();
-            }}
-          >
-            View Request
-          </DropdownItem>
-        ) : null}
-        {flagFor("canEdit", "edit") ? (
-          <DropdownItem
-            key="edit"
-            description="Edit an event"
-            startContent={<Edit />}
-            onPress={onEditEvent}
-          >
-            Edit Event
-          </DropdownItem>
-        ) : null}
-        {flagFor("canManageStaff", "manage-staff") ? (
-          <DropdownItem
-            key="manage-staff"
-            description="Manage staff for this event"
-            startContent={<Users />}
-            onPress={() => {
-              setManageStaffOpen(true);
-              if (typeof onManageStaff === "function") onManageStaff();
-            }}
-          >
-            Manage Staff
-          </DropdownItem>
-        ) : null}
-        {flagFor("canReschedule", "resched") ? (
-          <DropdownItem
-            key="reschedule"
-            description="Reschedule this event"
-            startContent={<Clock />}
-            onPress={() => setRescheduleOpen(true)}
-          >
-            Reschedule Event
-          </DropdownItem>
-        ) : null}
-      </DropdownSection>
-      <DropdownSection title="Danger zone">
-        {flagFor("canAdminAction", "cancel") ? (
-          <DropdownItem
-            key="cancel"
-            className="text-danger"
-            color="danger"
-            description="Cancel this event"
-            startContent={
-              <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
-            }
-            onPress={() => setCancelOpen(true)}
-          >
-            Cancel Event
-          </DropdownItem>
-        ) : null}
-      </DropdownSection>
-    </DropdownMenu>
-  );
+
+  // Menus are now rendered by EventActionMenu which uses the same flags and setters
 
   // Menu for Pending status
-  const pendingMenu = (
-    <DropdownMenu aria-label="Event actions menu" variant="faded">
-      <DropdownSection title="Actions">
-        {flagFor("canView", "view") ? (
-          <DropdownItem
-            key="view-event"
-            description="View event details"
-            startContent={<Eye />}
-            onPress={onViewEvent}
-          >
-            View Event
-          </DropdownItem>
-        ) : null}
-        {flagFor("canView", "view") ? (
-          <DropdownItem
-            key="view-request"
-            description="View request details"
-            startContent={<FileText />}
-            onPress={async () => {
-              await openViewRequest();
-            }}
-          >
-            View Request
-          </DropdownItem>
-        ) : null}
-        {/* Accept/Reject/Reschedule are intentionally removed from the dropdown
-            and surfaced inside the View Request modal to avoid accidental clicks
-            and to provide clearer context. */}
-        {flagFor("canManageStaff", "manage-staff") ? (
-          <DropdownItem
-            key="manage-staff"
-            description="Manage staff for this event"
-            startContent={<Users />}
-            onPress={() => {
-              setManageStaffOpen(true);
-              if (typeof onManageStaff === "function") onManageStaff();
-            }}
-          >
-            Manage Staff
-          </DropdownItem>
-        ) : null}
-      </DropdownSection>
-      <DropdownSection title="Danger zone">
-        {flagFor("canAdminAction", "cancel") ? (
-          <DropdownItem
-            key="cancel"
-            className="text-danger"
-            color="danger"
-            description="Cancel this request"
-            startContent={
-              <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
-            }
-            onPress={() => setCancelOpen(true)}
-          >
-            Cancel Request
-          </DropdownItem>
-        ) : null}
-      </DropdownSection>
-    </DropdownMenu>
-  );
+  // pendingMenu moved to EventActionMenu
 
   // Default menu for Rejected or other statuses
-  const defaultMenu = (
-    <DropdownMenu aria-label="Event actions menu" variant="faded">
-      <DropdownSection title="Actions">
-        <DropdownItem
-          key="view-event"
-          description="View event details"
-          startContent={<Eye />}
-          onPress={onViewEvent}
-        >
-          View Event
-        </DropdownItem>
-        <DropdownItem
-          key="view-request"
-          description="View request details"
-          startContent={<FileText />}
-          onPress={async () => {
-            await openViewRequest();
-          }}
-        >
-          View Request
-        </DropdownItem>
-      </DropdownSection>
-      <DropdownSection title="Danger zone">
-        {flagFor("canDelete", "delete") ? (
-          <DropdownItem
-            key="delete"
-            className="text-danger"
-            color="danger"
-            description="Delete this request"
-            startContent={
-              <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
-            }
-            onPress={() => setDeleteOpen(true)}
-          >
-            Delete Request
-          </DropdownItem>
-        ) : null}
-      </DropdownSection>
-    </DropdownMenu>
-  );
+  // defaultMenu moved to EventActionMenu
 
-  // Helper: derive viewer info from legacy storage
-  const getViewer = () => {
-    try {
-      if (typeof window === "undefined")
-        return { id: null, role: null, isAdmin: false };
-      const raw =
-        localStorage.getItem("unite_user") ||
-        sessionStorage.getItem("unite_user");
+  // API_BASE imported from event-card.constants
 
-      if (!raw) return { id: null, role: null, isAdmin: false };
-      const parsed = JSON.parse(raw);
-      const id =
-        parsed?.id ||
-        parsed?.ID ||
-        parsed?._id ||
-        parsed?.Stakeholder_ID ||
-        parsed?.StakeholderId ||
-        parsed?.stakeholder_id ||
-        parsed?.user_id ||
-        null;
-      const role = parsed?.role || parsed?.staff_type || null;
-      const isAdmin =
-        !!parsed?.isAdmin ||
-        String(parsed?.staff_type || "")
-          .toLowerCase()
-          .includes("admin") ||
-        (String(parsed?.role || "")
-          .toLowerCase()
-          .includes("sys") &&
-          String(parsed?.role || "")
-            .toLowerCase()
-            .includes("admin"));
-
-      return { id, role, isAdmin };
-    } catch (e) {
-      return { id: null, role: null, isAdmin: false };
-    }
-  };
-
-  const API_BASE =
-    typeof process !== "undefined" &&
-    process.env &&
-    process.env.NEXT_PUBLIC_API_URL
-      ? process.env.NEXT_PUBLIC_API_URL
-      : "http://localhost:3000";
-
-  // Unified function to perform request actions for any actor type
-  const performRequestAction = async (
-    requestId: string,
-    actorType: "admin-action" | "coordinator-action" | "stakeholder-action",
-    action: "Accepted" | "Rejected" | "Rescheduled" | "Cancelled",
-    note?: string,
-    rescheduledDate?: string | null,
-  ) => {
-    try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("unite_token") ||
-            sessionStorage.getItem("unite_token")
-          : null;
-      const headers: any = { "Content-Type": "application/json" };
-
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const body: any = { action, note: note || "" };
-
-      if (rescheduledDate) body.rescheduledDate = rescheduledDate;
-
-      let res;
-
-      if (token) {
-        res = await fetchWithAuth(
-          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/${actorType}`,
-          { method: "POST", body: JSON.stringify(body) },
-        );
-      } else {
-        // Fallback for legacy clients without token
-        const legacyBody = {
-          action,
-          note: note || "",
-          ...(rescheduledDate && { rescheduledDate }),
-        };
-
-        res = await fetch(
-          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/${actorType}`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify(legacyBody),
-            credentials: "include",
-          },
-        );
-      }
-      const resp = await res.json();
-
-      if (!res.ok)
-        throw new Error(resp.message || `Failed to perform ${actorType}`);
-      // notify other parts of the app to refresh lists
-      try {
-        window.dispatchEvent(
-          new CustomEvent("unite:requests-changed", { detail: { requestId } }),
-        );
-      } catch (e) {}
-
-      return resp;
-    } catch (e) {
-      throw e;
-    }
-  };
+  // Network operations moved to services/requestsService
+  const performRequestAction = svcPerformRequestAction;
 
   // Open local view modal, fetching full request details when necessary
   const openViewRequest = async () => {
@@ -960,286 +624,306 @@ const EventCard: React.FC<EventCardProps> = ({
     }
   };
 
-  // Stakeholder confirm action (calls stakeholder-confirm endpoint)
-  const performStakeholderConfirm = async (
-    requestId: string,
-    action: "Accepted" | "Rejected",
+  // Stakeholder confirm action moved to services
+  const performStakeholderConfirm = svcPerformStakeholderConfirm;
+
+  const runStakeholderDecision = async (
+    decision: "Accepted" | "Rejected",
   ) => {
     try {
-      const rawUser =
-        typeof window !== "undefined"
-          ? localStorage.getItem("unite_user")
-          : null;
-      const parsedUser = rawUser ? JSON.parse(rawUser as string) : null;
-      const stakeholderId =
-        parsedUser?.id ||
-        parsedUser?.Stakeholder_ID ||
-        parsedUser?.StakeholderId ||
-        parsedUser?.ID ||
-        null;
-
-      if (!stakeholderId) throw new Error("Unable to determine stakeholder id");
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("unite_token") ||
-            sessionStorage.getItem("unite_token")
-          : null;
-      const headers: any = { "Content-Type": "application/json" };
-
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const body: any = { stakeholderId, action };
-      let res;
-
-      if (token) {
-        res = await fetchWithAuth(
-          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/stakeholder-confirm`,
-          { method: "POST", body: JSON.stringify(body) },
-        );
-      } else {
-        res = await fetch(
-          `${API_BASE}/api/requests/${encodeURIComponent(requestId)}/stakeholder-confirm`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body),
-            credentials: "include",
-          },
-        );
+      if (!resolvedRequestId) {
+        throw new Error("Unable to determine request id");
       }
-      const resp = await res.json();
-
-      if (!res.ok)
-        throw new Error(
-          resp.message || "Failed to record stakeholder confirmation",
-        );
-      try {
-        window.dispatchEvent(
-          new CustomEvent("unite:requests-changed", { detail: { requestId } }),
-        );
-      } catch (e) {}
-
-      return resp;
-    } catch (e) {
-      throw e;
+      await performStakeholderConfirm(resolvedRequestId, decision);
+      setViewOpen(false);
+    } catch (err: any) {
+      console.error("Stakeholder decision error:", err);
+      alert(
+        `Failed to ${
+          decision === "Accepted" ? "confirm" : "decline"
+        } request: ${err?.message || "Unknown error"}`,
+      );
     }
   };
 
-  // Determine which menu to show based on status
-  const getMenuByStatus = () => {
-    try {
-      const r = request || (request && (request as any).event) || {};
+  const buildActionMenu = () => {
+    if (allowedActionSet.size === 0) return null;
 
-      // Compute whether this request is waiting for stakeholder confirmation
-      const adminAction =
-        (r as any).AdminAction ?? (r as any).adminAction ?? null;
-      const stakeholderAction =
-        (r as any).StakeholderFinalAction ??
-        (r as any).stakeholderFinalAction ??
-        null;
-      const isWaitingForStakeholder = !!adminAction && !stakeholderAction;
+    const actions: JSX.Element[] = [];
+    const danger: JSX.Element[] = [];
 
-      // Derive viewer id from legacy storage (safe to call here)
-      let viewerId: string | null = null;
+    if (flagFor("canView", "view") && typeof onViewEvent === "function") {
+      actions.push(
+        <DropdownItem
+          key="view-event"
+          description="View event details"
+          startContent={<Eye />}
+          onPress={onViewEvent}
+        >
+          View Event
+        </DropdownItem>,
+      );
+    }
 
-      try {
-        if (typeof window !== "undefined") {
-          const raw =
-            localStorage.getItem("unite_user") ||
-            sessionStorage.getItem("unite_user");
+    actions.push(
+      <DropdownItem
+        key="view-request"
+        description="View request details"
+        startContent={<FileText />}
+        onPress={async () => {
+          await openViewRequest();
+        }}
+      >
+        View Request
+      </DropdownItem>,
+    );
 
-          if (raw) {
-            const parsed = JSON.parse(raw);
+    if (flagFor("canManageStaff", "manage-staff")) {
+      actions.push(
+        <DropdownItem
+          key="manage-staff"
+          description="Manage staff for this event"
+          startContent={<Users />}
+          onPress={() => {
+            setManageStaffOpen(true);
+            if (typeof onManageStaff === "function") onManageStaff();
+          }}
+        >
+          Manage Staff
+        </DropdownItem>,
+      );
+    }
 
-            viewerId =
-              parsed?.id ||
-              parsed?.ID ||
-              parsed?._id ||
-              parsed?.Stakeholder_ID ||
-              parsed?.StakeholderId ||
-              parsed?.stakeholder_id ||
-              parsed?.user_id ||
-              null;
+    if (flagFor("canAccept", ["accept", "approve"])) {
+      actions.push(
+        <DropdownItem
+          key="accept"
+          description="Accept this request"
+          startContent={<Check />}
+          onPress={() => setAcceptOpen(true)}
+        >
+          Accept Request
+        </DropdownItem>,
+      );
+    }
+
+    if (flagFor("canReject", "reject")) {
+      actions.push(
+        <DropdownItem
+          key="reject"
+          description="Reject this request"
+          startContent={<X />}
+          onPress={() => setRejectOpen(true)}
+        >
+          Reject Request
+        </DropdownItem>,
+      );
+    }
+
+    if (flagFor("canReschedule", ["resched", "reschedule"])) {
+      actions.push(
+        <DropdownItem
+          key="reschedule"
+          description="Propose a new schedule"
+          startContent={<Clock />}
+          onPress={() => setRescheduleOpen(true)}
+        >
+          Reschedule
+        </DropdownItem>,
+      );
+    }
+
+    if (flagFor("canConfirm", "confirm")) {
+      actions.push(
+        <DropdownItem
+          key="confirm"
+          description="Confirm the reviewer decision"
+          startContent={<Check />}
+          onPress={async () => {
+            await runStakeholderDecision("Accepted");
+          }}
+        >
+          Confirm
+        </DropdownItem>,
+      );
+    }
+
+    if (flagFor("canDecline", "decline")) {
+      actions.push(
+        <DropdownItem
+          key="decline"
+          description="Decline the reviewer decision"
+          startContent={<X />}
+          onPress={async () => {
+            await runStakeholderDecision("Rejected");
+          }}
+        >
+          Decline
+        </DropdownItem>,
+      );
+    }
+
+    if (flagFor("canAdminAction", "cancel")) {
+      danger.push(
+        <DropdownItem
+          key="cancel"
+          className="text-danger"
+          color="danger"
+          description="Cancel this request"
+          startContent={
+            <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
           }
-        }
-      } catch (e) {
-        viewerId = null;
-      }
-
-      const madeByStakeholder =
-        r?.stakeholder?.Stakeholder_ID ||
-        r?.MadeByStakeholderID ||
-        r?.Stakeholder_ID ||
-        r?.stakeholder_id ||
-        r?.StakeholderId ||
-        null;
-      const viewerIsStakeholder =
-        viewerId &&
-        madeByStakeholder &&
-        String(viewerId) === String(madeByStakeholder);
-
-      // If it's waiting for stakeholder confirmation and the current viewer
-      // is NOT the stakeholder, show only the default (view-only) menu.
-      if (isWaitingForStakeholder && !viewerIsStakeholder) {
-        return defaultMenu;
-      }
-
-      if (
-        status === "Approved" ||
-        status === "Completed" ||
-        (request && (request as any).Status === "Completed")
-      ) {
-        return approvedMenu;
-      } else if (status === "Pending") {
-        return pendingMenu;
-      } else if (status === "Cancelled") {
-        // Special menu for cancelled events - only sys admins can delete
-        const v = getViewer();
-
-        if (v.isAdmin) {
-          return (
-            <DropdownMenu aria-label="Event actions menu" variant="faded">
-              <DropdownSection title="Actions">
-                <DropdownItem
-                  key="view-event"
-                  description="View event details"
-                  startContent={<Eye />}
-                  onPress={onViewEvent}
-                >
-                  View Event
-                </DropdownItem>
-                <DropdownItem
-                  key="view-request"
-                  description="View request details"
-                  startContent={<FileText />}
-                  onPress={async () => {
-                    await openViewRequest();
-                  }}
-                >
-                  View Request
-                </DropdownItem>
-              </DropdownSection>
-              <DropdownSection title="Danger zone">
-                <DropdownItem
-                  key="delete"
-                  className="text-danger"
-                  color="danger"
-                  description="Delete this cancelled request"
-                  startContent={
-                    <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
-                  }
-                  onPress={() => setDeleteOpen(true)}
-                >
-                  Delete Request
-                </DropdownItem>
-              </DropdownSection>
-            </DropdownMenu>
-          );
-        } else {
-          // Non-admin users see view-only menu for cancelled events
-          return (
-            <DropdownMenu aria-label="Event actions menu" variant="faded">
-              <DropdownSection title="Actions">
-                <DropdownItem
-                  key="view-event"
-                  description="View event details"
-                  startContent={<Eye />}
-                  onPress={onViewEvent}
-                >
-                  View Event
-                </DropdownItem>
-                <DropdownItem
-                  key="view-request"
-                  description="View request details"
-                  startContent={<FileText />}
-                  onPress={async () => {
-                    await openViewRequest();
-                  }}
-                >
-                  View Request
-                </DropdownItem>
-              </DropdownSection>
-            </DropdownMenu>
-          );
-        }
-      }
-
-      // Check if this is a cancelled request (request.Status === "Cancelled") regardless of event status
-      if (request && (request as any).Status === "Cancelled") {
-        const v = getViewer();
-
-        if (v.isAdmin) {
-          return (
-            <DropdownMenu aria-label="Event actions menu" variant="faded">
-              <DropdownSection title="Actions">
-                <DropdownItem
-                  key="view-event"
-                  description="View event details"
-                  startContent={<Eye />}
-                  onPress={onViewEvent}
-                >
-                  View Event
-                </DropdownItem>
-                <DropdownItem
-                  key="view-request"
-                  description="View request details"
-                  startContent={<FileText />}
-                  onPress={async () => {
-                    await openViewRequest();
-                  }}
-                >
-                  View Request
-                </DropdownItem>
-              </DropdownSection>
-              <DropdownSection title="Danger zone">
-                <DropdownItem
-                  key="delete"
-                  className="text-danger"
-                  color="danger"
-                  description="Delete this cancelled request"
-                  startContent={
-                    <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
-                  }
-                  onPress={() => setDeleteOpen(true)}
-                >
-                  Delete Request
-                </DropdownItem>
-              </DropdownSection>
-            </DropdownMenu>
-          );
-        } else {
-          // Non-admin users see view-only menu for cancelled events
-          return (
-            <DropdownMenu aria-label="Event actions menu" variant="faded">
-              <DropdownSection title="Actions">
-                <DropdownItem
-                  key="view-event"
-                  description="View event details"
-                  startContent={<Eye />}
-                  onPress={onViewEvent}
-                >
-                  View Event
-                </DropdownItem>
-                <DropdownItem
-                  key="view-request"
-                  description="View request details"
-                  startContent={<FileText />}
-                  onPress={async () => {
-                    await openViewRequest();
-                  }}
-                >
-                  View Request
-                </DropdownItem>
-              </DropdownSection>
-            </DropdownMenu>
-          );
-        }
-      }
-
-      return defaultMenu;
-    } catch (e) {
-      return defaultMenu;
+          onPress={() => setCancelOpen(true)}
+        >
+          Cancel Request
+        </DropdownItem>,
+      );
     }
+
+    if (flagFor("canDelete", "delete")) {
+      danger.push(
+        <DropdownItem
+          key="delete"
+          className="text-danger"
+          color="danger"
+          description="Delete this request"
+          startContent={
+            <Trash2 className="text-xl text-danger pointer-events-none shrink-0" />
+          }
+          onPress={() => setDeleteOpen(true)}
+        >
+          Delete Request
+        </DropdownItem>,
+      );
+    }
+
+    if (actions.length === 0 && danger.length === 0) {
+      return null;
+    }
+
+    return (
+      <DropdownMenu aria-label="Event actions menu" variant="faded">
+        {actions.length > 0 ? (
+          <DropdownSection title="Actions">{actions}</DropdownSection>
+        ) : null}
+        {danger.length > 0 ? (
+          <DropdownSection title="Danger zone">{danger}</DropdownSection>
+        ) : null}
+      </DropdownMenu>
+    );
   };
+
+  const renderFooterActionsFromAllowed = () => {
+    if (allowedActionSet.size === 0) return null;
+
+    const buttons: JSX.Element[] = [];
+
+    if (hasAllowedAction(["accept", "approve"])) {
+      buttons.push(
+        <Button
+          key="footer-accept"
+          className="bg-black text-white"
+          color="default"
+          onPress={() => {
+            setViewOpen(false);
+            setAcceptOpen(true);
+          }}
+        >
+          Accept
+        </Button>,
+      );
+    }
+
+    if (hasAllowedAction("reject")) {
+      buttons.push(
+        <Button
+          key="footer-reject"
+          variant="bordered"
+          onPress={() => {
+            setViewOpen(false);
+            setRejectOpen(true);
+          }}
+        >
+          Reject
+        </Button>,
+      );
+    }
+
+    if (hasAllowedAction(["resched", "reschedule"])) {
+      buttons.push(
+        <Button
+          key="footer-resched"
+          color="default"
+          onPress={() => {
+            setViewOpen(false);
+            setRescheduleOpen(true);
+          }}
+        >
+          Reschedule
+        </Button>,
+      );
+    }
+
+    if (hasAllowedAction("confirm")) {
+      buttons.push(
+        <Button
+          key="footer-confirm"
+          className="bg-black text-white"
+          color="default"
+          onPress={async () => {
+            await runStakeholderDecision("Accepted");
+          }}
+        >
+          Confirm
+        </Button>,
+      );
+    }
+
+    if (hasAllowedAction("decline")) {
+      buttons.push(
+        <Button
+          key="footer-decline"
+          variant="bordered"
+          onPress={async () => {
+            await runStakeholderDecision("Rejected");
+          }}
+        >
+          Decline
+        </Button>,
+      );
+    }
+
+    if (hasAllowedAction("cancel")) {
+      buttons.push(
+        <Button
+          key="footer-cancel"
+          color="danger"
+          variant="bordered"
+          onPress={() => {
+            setViewOpen(false);
+            setCancelOpen(true);
+          }}
+        >
+          Cancel Request
+        </Button>,
+      );
+    }
+
+    if (!buttons.length) return null;
+
+    return [
+      <Button
+        key="footer-close"
+        variant="bordered"
+        onPress={() => setViewOpen(false)}
+      >
+        Close
+      </Button>,
+      ...buttons,
+    ];
+  };
+
+  // Menu rendering moved to EventActionMenu component above
 
   // Determine a human-friendly pending-stage label for Pending requests
   const getPendingStageLabel = (): string | null => {
@@ -1297,48 +981,7 @@ const EventCard: React.FC<EventCardProps> = ({
   };
 
   // Try to derive the current viewer id from legacy storage
-  const getViewerId = (): string | null => {
-    try {
-      if (typeof window === "undefined") return null;
-      const raw =
-        localStorage.getItem("unite_user") ||
-        sessionStorage.getItem("unite_user");
-
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-
-      return (
-        parsed?.id ||
-        parsed?.ID ||
-        parsed?._id ||
-        parsed?.Stakeholder_ID ||
-        parsed?.StakeholderId ||
-        parsed?.stakeholder_id ||
-        parsed?.user_id ||
-        null
-      );
-    } catch (e) {
-      return null;
-    }
-  };
-
-  // Helper to format dates consistently
-  const formatDate = (dateStr: string | null | undefined): string => {
-    if (!dateStr) return "—";
-    try {
-      const date = new Date(dateStr);
-
-      if (isNaN(date.getTime())) return dateStr; // Return original if invalid
-
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch (e) {
-      return dateStr || "—";
-    }
-  };
+  // getViewerId and formatDate are provided by utils
 
   const isViewerStakeholder = (() => {
     try {
@@ -1387,17 +1030,27 @@ const EventCard: React.FC<EventCardProps> = ({
             </div>
           </div>
           <Dropdown>
-            <DropdownTrigger>
-              <Button
-                isIconOnly
-                aria-label="Event actions"
-                className="hover:text-default-800"
-                variant="light"
-              >
-                <MoreVertical className="w-5 h-5" />
-              </Button>
-            </DropdownTrigger>
-            {getMenuByStatus()}
+              <DropdownTrigger>
+                <Button isIconOnly aria-label="Event actions" className="hover:text-default-800" variant="light">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownTrigger>
+              <EventActionMenu
+                allowedActionSet={allowedActionSet}
+                hasAllowedAction={hasAllowedAction}
+                flagFor={flagFor}
+                status={status}
+                request={request}
+                onViewEvent={onViewEvent}
+                onEditEvent={onEditEvent}
+                openViewRequest={openViewRequest}
+                setManageStaffOpen={setManageStaffOpen}
+                setRescheduleOpen={setRescheduleOpen}
+                setAcceptOpen={setAcceptOpen}
+                setRejectOpen={setRejectOpen}
+                setCancelOpen={setCancelOpen}
+                setDeleteOpen={setDeleteOpen}
+              />
           </Dropdown>
         </CardHeader>
         <CardBody>
@@ -1453,6 +1106,47 @@ const EventCard: React.FC<EventCardProps> = ({
             <span className="text-lg font-semibold">Request Details</span>
           </ModalHeader>
           <ModalBody>
+            {(() => {
+              const r = resolvedRequest || {};
+              const reviewSummary =
+                r?.reviewSummary ||
+                r?.ReviewSummary ||
+                r?.reviewMessage ||
+                r?.event?.reviewSummary ||
+                r?.event?.reviewMessage ||
+                null;
+              const decisionSummary =
+                r?.decisionSummary ||
+                r?.event?.decisionSummary ||
+                null;
+
+              if (!reviewSummary && !decisionSummary) return null;
+
+              return (
+                <div className="space-y-3 mb-4">
+                  {reviewSummary ? (
+                    <div className="p-3 border border-default-200 rounded-lg bg-default-50">
+                      <p className="text-sm font-medium text-default-900 mb-1">
+                        Request Message
+                      </p>
+                      <p className="text-xs text-default-700 whitespace-pre-line">
+                        {reviewSummary}
+                      </p>
+                    </div>
+                  ) : null}
+                  {decisionSummary ? (
+                    <div className="p-3 border border-default-200 rounded-lg bg-default-50">
+                      <p className="text-sm font-medium text-default-900 mb-1">
+                        Latest Decision
+                      </p>
+                      <p className="text-xs text-default-700 whitespace-pre-line">
+                        {decisionSummary}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
             {(() => {
               const r =
                 fullRequest ||
@@ -1919,6 +1613,11 @@ const EventCard: React.FC<EventCardProps> = ({
           <ModalFooter>
             {/* Role & stage-specific actions */}
             {(() => {
+              const dynamicFooter = renderFooterActionsFromAllowed();
+              if (dynamicFooter) {
+                return dynamicFooter;
+              }
+
               const r =
                 fullRequest ||
                 request ||
@@ -2522,99 +2221,12 @@ const EventCard: React.FC<EventCardProps> = ({
         </ModalContent>
       </Modal>
 
-      {/* Reschedule Dialog */}
-      <Modal
+      <RescheduleModal
         isOpen={rescheduleOpen}
-        placement="center"
-        size="md"
         onClose={() => setRescheduleOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-              <Clock className="w-5 h-5 text-default-600" />
-            </div>
-            <span className="text-lg font-semibold">Reschedule Event</span>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-600 mb-4">
-              Select a new date for this event and provide a reason for
-              rescheduling.
-            </p>
-
-            {/* Current Date (read-only) */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-default-900">
-                Current Date
-              </label>
-              <input
-                readOnly
-                className="w-full px-3 py-2 text-sm border border-default-200 rounded-lg bg-default-100"
-                type="text"
-                value={date}
-              />
-            </div>
-
-            {/* New Date Picker */}
-            <div className="space-y-2 mt-4">
-              <label className="text-sm font-medium text-default-900">
-                New Date
-              </label>
-              <DatePicker
-                hideTimeZone
-                classNames={{
-                  base: "w-full",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
-                  input: "text-sm",
-                }}
-                granularity="day"
-                value={rescheduledDate}
-                variant="bordered"
-                onChange={setRescheduledDate}
-              />
-            </div>
-
-            {/* Note */}
-            <div className="space-y-2 mt-4">
-              <label className="text-sm font-medium text-default-900">
-                Reason for rescheduling
-              </label>
-              <textarea
-                className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                rows={4}
-                value={note}
-                onChange={(e) =>
-                  setNote((e.target as HTMLTextAreaElement).value)
-                }
-              />
-            </div>
-
-            {validationError && (
-              <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded">
-                <p className="text-xs text-warning-700">{validationError}</p>
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              className="font-medium"
-              variant="bordered"
-              onPress={() => setRescheduleOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-black text-white font-medium"
-              color="default"
-              isDisabled={!rescheduledDate || !note}
-              onPress={handleReschedule}
-            >
-              Reschedule
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        currentDate={date}
+        onConfirm={handleRescheduleConfirm}
+      />
 
       {/* Manage Staff Dialog (shared component) */}
       <ManageStaffModal
@@ -2630,200 +2242,45 @@ const EventCard: React.FC<EventCardProps> = ({
         }}
       />
 
-      {/* Cancel Dialog */}
-      <Modal
+      <ConfirmModal
         isOpen={cancelOpen}
-        placement="center"
-        size="md"
         onClose={() => setCancelOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-danger-50">
-              <Trash2 className="w-5 h-5 text-danger-500" />
-            </div>
-            <span className="text-lg font-semibold">Cancel Event</span>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-600 mb-4">
-              Are you sure you want to cancel this event? This action cannot be
-              undone. Please provide a reason for cancellation.
-            </p>
+        title="Cancel Event"
+        message="Are you sure you want to cancel this event? This action cannot be undone. Please provide a reason for cancellation."
+        confirmText="Cancel Event"
+        onConfirm={async (note?: string) => await handleCancelWithNote(note)}
+        requireNote={true}
+      />
 
-            {/* Cancellation Note */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-default-900">
-                Reason for cancellation
-              </label>
-              <textarea
-                className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger focus:border-transparent"
-                placeholder="Please explain why this event is being cancelled..."
-                rows={4}
-                value={cancelNote}
-                onChange={(e) =>
-                  setCancelNote((e.target as HTMLTextAreaElement).value)
-                }
-              />
-            </div>
-
-            {validationError && (
-              <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded">
-                <p className="text-xs text-warning-700">{validationError}</p>
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              className="font-medium"
-              variant="bordered"
-              onPress={() => {
-                setCancelOpen(false);
-                setCancelNote("");
-                setValidationError(null);
-              }}
-            >
-              Go Back
-            </Button>
-            <Button
-              className="font-medium"
-              color="danger"
-              isDisabled={!cancelNote || cancelNote.trim().length === 0}
-              onPress={handleCancelWithNote}
-            >
-              Cancel Event
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Reject Dialog */}
-      <Modal
+      <ConfirmModal
         isOpen={rejectOpen}
-        placement="center"
-        size="md"
         onClose={() => setRejectOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-              <X className="w-5 h-5 text-default-600" />
-            </div>
-            <span className="text-lg font-semibold">Reject Event</span>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-600 mb-3">
-              Provide a reason for rejecting this event. This will be shown to
-              the requester.
-            </p>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-default-900">
-                Admin note
-              </label>
-              <textarea
-                className="w-full px-3 py-2 text-sm border border-default-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                rows={4}
-                value={rejectNote}
-                onChange={(e) =>
-                  setRejectNote((e.target as HTMLTextAreaElement).value)
-                }
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              className="font-medium"
-              variant="bordered"
-              onPress={() => setRejectOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-black text-white font-medium"
-              color="default"
-              onPress={() => handleRejectWithNote(rejectNote)}
-            >
-              Reject
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        title="Reject Event"
+        message="Provide a reason for rejecting this event. This will be shown to the requester."
+        confirmText="Reject"
+        onConfirm={async (note?: string) => await handleRejectWithNote(note)}
+        requireNote={true}
+      />
 
-      {/* Accept Dialog */}
-      <Modal
+      <ConfirmModal
         isOpen={acceptOpen}
-        placement="center"
-        size="md"
         onClose={() => setAcceptOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success-50">
-              <Check className="w-5 h-5 text-success-500" />
-            </div>
-            <span className="text-lg font-semibold">Accept Event</span>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-600">
-              Are you sure you want to accept this event?
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              className="font-medium"
-              variant="bordered"
-              onPress={() => setAcceptOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-black text-white font-medium"
-              color="default"
-              onPress={() => handleAccept()}
-            >
-              Accept
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        title="Accept Event"
+        message="Are you sure you want to accept this event?"
+        confirmText="Accept"
+        onConfirm={async (note?: string) => await handleAccept(note)}
+        requireNote={false}
+      />
 
-      {/* Delete Dialog */}
-      <Modal
+      <ConfirmModal
         isOpen={deleteOpen}
-        placement="center"
-        size="md"
         onClose={() => setDeleteOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-danger-50">
-              <Trash2 className="w-5 h-5 text-danger-500" />
-            </div>
-            <span className="text-lg font-semibold">Delete Request</span>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-600">
-              Are you sure you want to delete this request? This action cannot
-              be undone.
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              className="font-medium"
-              variant="bordered"
-              onPress={() => setDeleteOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="font-medium"
-              color="danger"
-              onPress={handleDelete}
-            >
-              Delete
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        title="Delete Request"
+        message="Are you sure you want to delete this request? This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={async () => await handleDelete()}
+        requireNote={false}
+      />
 
       {/* Success Modal */}
       <Modal

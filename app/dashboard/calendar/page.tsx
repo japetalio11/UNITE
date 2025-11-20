@@ -821,16 +821,20 @@ export default function CalendarPage() {
         e.Email ||
         "Coordinator";
 
-      // District number — prefer detailed event coordinator district, then fall back to basic event data
+      // District number — prefer detailed event coordinator district, then stakeholder district, then fall back to basic event data
       const districtNumber =
         detailedEvent?.coordinator?.district_number ??
+        detailedEvent?.stakeholder?.district_number ??
         detailedEvent?.coordinator?.District_Number ??
         (detailedEvent?.coordinator?.district?.name ? extractDistrictNumber(detailedEvent.coordinator.district.name) : null) ??
+        (detailedEvent?.stakeholder?.district?.name ? extractDistrictNumber(detailedEvent.stakeholder.district.name) : null) ??
         e.coordinator?.district_number ??
+        e.stakeholder?.district_number ??
         e.district_number ??
         e.DistrictNumber ??
         e.district ??
-        (e.coordinator?.district?.name ? extractDistrictNumber(e.coordinator.district.name) : null);
+        (e.coordinator?.district?.name ? extractDistrictNumber(e.coordinator.district.name) : null) ??
+        (e.stakeholder?.district?.name ? extractDistrictNumber(e.stakeholder.district.name) : null);
       const districtDisplay = districtNumber
         ? `${makeOrdinal(districtNumber)} District`
         : "District TBD";
