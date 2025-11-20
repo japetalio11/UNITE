@@ -299,42 +299,46 @@ export default function CalendarPage() {
 
   // Fetch detailed information for events
   const fetchEventDetails = async (eventIds: string[]) => {
+    if (!Array.isArray(eventIds) || eventIds.length === 0) return {};
+
+    // Filter out ids already cached
+    const idsToFetch = eventIds.filter(id => id && !detailedEvents[id]);
+    if (idsToFetch.length === 0) return {};
+
     const token =
-      localStorage.getItem("unite_token") ||
-      sessionStorage.getItem("unite_token");
-    const headers: any = { "Content-Type": "application/json" };
+      typeof window !== 'undefined' && (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token'));
 
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const headers: any = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const details: Record<string, any> = {};
+    try {
+      const res = await fetch(`${API_BASE}/api/events/batch`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ids: idsToFetch }),
+        credentials: token ? undefined : 'include'
+      });
 
-    for (const eventId of eventIds) {
-      if (detailedEvents[eventId]) {
-        details[eventId] = detailedEvents[eventId];
-        continue;
-      }
+      const body = await res.json();
 
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
-          { headers },
-        );
-        const body = await res.json();
+      if (res.ok && body && Array.isArray(body.data)) {
+        const result: Record<string, any> = {};
+        body.data.forEach((ev: any) => {
+          const id = ev.Event_ID || ev.EventId || ev.id;
+          if (id) result[String(id)] = ev;
+        });
 
-        if (res.ok) {
-          const data = body.data || body.event || body;
-          details[eventId] = data;
+        if (Object.keys(result).length > 0) {
+          setDetailedEvents(prev => ({ ...prev, ...result }));
         }
-      } catch (e) {
-        // ignore fetch errors for individual events
+
+        return result;
       }
+    } catch (e) {
+      // ignore batch fetch errors
     }
 
-    if (Object.keys(details).length > 0) {
-      setDetailedEvents(prev => ({ ...prev, ...details }));
-    }
-
-    return details;
+    return {};
   };
 
   // Fetch real events from backend and populate week/month maps
@@ -348,28 +352,20 @@ export default function CalendarPage() {
       let normalizedMonth: Record<string, any[]> = {};
 
       try {
-        // Fetch all public events (similar to campaign page)
-        const publicUrl = `${API_BASE}/api/public/events`;
-        const publicResp = await fetch(publicUrl, { credentials: "include" });
+        // Fetch public events only for the current month range (server-side filtering)
+        const year = currentDate.getFullYear();
+        const monthIndex = currentDate.getMonth(); // 0-based month
+        const monthStart = new Date(year, monthIndex, 1);
+        const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+
+        const publicUrl = `${API_BASE}/api/public/events?date_from=${encodeURIComponent(monthStart.toISOString())}&date_to=${encodeURIComponent(monthEnd.toISOString())}`;
+        const publicResp = await fetch(publicUrl, { credentials: 'include' });
         const publicJson = await publicResp.json();
 
-        if (
-          mounted &&
-          publicResp.ok &&
-          publicJson &&
-          Array.isArray(publicJson.data)
-        ) {
-          // Filter for events in the current month (public events are already approved)
-          const year = currentDate.getFullYear();
-          const month = currentDate.getMonth(); // 0-based
-          const monthEvents = publicJson.data.filter((event: any) => {
-            // Check if event is in current month
-            const startDate = parseServerDate(event.Start_Date);
-            if (!startDate) return false;
-            return startDate.getFullYear() === year && startDate.getMonth() === month;
-          });
+        if (mounted && publicResp.ok && publicJson && Array.isArray(publicJson.data)) {
+          const monthEvents = publicJson.data;
 
-          // Fetch detailed information for all events in the month
+          // Batch fetch detailed info for all events in the month (single request)
           const eventIds = monthEvents.map((e: any) => e.Event_ID || e.EventId).filter(Boolean);
           if (eventIds.length > 0) {
             await fetchEventDetails(eventIds);
@@ -425,7 +421,7 @@ export default function CalendarPage() {
         if (mounted) {
           // Ensure minimum 1.5 second loading time for better UX
           const elapsed = Date.now() - startTime;
-          const minDuration = 1500; // 1.5 seconds
+          const minDuration = 1000; // shorten artificial minimum loading time
           if (elapsed < minDuration) {
             await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
           }
@@ -987,23 +983,20 @@ export default function CalendarPage() {
 
   const refreshCalendarData = async () => {
     const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    const monthIndex = currentDate.getMonth();
 
     try {
-      const publicUrl = `${API_BASE}/api/public/events`;
-      const publicResp = await fetch(publicUrl, { credentials: "include" });
+      const monthStart = new Date(year, monthIndex, 1);
+      const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+
+      const publicUrl = `${API_BASE}/api/public/events?date_from=${encodeURIComponent(monthStart.toISOString())}&date_to=${encodeURIComponent(monthEnd.toISOString())}`;
+      const publicResp = await fetch(publicUrl, { credentials: 'include' });
       const publicJson = await publicResp.json();
 
       if (publicResp.ok && Array.isArray(publicJson.data)) {
-        // Filter for events in the current month (public events are already approved)
-        const monthEvents = publicJson.data.filter((event: any) => {
-          // Check if event is in current month
-          const startDate = parseServerDate(event.Start_Date);
-          if (!startDate) return false;
-          return startDate.getFullYear() === year && startDate.getMonth() === month;
-        });
+        const monthEvents = publicJson.data;
 
-        // Fetch detailed information for all events in the month
+        // Batch fetch detailed information for all events in the month
         const eventIds = monthEvents.map((e: any) => e.Event_ID || e.EventId).filter(Boolean);
         if (eventIds.length > 0) {
           await fetchEventDetails(eventIds);
@@ -1032,12 +1025,10 @@ export default function CalendarPage() {
 
         const weekEvents: Record<string, any[]> = {};
 
-        // First, collect all events that naturally fall within the current week dates
         Object.keys(normalizedMonth).forEach((dateKey) => {
           const events = normalizedMonth[dateKey] || [];
           const eventDate = new Date(dateKey + 'T00:00:00');
 
-          // Check if this date falls within the current week
           if (eventDate >= wkStart && eventDate <= wkEnd) {
             weekEvents[dateKey] = events;
           }
@@ -1361,59 +1352,95 @@ export default function CalendarPage() {
 
   // Build dropdown menus matching campaign design
   const getMenuByStatus = (event: any) => {
-    // Calendar events are from public API, so they are approved
-    const status = "Approved";
+    // Calendar events are from public API; assume Approved for action availability
+    const status = 'Approved';
 
-    // Helper: derive boolean flag for an action. Rules:
-    // - If the client is unauthenticated (no token), only allow 'view'.
-    // - If explicit boolean flag present on event or event.raw, use it.
-    // - Otherwise, if allowedActions array exists on event or event.raw, use that.
-    // - As a final fallback, allow admins/coordinators (detected from local user)
-    //   to perform admin actions.
-    const flagFor = (flagName: string, actionName?: string) => {
-      try {
-        // if no auth token, restrict to view-only
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("unite_token") ||
-              sessionStorage.getItem("unite_token")
-            : null;
-        const isAuthenticated = !!token;
+    // Unauthenticated users: view-only
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')
+        : null;
+    const isAuthenticated = !!token;
 
-        if (!isAuthenticated) {
-          return actionName === "view";
-        }
+    if (!isAuthenticated) {
+      return (
+        <DropdownMenu aria-label="Event actions menu" variant="faded">
+          <DropdownSection title="Actions">
+            <DropdownItem
+              key="view"
+              description="View this event"
+              startContent={<Eye />}
+              onPress={() => handleOpenViewEvent(event.raw)}
+            >
+              View Event
+            </DropdownItem>
+          </DropdownSection>
+        </DropdownMenu>
+      );
+    }
 
-        // event may have top-level flags (e.g., event.canEdit) or raw flags (event.raw.canEdit)
-        const explicit =
-          (event && (event as any)[flagName]) ??
-          (event && event.raw && event.raw[flagName]);
+    // Parse current user
+    const rawUserStr = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+    let parsedUser: any = null;
+    try {
+      parsedUser = rawUserStr ? JSON.parse(rawUserStr) : null;
+    } catch (e) {
+      parsedUser = null;
+    }
 
-        if (explicit !== undefined && explicit !== null)
-          return Boolean(explicit);
+    const info = getUserInfo();
+    const userIsAdmin = !!info.isAdmin;
+    const userCoordinatorId = parsedUser?.Coordinator_ID || parsedUser?.CoordinatorId || parsedUser?.CoordinatorId || parsedUser?.Coordinator || parsedUser?.Coordinator_ID;
+    const userStakeholderId = parsedUser?.Stakeholder_ID || parsedUser?.StakeholderId || parsedUser?.StakeholderId || parsedUser?.Stakeholder || parsedUser?.Stakeholder_ID;
 
-        // fallback to allowedActions array
-        const allowed =
-          (event && event.allowedActions) ||
-          (event && event.raw && event.raw.allowedActions) ||
-          null;
-
-        if (Array.isArray(allowed) && actionName)
-          return allowed.includes(actionName);
-
-        // As a last resort, allow all authenticated users access to actions
-        if (isAuthenticated) return true;
-
-        return false;
-      } catch (e) {
-        return false;
-      }
+    // Helpers to extract district/province objects from various shapes
+    const extractDistrictProvince = (obj: any) => {
+      if (!obj) return { district_number: null, district_name: null, province: null };
+      return {
+        district_number: obj.District_Number || obj.district_number || obj.District_ID || obj.DistrictId || null,
+        district_name: obj.District_Name || obj.district_name || obj.district || null,
+        province: obj.Province || obj.province || obj.Province_Name || null
+      };
     };
+
+    // Determine event ownership and related metadata (use detailedEvents when available)
+    const evRaw = event.raw || {};
+    const evId = evRaw.Event_ID || evRaw.EventId || evRaw.id;
+    const detailed = evId ? detailedEvents[evId] : null;
+
+    const eventCoordinatorId = evRaw.MadeByCoordinatorID || evRaw.MadeByCoordinatorId || evRaw.coordinatorId || (detailed?.coordinator?.id || detailed?.coordinator?.Coordinator_ID);
+    const eventStakeholderId = evRaw.MadeByStakeholderID || evRaw.MadeByStakeholderId || evRaw.stakeholder || (detailed?.stakeholder?.id || detailed?.stakeholder?.Stakeholder_ID);
+
+    const eventStakeholderMeta = detailed?.stakeholder || evRaw.stakeholder || evRaw.MadeByStakeholder || evRaw.MadeByStakeholderMeta || null;
+    const stakeholderDP = extractDistrictProvince(eventStakeholderMeta);
+
+    const userDP = extractDistrictProvince(parsedUser || {});
+
+    const coordinatorOwns = userCoordinatorId && eventCoordinatorId && String(userCoordinatorId) === String(eventCoordinatorId);
+    const stakeholderOwns = userStakeholderId && eventStakeholderId && String(userStakeholderId) === String(eventStakeholderId);
+
+    // Coordinator may act if they own the event OR the event is owned by a stakeholder in the same district/province
+    const sameDistrictForCoordinator = (userDP.district_number && stakeholderDP.district_number && String(userDP.district_number) === String(stakeholderDP.district_number)) || (userDP.district_name && stakeholderDP.district_name && String(userDP.district_name).toLowerCase() === String(stakeholderDP.district_name).toLowerCase());
+    const sameProvinceForCoordinator = userDP.province && stakeholderDP.province && String(userDP.province).toLowerCase() === String(stakeholderDP.province).toLowerCase();
+
+    const userIsCoordinator = !!(userCoordinatorId || String(info.role || '').toLowerCase().includes('coordinator'));
+
+    const coordinatorHasFull = userIsCoordinator && (coordinatorOwns || (eventStakeholderId && (sameDistrictForCoordinator || sameProvinceForCoordinator)) || stakeholderOwns);
+
+    const userIsStakeholder = !!(userStakeholderId || String(info.role || '').toLowerCase().includes('stakeholder'));
+    const stakeholderHasFull = userIsStakeholder && stakeholderOwns;
+
+    // Build allowed action flags
+    const allowView = true;
+    const allowEdit = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
+    const allowManageStaff = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
+    const allowResched = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
+    const allowCancel = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
 
     const approvedMenu = (
       <DropdownMenu aria-label="Event actions menu" variant="faded">
         <DropdownSection showDivider title="Actions">
-          {flagFor("canView", "view") ? (
+          {allowView ? (
             <DropdownItem
               key="view"
               description="View this event"
@@ -1423,7 +1450,7 @@ export default function CalendarPage() {
               View Event
             </DropdownItem>
           ) : null}
-          {flagFor("canEdit", "edit") ? (
+          {allowEdit ? (
             <DropdownItem
               key="edit"
               description="Edit an event"
@@ -1433,7 +1460,7 @@ export default function CalendarPage() {
               Edit Event
             </DropdownItem>
           ) : null}
-          {flagFor("canManageStaff", "manage-staff") ? (
+          {allowManageStaff ? (
             <DropdownItem
               key="manage-staff"
               description="Manage staff for this event"
@@ -1443,7 +1470,7 @@ export default function CalendarPage() {
               Manage Staff
             </DropdownItem>
           ) : null}
-          {flagFor("canReschedule", "resched") ? (
+          {allowResched ? (
             <DropdownItem
               key="reschedule"
               description="Reschedule this event"
@@ -1455,7 +1482,7 @@ export default function CalendarPage() {
           ) : null}
         </DropdownSection>
         <DropdownSection title="Danger zone">
-          {flagFor("canAdminAction", "cancel") ? (
+          {allowCancel ? (
             <DropdownItem
               key="cancel"
               className="text-danger"
@@ -1473,63 +1500,6 @@ export default function CalendarPage() {
       </DropdownMenu>
     );
 
-    const pendingMenu = (
-      <DropdownMenu aria-label="Event actions menu" variant="faded">
-        <DropdownSection title="Actions">
-          {flagFor("canView", "view") ? (
-            <DropdownItem
-              key="view"
-              description="View this event"
-              startContent={<Eye />}
-              onPress={() => handleOpenViewEvent(event.raw)}
-            >
-              View Event
-            </DropdownItem>
-          ) : null}
-          {flagFor("canAccept", "accept") ? (
-            <DropdownItem
-              key="accept"
-              description="Accept this event"
-              startContent={<Check />}
-              onPress={() => setAcceptOpenId(event.raw.Event_ID)}
-            >
-              Accept Event
-            </DropdownItem>
-          ) : null}
-          {flagFor("canManageStaff", "manage-staff") ? (
-            <DropdownItem
-              key="manage-staff"
-              description="Manage staff for this event"
-              startContent={<Users />}
-              onPress={() => setManageStaffOpenId(event.raw.Event_ID)}
-            >
-              Manage Staff
-            </DropdownItem>
-          ) : null}
-          {flagFor("canReject", "reject") ? (
-            <DropdownItem
-              key="reject"
-              description="Reject this event"
-              startContent={<X />}
-              onPress={() => setRejectOpenId(event.raw.Event_ID)}
-            >
-              Reject Event
-            </DropdownItem>
-          ) : null}
-          {flagFor("canReschedule", "resched") ? (
-            <DropdownItem
-              key="reschedule"
-              description="Reschedule this event"
-              startContent={<ClockIcon />}
-              onPress={() => setRescheduleOpenId(event.raw.Event_ID)}
-            >
-              Reschedule Event
-            </DropdownItem>
-          ) : null}
-        </DropdownSection>
-      </DropdownMenu>
-    );
-
     const defaultMenu = (
       <DropdownMenu aria-label="Event actions menu" variant="faded">
         <DropdownSection title="Actions">
@@ -1537,9 +1507,7 @@ export default function CalendarPage() {
             key="view"
             description="View this event"
             startContent={<Eye />}
-            onPress={() =>
-              router.push(`/dashboard/events/${event.raw.Event_ID}`)
-            }
+            onPress={() => handleOpenViewEvent(event.raw)}
           >
             View Event
           </DropdownItem>
@@ -1547,9 +1515,7 @@ export default function CalendarPage() {
       </DropdownMenu>
     );
 
-    if (status === "Approved") return approvedMenu;
-    if (status === "Pending") return pendingMenu;
-
+    if (status === 'Approved') return approvedMenu;
     return defaultMenu;
   };
 
