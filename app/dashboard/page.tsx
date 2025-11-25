@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-export default function SysAdminDashboard() {
-  return (
-    <div> </div>
-  );
+export default function DashboardPage() {
+  // Redirect to campaign page as the dashboard default
+  redirect("/dashboard/campaign");
 }

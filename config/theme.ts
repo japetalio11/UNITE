@@ -220,4 +220,4 @@ export const customTheme = {
   layout: {
     disabledOpacity: "0.4",
   },
-}
+};

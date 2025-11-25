@@ -12,12 +12,11 @@ import { Kbd } from "@heroui/kbd";
 import { Link } from "@heroui/link";
 import { Input } from "@heroui/input";
 import NextLink from "next/link";
-import clsx from "clsx";
+import { ChevronRight } from "lucide-react";
+import Image from "next/image";
 
 import { siteConfig } from "@/config/site";
 import { SearchIcon } from "@/components/icons";
-import { ChevronRight } from "lucide-react";
-import Image from "next/image";
 
 export const Navbar = () => {
   const searchInput = (
@@ -46,18 +45,24 @@ export const Navbar = () => {
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand as="li" className="gap-3 max-w-fit">
           <NextLink className="flex justify-start items-center gap-1" href="/">
-            <Image src="/unite.svg" alt="Unite Logo" width={64} height={64} />
+            <Image alt="Unite Logo" height={64} src="/unite.svg" width={64} />
           </NextLink>
         </NavbarBrand>
         <ul className="hidden lg:flex gap-4 justify-start ml-2">
           {siteConfig.navItems.map((item) => (
-            <NavbarItem key={item.href}>
-              <NextLink
-                className="text-sm text-default-800 hover:bg-black hover:text-white px-3 py-2 rounded-lg transition-colors"
-                href={item.href}
-              >
-                {item.label}
-              </NextLink>
+            <NavbarItem key={item.href || item.label}>
+              {item.href ? (
+                <NextLink
+                  className="text-sm text-default-800 hover:bg-black hover:text-white px-3 py-2 rounded-lg transition-colors"
+                  href={item.href}
+                >
+                  {item.label}
+                </NextLink>
+              ) : (
+                <span className="text-sm text-default-800 px-3 py-2 rounded-lg">
+                  {item.label}
+                </span>
+              )}
             </NavbarItem>
           ))}
         </ul>
@@ -68,22 +73,16 @@ export const Navbar = () => {
         justify="end"
       >
         <NavbarItem className="hidden md:flex">
-          <Button
-            as={Link}
-            color="primary"
-            href="/auth/signin"
-            variant="faded"
-          >
+          <Button as={Link} color="primary" href="/auth/signin" variant="faded">
             Sign In
           </Button>
         </NavbarItem>
         <NavbarItem className="hidden md:flex">
           <Button
-            isExternal
             as={Link}
             className="text-white"
             color="danger"
-            href={siteConfig.links.sponsor}
+            href="/auth/signup"
             variant="solid"
           >
             Sign Up
@@ -97,21 +96,16 @@ export const Navbar = () => {
 
       <NavbarMenu className="bg-white">
         <div className="mt-2 flex flex-col gap-2">
-          <Button
-            as={Link}
-            href="/auth/signin"
-            color="primary"
-            variant="faded"
-          >
+          <Button as={Link} color="primary" href="/auth/signin" variant="faded">
             Sign In
           </Button>
 
           <Button
             as={Link}
-            href={siteConfig.links.sponsor}
-            color="danger"
-            variant="solid"
             className="text-white"
+            color="danger"
+            href="/auth/signup"
+            variant="solid"
           >
             Sign Up
           </Button>
@@ -120,8 +114,8 @@ export const Navbar = () => {
           {siteConfig.navMenuItems.map((item, index, array) => (
             <NavbarMenuItem key={`${item}-${index}`}>
               <Link
-                href={item.href}
                 className="mt-2 w-full flex items-center justify-between"
+                href={item.href}
               >
                 <span
                   className={

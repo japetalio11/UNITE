@@ -13,11 +13,11 @@ export default function AuthLayout({
       <div className="hidden lg:flex lg:w-[65%] bg-danger flex-col items-start px-6">
         <div className="text-white h-[60px] flex items-center">
           <Image
-            src="/unite.svg"
             alt="Unite Logo"
-            width={60}
-            height={60}
             className="brightness-0 invert"
+            height={60}
+            src="/unite.svg"
+            width={60}
           />
         </div>
       </div>
@@ -26,8 +26,8 @@ export default function AuthLayout({
       <div className="flex-1 lg:w-[35%] flex flex-col bg-white">
         <header className="flex items-center h-[60px] px-6">
           <Link
-            href="/"
             className="flex items-center gap-2 hover:text-default-800 transition-colors"
+            href="/"
           >
             <ArrowLeft size={20} />
             <span className="text-sm">Go Back</span>
