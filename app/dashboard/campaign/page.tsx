@@ -197,7 +197,10 @@ export default function CampaignPage() {
 
   useEffect(() => {
     // Check if we should show loading overlay from login
-    if (typeof window !== "undefined" && sessionStorage.getItem("showLoadingOverlay") === "true") {
+    if (
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("showLoadingOverlay") === "true"
+    ) {
       sessionStorage.removeItem("showLoadingOverlay");
       setIsLoading(true);
     }
@@ -1057,12 +1060,16 @@ export default function CampaignPage() {
 
       {/* Campaign Toolbar Component */}
       <CampaignToolbar
+        currentPage={currentPage}
         defaultTab={selectedTab}
         onAdvancedFilter={handleAdvancedFilter}
         onCreateEvent={handleCreateEvent}
         onExport={handleExport}
+        onPageChange={setCurrentPage}
         onQuickFilter={handleQuickFilter}
         onTabChange={handleTabChange}
+        totalPages={totalPages}
+        totalRequests={totalRequests}
       />
 
       {/* Main Content Area */}
@@ -1259,50 +1266,7 @@ export default function CampaignPage() {
                 );
               })}
             </div>
-
             {/* Pagination controls (render after cards inside the scroll area) */}
-            {totalPages > 1 && (
-              <div className="col-span-2 mt-4">
-                <div className="bg-white/90 border-t border-default-200 py-3">
-                  <div className="max-w-full px-2 mx-auto flex items-center justify-between">
-                    <div className="text-sm text-default-600">
-                      Showing {(currentPage - 1) * pageSize + 1} -{" "}
-                      {Math.min(currentPage * pageSize, totalRequests)} of{" "}
-                      {totalRequests}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="px-3 py-1 border border-default-200 rounded shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-default-200 focus:ring-offset-0 disabled:opacity-50"
-                        disabled={currentPage === 1}
-                        onClick={() =>
-                          setCurrentPage((p) => Math.max(1, p - 1))
-                        }
-                      >
-                        Prev
-                      </button>
-                      {Array.from({ length: totalPages }).map((_, i) => (
-                        <button
-                          key={i}
-                          className={`px-3 py-1 border border-default-200 rounded shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-default-200 focus:ring-offset-0 ${currentPage === i + 1 ? "bg-default-800 text-white border-transparent" : "bg-white text-default-600"}`}
-                          onClick={() => setCurrentPage(i + 1)}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                      <button
-                        className="px-3 py-1 border border-default-200 rounded shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-default-200 focus:ring-offset-0 disabled:opacity-50"
-                        disabled={currentPage === totalPages}
-                        onClick={() =>
-                          setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Overlay area positioned relative to wrapper. This keeps spinner / no-results

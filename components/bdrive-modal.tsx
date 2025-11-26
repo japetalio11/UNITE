@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { Calendar as CalendarIcon, MapPin, X, Droplet } from "lucide-react";
+import { Calendar, MapPin, Xmark, Droplet } from "@gravity-ui/icons";
 
 interface BdriveModalProps {
   isOpen: boolean;
@@ -91,7 +91,7 @@ export default function BdriveModal({
                 className="text-gray-400 hover:text-gray-600 transition-colors"
                 onClick={onClose}
               >
-                <X className="w-6 h-6" />
+                <Xmark className="w-6 h-6" />
               </button>
             </div>
 
@@ -134,15 +134,7 @@ export default function BdriveModal({
                         inputWrapper: "h-11",
                         input: "text-sm",
                       }}
-                      endContent={
-                        <button
-                          className="text-gray-400 hover:text-gray-600"
-                          type="button"
-                        >
-                          <CalendarIcon className="w-4 h-4" />
-                        </button>
-                      }
-                      id="startDate"
+<Calendar className="w-4 h-4" />
                       name="startDate"
                       type="date"
                       value={formData.startDate}
@@ -169,7 +161,7 @@ export default function BdriveModal({
                           className="text-gray-400 hover:text-gray-600"
                           type="button"
                         >
-                          <CalendarIcon className="w-4 h-4" />
+                          <Calendar className="w-4 h-4" />
                         </button>
                       }
                       id="endDate"

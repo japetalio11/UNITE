@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { DropdownSection, DropdownItem, DropdownMenu } from "@heroui/dropdown";
-import { Eye, Edit, Clock, Trash2, Check, X, Users, FileText } from "lucide-react";
+import { Eye, Pencil, Clock, TrashBin, Check, Xmark, Person, File } from "@gravity-ui/icons";
 
 interface Props {
   allowedActionSet: Set<string>;
@@ -65,7 +65,7 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "view-request";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="View request details" startContent={<FileText />} onPress={async () => { if (openViewRequest) await openViewRequest(); }}>
+          <DropdownItem key={k} description="View request details" startContent={<File />} onPress={async () => { if (openViewRequest) await openViewRequest(); }}>
             View Request
           </DropdownItem>,
         );
@@ -77,7 +77,7 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "manage-staff";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="Manage staff for this event" startContent={<Users />} onPress={() => { if (setManageStaffOpen) setManageStaffOpen(true); }}>
+          <DropdownItem key={k} description="Manage staff for this event" startContent={<Persons />} onPress={() => { if (setManageStaffOpen) setManageStaffOpen(true); }}>
             Manage Staff
           </DropdownItem>,
         );
@@ -101,7 +101,7 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "reject";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="Reject this request" startContent={<X />} onPress={() => setRejectOpen && setRejectOpen(true)}>
+          <DropdownItem key={k} description="Reject this request" startContent={<Xmark />} onPress={() => setRejectOpen && setRejectOpen(true)}>
             Reject Request
           </DropdownItem>,
         );
@@ -155,7 +155,7 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "cancel";
       if (!seenKeys.has(k)) {
         danger.push(
-          <DropdownItem key={k} className="text-danger" color="danger" description="Cancel this request" startContent={<Trash2 className="text-xl text-danger pointer-events-none shrink-0" />} onPress={() => setCancelOpen && setCancelOpen(true)}>
+          <DropdownItem key={k} className="text-danger" color="danger" description="Cancel this request" startContent={<TrashBin className="text-xl text-danger pointer-events-none shrink-0" />} onPress={() => setCancelOpen && setCancelOpen(true)}>
             Cancel Request
           </DropdownItem>,
         );

@@ -12,7 +12,7 @@ import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { DatePicker } from "@heroui/date-picker";
 import { Select, SelectItem } from "@heroui/select";
-import { Check } from "lucide-react";
+import { Check } from "@gravity-ui/icons";
 
 interface Props {
   isOpen: boolean;

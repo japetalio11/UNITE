@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Modal, ModalContent } from "@heroui/modal";
-import { Edit3, Trash2 } from "lucide-react";
+import { Pencil as Edit3, TrashBin as Trash2 } from "@gravity-ui/icons";
 
 interface Props {
   isOpen: boolean;

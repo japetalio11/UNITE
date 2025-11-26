@@ -7,7 +7,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { Clock } from "lucide-react";
+import { Clock } from "@gravity-ui/icons";
 import { DatePicker } from "@heroui/date-picker";
 import { Button } from "@heroui/button";
 
