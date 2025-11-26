@@ -101,3 +101,5 @@ export default function CoordinatorToolbar({
     </div>
   );
 }
+
+//[FCM-002] Feature: Added coordinator management toolbar component
