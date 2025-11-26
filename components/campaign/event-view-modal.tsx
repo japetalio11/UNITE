@@ -11,7 +11,7 @@ import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Chip } from "@heroui/chip";
-import { Users, Droplet, Megaphone } from "lucide-react";
+import { Persons, Droplet, Megaphone } from "@gravity-ui/icons";
 
 interface EventViewModalProps {
   isOpen: boolean;
@@ -167,7 +167,7 @@ export const EventViewModal: React.FC<EventViewModalProps> = ({
             ) : category === "Advocacy" ? (
               <Megaphone className="w-6 h-6 text-default-600" />
             ) : (
-              <Users className="w-6 h-6 text-default-600" />
+              <Persons className="w-6 h-6 text-default-600" />
             )}
           </div>
           <div className="flex-1">

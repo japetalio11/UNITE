@@ -1,5 +1,11 @@
 "use client";
-import { MoreHorizontal, Edit3, Trash2, Check, X } from "lucide-react";
+import {
+  Ellipsis as MoreHorizontal,
+  Pencil as Edit3,
+  TrashBin as Trash2,
+  Check,
+  Xmark as X,
+} from "@gravity-ui/icons";
 import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
 import {
@@ -60,12 +66,25 @@ export default function StakeholderTable({
 
   const displayValue = (v: any, fallback = "—") => {
     if (v === null || v === undefined) return fallback;
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+    if (
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean"
+    )
       return String(v);
     // Common server shapes: object with `name`, `Province_Name`, `District_Name`, `City_Municipality`, or `_id`
     if (typeof v === "object") {
       return (
-        v.name || v.Name || v.Province_Name || v.District_Name || v.City_Municipality || v.City || v.label || v._id || v.id || fallback
+        v.name ||
+        v.Name ||
+        v.Province_Name ||
+        v.District_Name ||
+        v.City_Municipality ||
+        v.City ||
+        v.label ||
+        v._id ||
+        v.id ||
+        fallback
       );
     }
     return fallback;
@@ -252,7 +271,9 @@ export default function StakeholderTable({
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {displayValue(
-                    (municipalityCache && municipalityCache[String(coordinator.municipality)]) || coordinator.municipality,
+                    (municipalityCache &&
+                      municipalityCache[String(coordinator.municipality)]) ||
+                      coordinator.municipality,
                   )}
                 </td>
                 <td className="px-6 py-4">
@@ -279,7 +300,8 @@ export default function StakeholderTable({
                             description="Approve this signup request"
                             startContent={<Check className="text-green-600" />}
                             onPress={() => {
-                              if (onAcceptRequest) onAcceptRequest(coordinator.id);
+                              if (onAcceptRequest)
+                                onAcceptRequest(coordinator.id);
                             }}
                           >
                             Accept Request
@@ -291,7 +313,8 @@ export default function StakeholderTable({
                             description="Reject this signup request"
                             startContent={<X className="text-red-600" />}
                             onPress={() => {
-                              if (onRejectRequest) onRejectRequest(coordinator.id);
+                              if (onRejectRequest)
+                                onRejectRequest(coordinator.id);
                             }}
                           >
                             Reject Request

@@ -11,7 +11,7 @@ import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Chip } from "@heroui/chip";
-import { Users, Droplet, Megaphone } from "lucide-react";
+import { Persons as Users, Droplet, Megaphone } from "@gravity-ui/icons";
 
 interface EventViewModalProps {
   isOpen: boolean;

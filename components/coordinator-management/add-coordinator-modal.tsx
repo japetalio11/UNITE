@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Eye, EyeOff } from "lucide-react";
+import { Persons as Users, Eye, EyeSlash as EyeOff } from "@gravity-ui/icons";
 import {
   Modal,
   ModalContent,

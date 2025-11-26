@@ -1,5 +1,5 @@
 import { Link } from "@heroui/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from '@gravity-ui/icons';
 import Image from "next/image";
 
 export default function AuthLayout({

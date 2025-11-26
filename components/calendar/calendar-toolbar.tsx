@@ -18,12 +18,12 @@ import {
   DropdownSection,
 } from "@heroui/dropdown";
 import {
-  Download,
-  Filter,
-  SlidersHorizontal,
+  ArrowDownToSquare as Download,
+  Funnel as Filter,
+  Wrench as SlidersHorizontal,
   Ticket,
   ChevronDown,
-} from "lucide-react";
+} from "@gravity-ui/icons";
 
 import {
   CreateTrainingEventModal,

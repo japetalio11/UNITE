@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 // use native inputs here for tighter visual control
 import { Button } from "@heroui/button";
 import { Link } from "@heroui/link";
-import { Eye, EyeOff, Check } from "lucide-react";
+import { Eye, EyeSlash, Check } from "@gravity-ui/icons";
 
 export default function SignUp() {
   const router = useRouter();
@@ -424,7 +424,7 @@ export default function SignUp() {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeSlash className="w-4 h-4" />
                     ) : (
                       <Eye className="w-4 h-4" />
                     )}
@@ -460,7 +460,7 @@ export default function SignUp() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeSlash className="w-4 h-4" />
                     ) : (
                       <Eye className="w-4 h-4" />
                     )}

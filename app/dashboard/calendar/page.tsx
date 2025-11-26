@@ -6,17 +6,16 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock as ClockIcon,
+  Clock,
   Calendar,
-  CalendarDays,
-  MoreVertical,
+  EllipsisVertical as MoreVertical,
   Eye,
-  Edit,
-  Users,
-  Trash2,
+  Pencil as Edit,
+  Persons as Users,
+  TrashBin as Trash2,
   Check,
-  X,
-} from "lucide-react";
+  Xmark as X,
+} from "@gravity-ui/icons";
 import {
   Dropdown,
   DropdownTrigger,
@@ -302,21 +301,23 @@ export default function CalendarPage() {
     if (!Array.isArray(eventIds) || eventIds.length === 0) return {};
 
     // Filter out ids already cached
-    const idsToFetch = eventIds.filter(id => id && !detailedEvents[id]);
+    const idsToFetch = eventIds.filter((id) => id && !detailedEvents[id]);
     if (idsToFetch.length === 0) return {};
 
     const token =
-      typeof window !== 'undefined' && (localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token'));
+      typeof window !== "undefined" &&
+      (localStorage.getItem("unite_token") ||
+        sessionStorage.getItem("unite_token"));
 
-    const headers: any = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       const res = await fetch(`${API_BASE}/api/events/batch`, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: JSON.stringify({ ids: idsToFetch }),
-        credentials: token ? undefined : 'include'
+        credentials: token ? undefined : "include",
       });
 
       const body = await res.json();
@@ -329,7 +330,7 @@ export default function CalendarPage() {
         });
 
         if (Object.keys(result).length > 0) {
-          setDetailedEvents(prev => ({ ...prev, ...result }));
+          setDetailedEvents((prev) => ({ ...prev, ...result }));
         }
 
         return result;
@@ -359,14 +360,21 @@ export default function CalendarPage() {
         const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
         const publicUrl = `${API_BASE}/api/public/events?date_from=${encodeURIComponent(monthStart.toISOString())}&date_to=${encodeURIComponent(monthEnd.toISOString())}`;
-        const publicResp = await fetch(publicUrl, { credentials: 'include' });
+        const publicResp = await fetch(publicUrl, { credentials: "include" });
         const publicJson = await publicResp.json();
 
-        if (mounted && publicResp.ok && publicJson && Array.isArray(publicJson.data)) {
+        if (
+          mounted &&
+          publicResp.ok &&
+          publicJson &&
+          Array.isArray(publicJson.data)
+        ) {
           const monthEvents = publicJson.data;
 
           // Batch fetch detailed info for all events in the month (single request)
-          const eventIds = monthEvents.map((e: any) => e.Event_ID || e.EventId).filter(Boolean);
+          const eventIds = monthEvents
+            .map((e: any) => e.Event_ID || e.EventId)
+            .filter(Boolean);
           if (eventIds.length > 0) {
             await fetchEventDetails(eventIds);
           }
@@ -398,7 +406,7 @@ export default function CalendarPage() {
           // First, collect all events that naturally fall within the current week dates
           Object.keys(normalizedMonth).forEach((dateKey) => {
             const events = normalizedMonth[dateKey] || [];
-            const eventDate = new Date(dateKey + 'T00:00:00');
+            const eventDate = new Date(dateKey + "T00:00:00");
 
             // Check if this date falls within the current week
             if (eventDate >= wkStart && eventDate <= wkEnd) {
@@ -423,7 +431,9 @@ export default function CalendarPage() {
           const elapsed = Date.now() - startTime;
           const minDuration = 1000; // shorten artificial minimum loading time
           if (elapsed < minDuration) {
-            await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+            await new Promise((resolve) =>
+              setTimeout(resolve, minDuration - elapsed),
+            );
           }
           setEventsLoading(false);
         }
@@ -826,15 +836,23 @@ export default function CalendarPage() {
         detailedEvent?.coordinator?.district_number ??
         detailedEvent?.stakeholder?.district_number ??
         detailedEvent?.coordinator?.District_Number ??
-        (detailedEvent?.coordinator?.district?.name ? extractDistrictNumber(detailedEvent.coordinator.district.name) : null) ??
-        (detailedEvent?.stakeholder?.district?.name ? extractDistrictNumber(detailedEvent.stakeholder.district.name) : null) ??
+        (detailedEvent?.coordinator?.district?.name
+          ? extractDistrictNumber(detailedEvent.coordinator.district.name)
+          : null) ??
+        (detailedEvent?.stakeholder?.district?.name
+          ? extractDistrictNumber(detailedEvent.stakeholder.district.name)
+          : null) ??
         e.coordinator?.district_number ??
         e.stakeholder?.district_number ??
         e.district_number ??
         e.DistrictNumber ??
         e.district ??
-        (e.coordinator?.district?.name ? extractDistrictNumber(e.coordinator.district.name) : null) ??
-        (e.stakeholder?.district?.name ? extractDistrictNumber(e.stakeholder.district.name) : null);
+        (e.coordinator?.district?.name
+          ? extractDistrictNumber(e.coordinator.district.name)
+          : null) ??
+        (e.stakeholder?.district?.name
+          ? extractDistrictNumber(e.stakeholder.district.name)
+          : null);
       const districtDisplay = districtNumber
         ? `${makeOrdinal(districtNumber)} District`
         : "District TBD";
@@ -851,13 +869,28 @@ export default function CalendarPage() {
       const getVal = (keys: string[]) => {
         // First check detailed event data
         for (const k of keys) {
-          if (detailedEvent && detailedEvent[k] !== undefined && detailedEvent[k] !== null) return detailedEvent[k];
-          if (detailedEvent?.categoryData && detailedEvent.categoryData[k] !== undefined && detailedEvent.categoryData[k] !== null) return detailedEvent.categoryData[k];
+          if (
+            detailedEvent &&
+            detailedEvent[k] !== undefined &&
+            detailedEvent[k] !== null
+          )
+            return detailedEvent[k];
+          if (
+            detailedEvent?.categoryData &&
+            detailedEvent.categoryData[k] !== undefined &&
+            detailedEvent.categoryData[k] !== null
+          )
+            return detailedEvent.categoryData[k];
         }
         // Then check basic event data
         for (const k of keys) {
           if (e[k] !== undefined && e[k] !== null) return e[k];
-          if (e.categoryData && e.categoryData[k] !== undefined && e.categoryData[k] !== null) return e.categoryData[k];
+          if (
+            e.categoryData &&
+            e.categoryData[k] !== undefined &&
+            e.categoryData[k] !== null
+          )
+            return e.categoryData[k];
         }
 
         return undefined;
@@ -934,16 +967,18 @@ export default function CalendarPage() {
       const publicUrl = `${API_BASE}/api/public/events`;
       const res = await fetch(publicUrl, { credentials: "include" });
       const body = await res.json();
-      
+
       if (res.ok && Array.isArray(body.data)) {
         // Filter for events in the current month (public events are already approved)
         const monthEvents = body.data.filter((event: any) => {
           // Check if event is in current month
           const startDate = parseServerDate(event.Start_Date);
           if (!startDate) return false;
-          return startDate.getFullYear() === year && startDate.getMonth() === month;
+          return (
+            startDate.getFullYear() === year && startDate.getMonth() === month
+          );
         });
-        
+
         const blob = new Blob([JSON.stringify(monthEvents, null, 2)], {
           type: "application/json",
         });
@@ -994,14 +1029,16 @@ export default function CalendarPage() {
       const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
       const publicUrl = `${API_BASE}/api/public/events?date_from=${encodeURIComponent(monthStart.toISOString())}&date_to=${encodeURIComponent(monthEnd.toISOString())}`;
-      const publicResp = await fetch(publicUrl, { credentials: 'include' });
+      const publicResp = await fetch(publicUrl, { credentials: "include" });
       const publicJson = await publicResp.json();
 
       if (publicResp.ok && Array.isArray(publicJson.data)) {
         const monthEvents = publicJson.data;
 
         // Batch fetch detailed information for all events in the month
-        const eventIds = monthEvents.map((e: any) => e.Event_ID || e.EventId).filter(Boolean);
+        const eventIds = monthEvents
+          .map((e: any) => e.Event_ID || e.EventId)
+          .filter(Boolean);
         if (eventIds.length > 0) {
           await fetchEventDetails(eventIds);
         }
@@ -1031,7 +1068,7 @@ export default function CalendarPage() {
 
         Object.keys(normalizedMonth).forEach((dateKey) => {
           const events = normalizedMonth[dateKey] || [];
-          const eventDate = new Date(dateKey + 'T00:00:00');
+          const eventDate = new Date(dateKey + "T00:00:00");
 
           if (eventDate >= wkStart && eventDate <= wkEnd) {
             weekEvents[dateKey] = events;
@@ -1357,12 +1394,13 @@ export default function CalendarPage() {
   // Build dropdown menus matching campaign design
   const getMenuByStatus = (event: any) => {
     // Calendar events are from public API; assume Approved for action availability
-    const status = 'Approved';
+    const status = "Approved";
 
     // Unauthenticated users: view-only
     const token =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('unite_token') || sessionStorage.getItem('unite_token')
+      typeof window !== "undefined"
+        ? localStorage.getItem("unite_token") ||
+          sessionStorage.getItem("unite_token")
         : null;
     const isAuthenticated = !!token;
 
@@ -1384,7 +1422,8 @@ export default function CalendarPage() {
     }
 
     // Parse current user
-    const rawUserStr = typeof window !== 'undefined' ? localStorage.getItem('unite_user') : null;
+    const rawUserStr =
+      typeof window !== "undefined" ? localStorage.getItem("unite_user") : null;
     let parsedUser: any = null;
     try {
       parsedUser = rawUserStr ? JSON.parse(rawUserStr) : null;
@@ -1394,16 +1433,33 @@ export default function CalendarPage() {
 
     const info = getUserInfo();
     const userIsAdmin = !!info.isAdmin;
-    const userCoordinatorId = parsedUser?.Coordinator_ID || parsedUser?.CoordinatorId || parsedUser?.CoordinatorId || parsedUser?.Coordinator || parsedUser?.Coordinator_ID;
-    const userStakeholderId = parsedUser?.Stakeholder_ID || parsedUser?.StakeholderId || parsedUser?.StakeholderId || parsedUser?.Stakeholder || parsedUser?.Stakeholder_ID;
+    const userCoordinatorId =
+      parsedUser?.Coordinator_ID ||
+      parsedUser?.CoordinatorId ||
+      parsedUser?.CoordinatorId ||
+      parsedUser?.Coordinator ||
+      parsedUser?.Coordinator_ID;
+    const userStakeholderId =
+      parsedUser?.Stakeholder_ID ||
+      parsedUser?.StakeholderId ||
+      parsedUser?.StakeholderId ||
+      parsedUser?.Stakeholder ||
+      parsedUser?.Stakeholder_ID;
 
     // Helpers to extract district/province objects from various shapes
     const extractDistrictProvince = (obj: any) => {
-      if (!obj) return { district_number: null, district_name: null, province: null };
+      if (!obj)
+        return { district_number: null, district_name: null, province: null };
       return {
-        district_number: obj.District_Number || obj.district_number || obj.District_ID || obj.DistrictId || null,
-        district_name: obj.District_Name || obj.district_name || obj.district || null,
-        province: obj.Province || obj.province || obj.Province_Name || null
+        district_number:
+          obj.District_Number ||
+          obj.district_number ||
+          obj.District_ID ||
+          obj.DistrictId ||
+          null,
+        district_name:
+          obj.District_Name || obj.district_name || obj.district || null,
+        province: obj.Province || obj.province || obj.Province_Name || null,
       };
     };
 
@@ -1412,33 +1468,83 @@ export default function CalendarPage() {
     const evId = evRaw.Event_ID || evRaw.EventId || evRaw.id;
     const detailed = evId ? detailedEvents[evId] : null;
 
-    const eventCoordinatorId = evRaw.MadeByCoordinatorID || evRaw.MadeByCoordinatorId || evRaw.coordinatorId || (detailed?.coordinator?.id || detailed?.coordinator?.Coordinator_ID);
-    const eventStakeholderId = evRaw.MadeByStakeholderID || evRaw.MadeByStakeholderId || evRaw.stakeholder || (detailed?.stakeholder?.id || detailed?.stakeholder?.Stakeholder_ID);
+    const eventCoordinatorId =
+      evRaw.MadeByCoordinatorID ||
+      evRaw.MadeByCoordinatorId ||
+      evRaw.coordinatorId ||
+      detailed?.coordinator?.id ||
+      detailed?.coordinator?.Coordinator_ID;
+    const eventStakeholderId =
+      evRaw.MadeByStakeholderID ||
+      evRaw.MadeByStakeholderId ||
+      evRaw.stakeholder ||
+      detailed?.stakeholder?.id ||
+      detailed?.stakeholder?.Stakeholder_ID;
 
-    const eventStakeholderMeta = detailed?.stakeholder || evRaw.stakeholder || evRaw.MadeByStakeholder || evRaw.MadeByStakeholderMeta || null;
+    const eventStakeholderMeta =
+      detailed?.stakeholder ||
+      evRaw.stakeholder ||
+      evRaw.MadeByStakeholder ||
+      evRaw.MadeByStakeholderMeta ||
+      null;
     const stakeholderDP = extractDistrictProvince(eventStakeholderMeta);
 
     const userDP = extractDistrictProvince(parsedUser || {});
 
-    const coordinatorOwns = userCoordinatorId && eventCoordinatorId && String(userCoordinatorId) === String(eventCoordinatorId);
-    const stakeholderOwns = userStakeholderId && eventStakeholderId && String(userStakeholderId) === String(eventStakeholderId);
+    const coordinatorOwns =
+      userCoordinatorId &&
+      eventCoordinatorId &&
+      String(userCoordinatorId) === String(eventCoordinatorId);
+    const stakeholderOwns =
+      userStakeholderId &&
+      eventStakeholderId &&
+      String(userStakeholderId) === String(eventStakeholderId);
 
     // Coordinator may act if they own the event OR the event is owned by a stakeholder in the same district/province
-    const sameDistrictForCoordinator = (userDP.district_number && stakeholderDP.district_number && String(userDP.district_number) === String(stakeholderDP.district_number)) || (userDP.district_name && stakeholderDP.district_name && String(userDP.district_name).toLowerCase() === String(stakeholderDP.district_name).toLowerCase());
-    const sameProvinceForCoordinator = userDP.province && stakeholderDP.province && String(userDP.province).toLowerCase() === String(stakeholderDP.province).toLowerCase();
+    const sameDistrictForCoordinator =
+      (userDP.district_number &&
+        stakeholderDP.district_number &&
+        String(userDP.district_number) ===
+          String(stakeholderDP.district_number)) ||
+      (userDP.district_name &&
+        stakeholderDP.district_name &&
+        String(userDP.district_name).toLowerCase() ===
+          String(stakeholderDP.district_name).toLowerCase());
+    const sameProvinceForCoordinator =
+      userDP.province &&
+      stakeholderDP.province &&
+      String(userDP.province).toLowerCase() ===
+        String(stakeholderDP.province).toLowerCase();
 
-    const userIsCoordinator = !!(userCoordinatorId || String(info.role || '').toLowerCase().includes('coordinator'));
+    const userIsCoordinator = !!(
+      userCoordinatorId ||
+      String(info.role || "")
+        .toLowerCase()
+        .includes("coordinator")
+    );
 
-    const coordinatorHasFull = userIsCoordinator && (coordinatorOwns || (eventStakeholderId && (sameDistrictForCoordinator || sameProvinceForCoordinator)) || stakeholderOwns);
+    const coordinatorHasFull =
+      userIsCoordinator &&
+      (coordinatorOwns ||
+        (eventStakeholderId &&
+          (sameDistrictForCoordinator || sameProvinceForCoordinator)) ||
+        stakeholderOwns);
 
-    const userIsStakeholder = !!(userStakeholderId || String(info.role || '').toLowerCase().includes('stakeholder'));
+    const userIsStakeholder = !!(
+      userStakeholderId ||
+      String(info.role || "")
+        .toLowerCase()
+        .includes("stakeholder")
+    );
     const stakeholderHasFull = userIsStakeholder && stakeholderOwns;
 
     // Build allowed action flags
     const allowView = true;
     const allowEdit = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
-    const allowManageStaff = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
-    const allowResched = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
+    const allowManageStaff =
+      userIsAdmin || coordinatorHasFull || stakeholderHasFull;
+    const allowResched =
+      userIsAdmin || coordinatorHasFull || stakeholderHasFull;
     const allowCancel = userIsAdmin || coordinatorHasFull || stakeholderHasFull;
 
     const approvedMenu = (
@@ -1478,7 +1584,7 @@ export default function CalendarPage() {
             <DropdownItem
               key="reschedule"
               description="Reschedule this event"
-              startContent={<ClockIcon />}
+              startContent={<Clock className="w-3 h-3 text-gray-500" />}
               onPress={() => setRescheduleOpenId(event.raw.Event_ID)}
             >
               Reschedule Event
@@ -1519,7 +1625,7 @@ export default function CalendarPage() {
       </DropdownMenu>
     );
 
-    if (status === 'Approved') return approvedMenu;
+    if (status === "Approved") return approvedMenu;
     return defaultMenu;
   };
 
@@ -1673,7 +1779,7 @@ export default function CalendarPage() {
                 }`}
                 onClick={() => handleViewChange("week")}
               >
-                <CalendarDays className="w-4 h-4" />
+                <Calendar className="w-4 h-4" />
                 Week
               </button>
               <div className="w-px h-6 bg-gray-300" />
@@ -1858,7 +1964,7 @@ export default function CalendarPage() {
                               {/* Time and Type Badges */}
                               <div className="flex gap-2 mb-3">
                                 <div className="bg-gray-100 rounded px-2 py-1 flex items-center gap-1">
-                                  <ClockIcon className="w-3 h-3 text-gray-500" />
+                                  <Clock className="w-3 h-3 text-gray-500" />
                                   <span className="text-xs text-gray-700">
                                     {event.time}
                                   </span>
@@ -1956,13 +2062,15 @@ export default function CalendarPage() {
                       {eventsLoading ? (
                         // Skeleton loading for month events
                         <div className="space-y-1">
-                          {[...Array(Math.floor(Math.random() * 3) + 1)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="h-6 bg-gray-200 rounded animate-pulse"
-                              style={{ width: `${Math.random() * 40 + 60}%` }}
-                            ></div>
-                          ))}
+                          {[...Array(Math.floor(Math.random() * 3) + 1)].map(
+                            (_, i) => (
+                              <div
+                                key={i}
+                                className="h-6 bg-gray-200 rounded animate-pulse"
+                                style={{ width: `${Math.random() * 40 + 60}%` }}
+                              ></div>
+                            ),
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-1">

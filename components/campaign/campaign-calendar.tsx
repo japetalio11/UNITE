@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader, CardFooter } from "@heroui/card";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@gravity-ui/icons";
 import { Chip } from "@heroui/react";
 
 /**
