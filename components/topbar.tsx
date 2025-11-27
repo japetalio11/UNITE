@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { User } from "@heroui/user";
-import { Input } from "@heroui/input";
 import { Kbd } from "@heroui/kbd";
-import { Search } from "lucide-react";
+import { Button } from "@heroui/button";
+import { ChevronDown, Magnifier } from "@gravity-ui/icons";
 
 /**
  * Topbar Component
@@ -17,7 +17,6 @@ interface TopbarProps {
   userName?: string;
   userEmail?: string;
   userAvatar?: string;
-  onSearch?: (query: string) => void;
   onUserClick?: () => void;
 }
 
@@ -25,17 +24,10 @@ export default function Topbar({
   userName = "Bicol Medical Center",
   userEmail = "bmc@gmail.com",
   userAvatar = "",
-  onSearch,
   onUserClick,
 }: TopbarProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Handle search input changes
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    setSearchQuery(value);
-    onSearch?.(value);
+  const handleSearchButtonClick = () => {
+    // This is where you would open the search modal
   };
 
   // Handle keyboard shortcuts (Win+K or Cmd+K)
@@ -43,7 +35,7 @@ export default function Topbar({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        document.getElementById("topbar-search")?.focus();
+        document.getElementById("topbar-search-button")?.click();
       }
     };
 
@@ -74,46 +66,27 @@ export default function Topbar({
           />
 
           {/* Dropdown chevron */}
-          <button
-            aria-label="User menu"
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            onClick={onUserClick}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M19 9l-7 7-7-7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-              />
-            </svg>
+          <button aria-label="User menu" onClick={onUserClick}>
+            <ChevronDown className="w-4 h-4" />
           </button>
         </div>
 
         {/* Right side - Search Input */}
-        <div className="flex-1 max-w-md ml-auto">
-          <Input
-            endContent={
-              <div className="flex items-center gap-1">
-                <Kbd className="hidden sm:inline-flex" keys={["command"]}>
-                  K
-                </Kbd>
-              </div>
-            }
-            id="topbar-search"
-            placeholder="Search files..."
-            radius="md"
-            size="sm"
-            startContent={<Search className="w-4 h-4 text-gray-400" />}
-            type="text"
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
+        <div>
+          <Button
+            className=" text-gray-500 bg-gray-100 borderursor-pointer text-xs"
+            radius="lg"
+            id="topbar-search-button"
+            onClick={handleSearchButtonClick}
+          >
+            <div className="flex items-center gap-2">
+              <Magnifier className="w-4 h-4" />
+              <span>Search files...</span>
+            </div>
+            <Kbd className="hidden sm:inline-flex" keys={["command"]}>
+              K
+            </Kbd>
+          </Button>
         </div>
       </div>
     </div>

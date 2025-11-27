@@ -1,13 +1,18 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Users, Eye, EyeOff, X } from "lucide-react"
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal"
-import { Button } from "@heroui/button"
-import { Input } from "@heroui/input"
-import { Select, SelectItem } from "@heroui/select"
+import { useState, useEffect } from "react";
+import { Persons as Users, Eye, EyeSlash as EyeOff } from "@gravity-ui/icons";
+import { X } from "lucide-react";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
+import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
+import { Select, SelectItem } from "@heroui/select";
 
 interface AddCoordinatorModalProps {
   isOpen: boolean

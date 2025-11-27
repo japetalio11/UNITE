@@ -12,11 +12,11 @@ import { Kbd } from "@heroui/kbd";
 import { Link } from "@heroui/link";
 import { Input } from "@heroui/input";
 import NextLink from "next/link";
-import { ChevronRight } from "lucide-react";
+import {ChevronRight} from '@gravity-ui/icons';
 import Image from "next/image";
 
 import { siteConfig } from "@/config/site";
-import { SearchIcon } from "@/components/icons";
+import { Magnifier } from "@gravity-ui/icons";
 
 export const Navbar = () => {
   const searchInput = (
@@ -34,7 +34,7 @@ export const Navbar = () => {
       labelPlacement="outside"
       placeholder="Search..."
       startContent={
-        <SearchIcon className="text-base text-default-400 pointer-events-none flex-shrink-0" />
+        <Magnifier className="text-base text-default-400 pointer-events-none flex-shrink-0" />
       }
       type="search"
     />

@@ -3,12 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Calendar,
-  Settings,
-  UsersRound,
+  Gear,
+  Persons,
   Ticket,
   Bell,
-  ContactRound,
-} from "lucide-react";
+  PersonPlanetEarth,
+} from "@gravity-ui/icons";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -476,13 +476,13 @@ export default function Sidebar({
     // Only show stakeholder-management to system admins OR coordinators.
     {
       href: "/dashboard/stakeholder-management",
-      icon: ContactRound,
+      icon: PersonPlanetEarth,
       key: "stakeholder",
       visible: showStakeholderLink,
     },
     {
       href: "/dashboard/coordinator-management",
-      icon: UsersRound,
+      icon: Persons,
       key: "coordinator",
       visible: showCoordinatorLink,
     },
@@ -490,8 +490,8 @@ export default function Sidebar({
 
   const bottomLinks = [
     { href: "/dashboard/notification", icon: Bell },
-    // direct settings link so the sidebar navigates to the settings page
-    { href: "/dashboard/settings", icon: Settings },
+    // direct Gear link so the sidebar navigates to the Gear page
+    { href: "/dashboard/settings", icon: Gear },
   ];
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
@@ -708,7 +708,7 @@ export default function Sidebar({
 
           return renderButton(href, icon, `bottom-${href}`);
         })}
-        {/* Settings popover removed to avoid duplicate settings icon; use /dashboard/settings page for settings and logout */}
+        {/* Gear popover removed to avoid duplicate Gear icon; use /dashboard/Gear page for Gear and logout */}
       </div>
     </div>
   );

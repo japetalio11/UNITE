@@ -1,5 +1,9 @@
 "use client";
-import { MoreHorizontal, Edit3, Trash2 } from "lucide-react";
+import {
+  Ellipsis as MoreHorizontal,
+  Pencil as Edit3,
+  TrashBin as Trash2,
+} from "@gravity-ui/icons";
 import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
 import {
@@ -238,7 +242,7 @@ export default function CoordinatorTable({
                           size="sm"
                           variant="light"
                         >
-                          <MoreHorizontal size={18} />
+                          <MoreHorizontal width={18} height={18} />
                         </Button>
                       </DropdownTrigger>
                       <DropdownMenu

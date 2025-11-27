@@ -12,7 +12,7 @@ import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { DatePicker } from "@heroui/date-picker";
-import { Users } from "lucide-react";
+import { Persons } from "@gravity-ui/icons";
 
 import { getUserInfo } from "@/utils/getUserInfo";
 import { decodeJwt } from "@/utils/decodeJwt";
@@ -433,7 +433,7 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
       <ModalContent>
         <ModalHeader className="flex items-center gap-3 pb-4">
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-            <Users className="w-5 h-5 text-default-600" />
+            <Persons className="w-5 h-5 text-default-600" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">

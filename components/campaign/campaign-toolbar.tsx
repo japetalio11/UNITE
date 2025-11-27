@@ -5,6 +5,7 @@ import { Input } from "@heroui/input";
 import { DatePicker } from "@heroui/date-picker";
 import { Tabs, Tab } from "@heroui/tabs";
 import { Button, ButtonGroup } from "@heroui/button";
+import { Pagination } from "@heroui/pagination";
 import {
   Dropdown,
   DropdownTrigger,
@@ -13,12 +14,12 @@ import {
   DropdownSection,
 } from "@heroui/dropdown";
 import {
-  Download,
-  Filter,
-  SlidersHorizontal,
+  ArrowDownToSquare,
+  Funnel,
   Ticket,
   ChevronDown,
-} from "lucide-react";
+  Wrench,
+} from "@gravity-ui/icons";
 import {
   Modal,
   ModalContent,
@@ -40,6 +41,9 @@ interface CampaignToolbarProps {
   onCreateEvent?: (eventType: string, eventData: any) => void;
   onTabChange?: (tab: string) => void;
   defaultTab?: string;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 export default function CampaignToolbar({
@@ -49,12 +53,14 @@ export default function CampaignToolbar({
   onCreateEvent,
   onTabChange,
   defaultTab = "all",
+  currentPage,
+  totalPages,
+  onPageChange,
 }: CampaignToolbarProps) {
   const [selectedTab, setSelectedTab] = useState(defaultTab);
   const [selectedEventType, setSelectedEventType] = useState(
     new Set(["blood-drive"]),
   );
-  const [quickQuery, setQuickQuery] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<string | undefined>(
     undefined,
   );
@@ -186,19 +192,36 @@ export default function CampaignToolbar({
     <>
       <div className="w-full bg-white">
         <div className="flex items-center justify-between px-6 py-3">
-          {/* Left side - Status Tabs */}
-          <Tabs
-            radius="md"
-            selectedKey={selectedTab}
-            size="sm"
-            variant="solid"
-            onSelectionChange={handleTabChange}
-          >
-            <Tab key="all" title="All" />
-            <Tab key="approved" title="Approved" />
-            <Tab key="pending" title="Pending" />
-            <Tab key="rejected" title="Rejected" />
-          </Tabs>
+          {/* Left side: Tabs and Pagination group */}
+          <div className="flex items-center gap-4">
+            {/* Status Tabs */}
+            <Tabs
+              radius="md"
+              selectedKey={selectedTab}
+              size="sm"
+              variant="solid"
+              onSelectionChange={handleTabChange}
+            >
+              <Tab key="all" title="All" />
+              <Tab key="approved" title="Approved" />
+              <Tab key="pending" title="Pending" />
+              <Tab key="rejected" title="Rejected" />
+            </Tabs>
+
+            {/* Pagination and its buttons */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Pagination
+                  showControls
+                  page={currentPage}
+                  size="sm"
+                  total={totalPages}
+                  variant="light"
+                  onChange={onPageChange}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Right side - Action Buttons */}
           <div className="flex items-center gap-2">
@@ -206,8 +229,8 @@ export default function CampaignToolbar({
             <Button
               radius="md"
               size="sm"
-              startContent={<Download className="w-4 h-4" />}
-              variant="faded"
+              startContent={<ArrowDownToSquare className="w-4 h-4" />}
+              variant="bordered"
               onPress={onExport}
             >
               Export
@@ -220,8 +243,8 @@ export default function CampaignToolbar({
                   endContent={<ChevronDown className="w-4 h-4" />}
                   radius="md"
                   size="sm"
-                  startContent={<Filter className="w-4 h-4" />}
-                  variant="faded"
+                  startContent={<Funnel className="w-4 h-4" />}
+                  variant="bordered"
                 >
                   Quick Filter
                 </Button>
@@ -264,8 +287,8 @@ export default function CampaignToolbar({
               endContent={<ChevronDown className="w-4 h-4" />}
               radius="md"
               size="sm"
-              startContent={<SlidersHorizontal className="w-4 h-4" />}
-              variant="faded"
+              startContent={<Wrench className="w-4 h-4" />}
+              variant="bordered"
               onPress={() => setIsAdvancedModalOpen(true)}
             >
               Advanced Filter
@@ -376,10 +399,11 @@ export default function CampaignToolbar({
           <ModalBody>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <label className="w-20 text-sm">Date</label>
+                <label htmlFor="adv-filter-date" className="w-20 text-sm">
+                  Date
+                </label>
                 <div className="w-full">
                   <DatePicker
-                    hideTimeZone
                     classNames={{
                       base: "w-full",
                       inputWrapper:
@@ -387,6 +411,8 @@ export default function CampaignToolbar({
                       input: "text-sm",
                     }}
                     granularity="day"
+                    hideTimeZone
+                    id="adv-filter-date"
                     value={advStart}
                     variant="bordered"
                     onChange={setAdvStart}
@@ -394,8 +420,11 @@ export default function CampaignToolbar({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <label className="w-20 text-sm">Title</label>
+                <label htmlFor="adv-filter-title" className="w-20 text-sm">
+                  Title
+                </label>
                 <Input
+                  id="adv-filter-title"
                   placeholder="Event title"
                   value={advTitle}
                   onChange={(e) =>
@@ -404,8 +433,11 @@ export default function CampaignToolbar({
                 />
               </div>
               <div className="flex items-center gap-3">
-                <label className="w-20 text-sm">Requester</label>
+                <label htmlFor="adv-filter-requester" className="w-20 text-sm">
+                  Requester
+                </label>
                 <Input
+                  id="adv-filter-requester"
                   placeholder="Requester name"
                   value={advRequester}
                   onChange={(e) =>
