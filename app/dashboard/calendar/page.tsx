@@ -16,6 +16,7 @@ import {
   Trash2,
   Check,
   X,
+  Menu,
 } from "lucide-react";
 import {
   Dropdown,
@@ -153,6 +154,9 @@ export default function CalendarPage() {
     Record<string, Array<{ FullName: string; Role: string }>>
   >({});
   const [staffLoading, setStaffLoading] = useState(false);
+
+  // Mobile state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Close create menu when clicking outside
   useEffect(() => {
@@ -1678,43 +1682,79 @@ export default function CalendarPage() {
   return (
     <div className="flex-1 flex flex-col overflow-visible bg-white">
       {/* Header */}
-      <div className="px-8 py-6">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Calendar</h1>
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Calendar</h1>
+          
+          {/* Mobile Menu Button */}
+          <div className="sm:hidden flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <User
+                avatarProps={{
+                  src: "",
+                  size: "sm",
+                  className: "bg-orange-400 text-white",
+                }}
+                classNames={{
+                  base: "cursor-pointer",
+                  name: "font-semibold text-gray-900 text-sm",
+                  description: "text-gray-500 text-xs",
+                }}
+                description={currentUserEmail}
+                name={currentUserName}
+                onClick={() => {}}
+              />
+              <button
+                aria-label="User menu"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => {}}
+              >
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+            <button
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors ml-4"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              <Menu className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
 
-        {/* User Profile Section (use HeroUI User like campaign Topbar) */}
-        <div className="flex items-center gap-3 mb-6">
-          <User
-            avatarProps={{
-              src: "",
-              size: "md",
-              className: "bg-orange-400 text-white",
-            }}
-            classNames={{
-              base: "cursor-pointer",
-              name: "font-semibold text-gray-900 text-sm",
-              description: "text-gray-500 text-xs",
-            }}
-            description={currentUserEmail}
-            name={currentUserName}
-            onClick={() => {}}
-          />
-          <button
-            aria-label="User menu"
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            onClick={() => {}}
-          >
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          </button>
+          {/* Desktop User Profile */}
+          <div className="hidden sm:flex items-center gap-3">
+            <User
+              avatarProps={{
+                src: "",
+                size: "md",
+                className: "bg-orange-400 text-white",
+              }}
+              classNames={{
+                base: "cursor-pointer",
+                name: "font-semibold text-gray-900 text-sm",
+                description: "text-gray-500 text-xs",
+              }}
+              description={currentUserEmail}
+              name={currentUserName}
+              onClick={() => {}}
+            />
+            <button
+              aria-label="User menu"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              onClick={() => {}}
+            >
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           {/* Left side - View Toggle and Date Navigation */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             {/* View Toggle */}
-            <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
+            <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden w-full sm:w-auto">
               <button
-                className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeView === "week"
                     ? "bg-gray-100 text-gray-900"
                     : "text-gray-600 hover:text-gray-900"
@@ -1722,11 +1762,11 @@ export default function CalendarPage() {
                 onClick={() => handleViewChange("week")}
               >
                 <CalendarDays className="w-4 h-4" />
-                Week
+                <span className="hidden xs:inline">Week</span>
               </button>
               <div className="w-px h-6 bg-gray-300" />
               <button
-                className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeView === "month"
                     ? "bg-gray-100 text-gray-900"
                     : "text-gray-600 hover:text-gray-900"
@@ -1734,12 +1774,12 @@ export default function CalendarPage() {
                 onClick={() => handleViewChange("month")}
               >
                 <Calendar className="w-4 h-4" />
-                Month
+                <span className="hidden xs:inline">Month</span>
               </button>
             </div>
 
             {/* Date Navigation */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
               <button
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 onClick={() =>
@@ -1750,7 +1790,7 @@ export default function CalendarPage() {
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <span className="text-sm font-medium text-gray-900 min-w-[200px] text-center">
+              <span className="text-sm font-medium text-gray-900 min-w-[160px] sm:min-w-[200px] text-center px-2">
                 {activeView === "week"
                   ? formatWeekRange(currentDate)
                   : formatMonthYear(currentDate)}
@@ -1769,7 +1809,7 @@ export default function CalendarPage() {
           </div>
 
           {/* Right side - Action Buttons (calendar toolbar copied from campaign) */}
-          <div>
+          <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} sm:block`}>
             <CalendarToolbar
               showCreate={allowCreate}
               onAdvancedFilter={handleAdvancedFilter}
@@ -1781,22 +1821,22 @@ export default function CalendarPage() {
         </div>
 
         {/* Views Container */}
-        <div className="relative min-h-[700px]">
+        <div className="relative min-h-[500px] sm:min-h-[700px]">
           {/* Week View */}
           <div
             className={`transition-all duration-500 ease-in-out ${getViewTransitionStyle("week")}`}
           >
             <div>
               {/* Days of Week Header */}
-              <div className="grid grid-cols-7 gap-4 mb-4">
+              <div className="grid grid-cols-7 gap-2 sm:gap-4 mb-4">
                 {days.map((day, index) => (
                   <div key={`day-${index}`} className="text-center">
-                    <div className="text-sm font-medium text-gray-500 mb-2">
+                    <div className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">
                       {day.day}
                     </div>
                     <div className="flex justify-center">
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold ${
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-lg font-semibold ${
                           day.isToday
                             ? "bg-red-500 text-white"
                             : "text-gray-900"
@@ -1810,26 +1850,26 @@ export default function CalendarPage() {
               </div>
 
               {/* Event Cards */}
-              <div className="grid grid-cols-7 gap-4 mt-6">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4 mt-4 sm:mt-6">
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day.fullDate);
 
                   return (
-                    <div key={index} className="min-h-[500px]">
+                    <div key={index} className="min-h-[200px] sm:min-h-[500px]">
                       {dayEvents.length === 0 ? (
                         <div className="h-20 flex items-center justify-center text-gray-400 text-xs">
                           No events
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2 sm:space-y-3">
                           {dayEvents.map((event, eventIndex) => (
                             <div
                               key={eventIndex}
-                              className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+                              className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 hover:shadow-md transition-shadow"
                             >
                               {/* Three-dot menu */}
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-semibold text-gray-900 text-sm leading-tight pr-2">
+                              <div className="flex justify-between items-start mb-1 sm:mb-2">
+                                <h4 className="font-semibold text-gray-900 text-xs sm:text-sm leading-tight pr-2 line-clamp-2">
                                   {event.title}
                                 </h4>
                                 <Dropdown>
@@ -1837,10 +1877,11 @@ export default function CalendarPage() {
                                     <Button
                                       isIconOnly
                                       aria-label="Event actions"
-                                      className="hover:text-default-800"
+                                      className="hover:text-default-800 min-w-6 h-6"
+                                      size="sm"
                                       variant="light"
                                     >
-                                      <MoreVertical className="w-5 h-5" />
+                                      <MoreVertical className="w-4 h-4" />
                                     </Button>
                                   </DropdownTrigger>
                                   {getMenuByStatus(event)}
@@ -1848,33 +1889,33 @@ export default function CalendarPage() {
                               </div>
 
                               {/* Profile */}
-                              <div className="flex items-center gap-2 mb-3">
+                              <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
                                 <div
-                                  className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold"
+                                  className="h-5 w-5 sm:h-6 sm:w-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold"
                                   style={{
                                     backgroundColor: getProfileColor(
                                       event.coordinatorName,
                                     ),
                                   }}
                                 >
-                                  <span className="text-white">
+                                  <span className="text-white text-xs">
                                     {getProfileInitial(event.coordinatorName)}
                                   </span>
                                 </div>
-                                <span className="text-xs text-gray-600">
+                                <span className="text-xs text-gray-600 truncate">
                                   {event.coordinatorName}
                                 </span>
                               </div>
 
                               {/* Time and Type Badges */}
-                              <div className="flex gap-2 mb-3">
-                                <div className="bg-gray-100 rounded px-2 py-1 flex items-center gap-1">
+                              <div className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3">
+                                <div className="bg-gray-100 rounded px-1.5 sm:px-2 py-0.5 sm:py-1 flex items-center gap-1">
                                   <ClockIcon className="w-3 h-3 text-gray-500" />
                                   <span className="text-xs text-gray-700">
                                     {event.time}
                                   </span>
                                 </div>
-                                <div className="bg-gray-100 rounded px-2 py-1">
+                                <div className="bg-gray-100 rounded px-1.5 sm:px-2 py-0.5 sm:py-1">
                                   <span className="text-xs text-gray-700">
                                     {eventLabelsMap[event.type as EventType]}
                                   </span>
@@ -1882,17 +1923,17 @@ export default function CalendarPage() {
                               </div>
 
                               {/* District */}
-                              <div className="mb-2">
+                              <div className="mb-1 sm:mb-2">
                                 <div className="text-xs font-medium text-gray-700 mb-0.5">
                                   District
                                 </div>
-                                <div className="text-xs text-gray-600">
+                                <div className="text-xs text-gray-600 line-clamp-1">
                                   {event.district}
                                 </div>
                               </div>
 
                               {/* Location */}
-                              <div className="mb-3">
+                              <div className="mb-2 sm:mb-3">
                                 <div className="text-xs font-medium text-gray-700 mb-0.5">
                                   Location
                                 </div>
@@ -1902,12 +1943,12 @@ export default function CalendarPage() {
                               </div>
 
                               {/* Count */}
-                              <div className="border-t border-gray-200 pt-2">
+                              <div className="border-t border-gray-200 pt-1 sm:pt-2">
                                 <div className="flex justify-between items-center">
                                   <span className="text-xs text-gray-600">
                                     {event.countType}
                                   </span>
-                                  <span className="text-lg font-bold text-red-500">
+                                  <span className="text-sm sm:text-lg font-bold text-red-500">
                                     {event.count}
                                   </span>
                                 </div>
@@ -1929,13 +1970,13 @@ export default function CalendarPage() {
           >
             <div>
               {/* Days of Week Header */}
-              <div className="grid grid-cols-7 gap-4 mb-4">
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 sm:mb-4">
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
                   <div key={day} className="text-center">
-                    <div className="text-sm font-medium text-gray-500 mb-2">
+                    <div className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">
                       {day}
                     </div>
-                    <div className="h-10" />
+                    <div className="h-6 sm:h-10" />
                   </div>
                 ))}
               </div>
@@ -1946,13 +1987,13 @@ export default function CalendarPage() {
                   {generateMonthDays(currentDate).map((day, index) => (
                     <div
                       key={index}
-                      className={`min-h-[100px] bg-white p-2 ${
+                      className={`min-h-[60px] sm:min-h-[100px] bg-white p-1 sm:p-2 ${
                         !day.isCurrentMonth && "bg-gray-50 text-gray-400"
                       }`}
                     >
-                      <div className="flex justify-center mb-2">
+                      <div className="flex justify-center mb-1 sm:mb-2">
                         <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold ${
+                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold ${
                             day.isToday
                               ? "bg-red-500 text-white"
                               : day.isCurrentMonth
@@ -1964,11 +2005,11 @@ export default function CalendarPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-0.5 sm:space-y-1">
                         {day.events.map((event, eventIndex) => (
                           <div
                             key={eventIndex}
-                            className="text-xs p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm"
+                            className="text-xs p-0.5 sm:p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm"
                             role="button"
                             style={{
                               backgroundColor: `${event.color}22`,
@@ -1983,12 +2024,12 @@ export default function CalendarPage() {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="truncate block">
+                            <div className="flex items-center gap-1">
+                              <span className="truncate block text-xs">
                                 {event.title}
                               </span>
                               {event.startTime ? (
-                                <span className="text-xs font-semibold ml-1">
+                                <span className="text-xs font-semibold ml-0.5 hidden sm:inline">
                                   {event.startTime}
                                 </span>
                               ) : null}
@@ -2004,7 +2045,8 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
-      {/* Event View & Edit Modals (reuse campaign components) */}
+
+      {/* Rest of the modals remain the same */}
       <EventViewModal
         isOpen={viewModalOpen}
         request={viewRequest}
