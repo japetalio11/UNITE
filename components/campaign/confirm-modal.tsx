@@ -1,7 +1,16 @@
 "use client";
 import React from "react";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 import { Button } from "@heroui/button";
+import { Avatar } from "@heroui/avatar";
+import { Check, Xmark, TrashBin } from "@gravity-ui/icons";
+import { Textarea } from "@heroui/input";
 
 interface Props {
   isOpen: boolean;
@@ -11,11 +20,29 @@ interface Props {
   confirmText?: string;
   onConfirm: (note?: string) => Promise<void> | void;
   requireNote?: boolean;
+  color?:
+    | "default"
+    | "primary"
+    | "secondary"
+    | "success"
+    | "warning"
+    | "danger";
 }
 
-const ConfirmModal: React.FC<Props> = ({ isOpen, onClose, title = "Confirm", message, confirmText = "Confirm", onConfirm, requireNote = false }) => {
+const ConfirmModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  title = "Confirm",
+  message,
+  confirmText = "Confirm",
+  onConfirm,
+  requireNote = false,
+  color = "primary",
+}) => {
   const [note, setNote] = React.useState("");
-  const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [validationError, setValidationError] = React.useState<string | null>(
+    null,
+  );
 
   const handleConfirm = async () => {
     setValidationError(null);
@@ -33,24 +60,86 @@ const ConfirmModal: React.FC<Props> = ({ isOpen, onClose, title = "Confirm", mes
   return (
     <Modal isOpen={isOpen} placement="center" size="md" onClose={onClose}>
       <ModalContent>
-        <ModalHeader>
-          <span className="text-lg font-semibold">{title}</span>
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className={`border-1 border-default ${
+                String(confirmText || "")
+                  .toLowerCase()
+                  .includes("delete") ||
+                String(confirmText || "")
+                  .toLowerCase()
+                  .includes("cancel") ||
+                String(confirmText || "")
+                  .toLowerCase()
+                  .includes("reject")
+                  ? "bg-danger-50 border-danger-200"
+                  : "bg-default-100"
+              }`}
+              icon={
+                String(confirmText || "")
+                  .toLowerCase()
+                  .includes("delete") ||
+                String(confirmText || "")
+                  .toLowerCase()
+                  .includes("cancel") ? (
+                  <TrashBin
+                    className={
+                      String(confirmText || "")
+                        .toLowerCase()
+                        .includes("delete") ||
+                      String(confirmText || "")
+                        .toLowerCase()
+                        .includes("cancel")
+                        ? "text-danger-500"
+                        : "text-default-600"
+                    }
+                  />
+                ) : String(confirmText || "")
+                    .toLowerCase()
+                    .includes("reject") ? (
+                  <Xmark className="text-danger-500" />
+                ) : (
+                  <Check className="text-default-600" />
+                )
+              }
+            />
+          </div>
+          <h3 className="text-sm font-semibold py-2">{title}</h3>
+          <p className="text-xs font-normal">
+            {message || "Please confirm this action."}
+          </p>
         </ModalHeader>
-        <ModalBody>
-          <div className="space-y-3">
-            {message ? <p className="text-sm">{message}</p> : null}
+        <ModalBody className="py-4">
+          <div className="space-y-4">
             {requireNote ? (
-              <div>
-                <label className="text-xs">Note</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-2 border rounded" />
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Note</label>
+                <Textarea
+                  classNames={{
+                    inputWrapper: "border-default-200",
+                  }}
+                  minRows={3}
+                  radius="md"
+                  size="sm"
+                  value={note}
+                  variant="bordered"
+                  onChange={(e) => setNote(e.target.value)}
+                />
               </div>
             ) : null}
-            {validationError ? <div className="text-sm text-danger">{validationError}</div> : null}
+            {validationError ? (
+              <div className="text-sm text-danger">{validationError}</div>
+            ) : null}
           </div>
         </ModalBody>
         <ModalFooter>
-          <Button variant="bordered" onPress={onClose}>Cancel</Button>
-          <Button color="danger" onPress={handleConfirm}>{confirmText}</Button>
+          <Button className="w-full" variant="bordered" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button className="w-full" color={color} onPress={handleConfirm}>
+            {confirmText}
+          </Button>
         </ModalFooter>
       </ModalContent>
     </Modal>

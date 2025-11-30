@@ -12,6 +12,7 @@ import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { DatePicker } from "@heroui/date-picker";
+import { Avatar } from "@heroui/avatar";
 import { Person, Droplet, Megaphone } from "@gravity-ui/icons";
 
 import { debug } from "@/utils/devLogger";
@@ -607,27 +608,27 @@ export const CreateTrainingEventModal: React.FC<
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center gap-3 pb-4">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-            <Person className="w-5 h-5 text-default-600" />
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className="bg-default-100 border-1 border-default"
+              icon={<Person />}
+            />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">Create a training event</h2>
-            <p className="text-xs text-default-500 font-normal mt-0.5">
-              Start providing your information by selecting your blood type. Add
-              details below to proceed.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold py-2">
+            Create a training event
+          </h3>
+          <p className="text-xs font-normal">
+            Start providing your information by selecting your blood type. Add
+            details below to proceed.
+          </p>
         </ModalHeader>
 
         <ModalBody className="py-6">
           <div className="space-y-5">
             {/* Coordinator */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Coordinator
-                <span className="text-danger ml-1">*</span>
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Coordinator</label>
               {/* Coordinator selection: admin -> dropdown, coordinator/stakeholder -> locked input */}
               {(() => {
                 // determine user role robustly (handle different shapes/casing)
@@ -655,12 +656,12 @@ export const CreateTrainingEventModal: React.FC<
                       <Input
                         disabled
                         classNames={{
-                          inputWrapper:
-                            "border-default-200 h-10 bg-default-100",
-                          input: "text-sm",
+                          inputWrapper: "border-default-200 h-9 bg-default-100",
                         }}
+                        radius="md"
+                        size="sm"
                         type="text"
-                        value={"No coordinators available"}
+                        value={name || "System Admin"}
                         variant="bordered"
                       />
                     );
@@ -697,9 +698,10 @@ export const CreateTrainingEventModal: React.FC<
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "border-default-200 h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     type="text"
                     value={selected?.label || ""}
                     variant="bordered"
@@ -709,10 +711,8 @@ export const CreateTrainingEventModal: React.FC<
             </div>
 
             {/* Stakeholder - appears immediately below Coordinator */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Stakeholder
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Stakeholder</label>
               {(() => {
                 const rawUser =
                   typeof window !== "undefined"
@@ -732,9 +732,10 @@ export const CreateTrainingEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={name || "Stakeholder"}
                       variant="bordered"
@@ -747,9 +748,10 @@ export const CreateTrainingEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={"Select a coordinator first"}
                       variant="bordered"
@@ -764,9 +766,10 @@ export const CreateTrainingEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={"No stakeholders available"}
                       variant="bordered"
@@ -777,12 +780,12 @@ export const CreateTrainingEventModal: React.FC<
                 return (
                   <Select
                     classNames={{
-                      trigger:
-                        "border-default-200 hover:border-default-400 h-10",
-                      value: "text-sm",
+                      trigger: "border-default-200 h-9",
                     }}
                     placeholder="Select one (optional)"
+                    radius="md"
                     selectedKeys={stakeholder ? [stakeholder] : []}
+                    size="sm"
                     variant="bordered"
                     onSelectionChange={(keys) =>
                       setStakeholder(Array.from(keys)[0] as string)
@@ -799,18 +802,18 @@ export const CreateTrainingEventModal: React.FC<
             {/* (duplicate Stakeholder removed) */}
 
             {/* Event Title */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Event Title
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter event title"
+                radius="md"
+                size="sm"
                 type="text"
                 value={eventTitle}
                 variant="bordered"
@@ -827,18 +830,18 @@ export const CreateTrainingEventModal: React.FC<
             </div>
 
             {/* Type of training */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Type of training
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="e.g. Basic Life Support, Infection Control"
+                radius="md"
+                size="sm"
                 type="text"
                 value={trainingType}
                 variant="bordered"
@@ -848,17 +851,17 @@ export const CreateTrainingEventModal: React.FC<
 
             {/* Date */}
             <div className="grid grid-cols-3 gap-3 items-end">
-              <div className="col-span-1">
-                <label className="text-sm font-medium mb-1.5 block">Date</label>
+              <div className="col-span-1 space-y-1">
+                <label className="text-xs font-medium">Date</label>
                 <DatePicker
                   hideTimeZone
                   classNames={{
                     base: "w-full",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   granularity="day"
+                  radius="md"
+                  size="sm"
                   value={date}
                   variant="bordered"
                   onChange={setDate}
@@ -867,16 +870,14 @@ export const CreateTrainingEventModal: React.FC<
                   <p className="text-danger text-xs mt-1">{dateError}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Start time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={startTime}
                   variant="bordered"
@@ -885,16 +886,14 @@ export const CreateTrainingEventModal: React.FC<
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  End time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">End time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={endTime}
                   variant="bordered"
@@ -906,18 +905,18 @@ export const CreateTrainingEventModal: React.FC<
             </div>
 
             {/* Max participants */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Max participants
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="200"
+                radius="md"
+                size="sm"
                 type="text"
                 value={numberOfParticipants}
                 variant="bordered"
@@ -926,17 +925,16 @@ export const CreateTrainingEventModal: React.FC<
             </div>
 
             {/* Event Description */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Event Description
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Event Description</label>
               <Textarea
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400",
+                  inputWrapper: "border-default-200",
                 }}
                 minRows={4}
                 placeholder="The event is about..."
+                radius="md"
+                size="sm"
                 value={eventDescription}
                 variant="bordered"
                 onChange={(e) => setEventDescription(e.target.value)}
@@ -944,18 +942,18 @@ export const CreateTrainingEventModal: React.FC<
             </div>
 
             {/* Location */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Location
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter location"
+                radius="md"
+                size="sm"
                 type="text"
                 value={location}
                 variant="bordered"
@@ -964,34 +962,34 @@ export const CreateTrainingEventModal: React.FC<
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Contact Email<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="email@example.com"
+                  radius="md"
+                  size="sm"
                   type="email"
                   value={email}
                   variant="bordered"
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Contact Number<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="09xxxxxxxxx"
+                  radius="md"
+                  size="sm"
                   type="tel"
                   value={contactNumber}
                   variant="bordered"
@@ -1010,7 +1008,7 @@ export const CreateTrainingEventModal: React.FC<
         </ModalBody>
 
         <ModalFooter>
-          <Button className="font-medium" variant="bordered" onPress={onClose}>
+          <Button className="font-medium" variant="bordered" radius="md" onPress={onClose}>
             Cancel
           </Button>
           <Button
@@ -1581,29 +1579,27 @@ export const CreateBloodDriveEventModal: React.FC<
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center gap-3 pb-4">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-            <Droplet className="w-5 h-5 text-default-600" />
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className="bg-default-100 border-1 border-default"
+              icon={<Droplet />}
+            />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">
-              Create a blood drive event
-            </h2>
-            <p className="text-xs text-default-500 font-normal mt-0.5">
-              Start providing your information by selecting your blood type. Add
-              details below to proceed.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold py-2">
+            Create a blood drive event
+          </h3>
+          <p className="text-xs font-normal">
+            Start providing your information by selecting your blood type. Add
+            details below to proceed.
+          </p>
         </ModalHeader>
 
         <ModalBody className="py-6">
           <div className="space-y-5">
             {/* Coordinator */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Coordinator
-                <span className="text-danger ml-1">*</span>
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Coordinator</label>
               {(() => {
                 const rawUser =
                   typeof window !== "undefined"
@@ -1628,10 +1624,10 @@ export const CreateBloodDriveEventModal: React.FC<
                       <Input
                         disabled
                         classNames={{
-                          inputWrapper:
-                            "border-default-200 h-10 bg-default-100",
-                          input: "text-sm",
+                          inputWrapper: "border-default-200 h-9 bg-default-100",
                         }}
+                        radius="md"
+                        size="sm"
                         type="text"
                         value={"No coordinators available"}
                         variant="bordered"
@@ -1642,12 +1638,12 @@ export const CreateBloodDriveEventModal: React.FC<
                   return (
                     <Select
                       classNames={{
-                        trigger:
-                          "border-default-200 hover:border-default-400 h-10",
-                        value: "text-sm",
+                        trigger: "border-default-200 h-9",
                       }}
                       placeholder="Select one"
+                      radius="md"
                       selectedKeys={coordinator ? [coordinator] : []}
+                      size="sm"
                       variant="bordered"
                       onSelectionChange={(keys) =>
                         setCoordinator(Array.from(keys)[0] as string)
@@ -1669,9 +1665,10 @@ export const CreateBloodDriveEventModal: React.FC<
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "border-default-200 h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     type="text"
                     value={selected?.label || ""}
                     variant="bordered"
@@ -1681,10 +1678,8 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             {/* Stakeholder - appears immediately below Coordinator */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Stakeholder
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Stakeholder</label>
               {(() => {
                 const rawUser =
                   typeof window !== "undefined"
@@ -1704,9 +1699,10 @@ export const CreateBloodDriveEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={name || "Stakeholder"}
                       variant="bordered"
@@ -1719,9 +1715,10 @@ export const CreateBloodDriveEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={"Select a coordinator first"}
                       variant="bordered"
@@ -1736,9 +1733,10 @@ export const CreateBloodDriveEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={"No stakeholders available"}
                       variant="bordered"
@@ -1749,12 +1747,12 @@ export const CreateBloodDriveEventModal: React.FC<
                 return (
                   <Select
                     classNames={{
-                      trigger:
-                        "border-default-200 hover:border-default-400 h-10",
-                      value: "text-sm",
+                      trigger: "border-default-200 h-9",
                     }}
                     placeholder="Select one (optional)"
+                    radius="md"
                     selectedKeys={stakeholder ? [stakeholder] : []}
+                    size="sm"
                     variant="bordered"
                     onSelectionChange={(keys) =>
                       setStakeholder(Array.from(keys)[0] as string)
@@ -1769,18 +1767,18 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             {/* Event Title */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Event Title
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter event title"
+                radius="md"
+                size="sm"
                 type="text"
                 value={eventTitle}
                 variant="bordered"
@@ -1797,17 +1795,17 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             <div className="grid grid-cols-3 gap-3 items-end">
-              <div className="col-span-1">
-                <label className="text-sm font-medium mb-1.5 block">Date</label>
+              <div className="col-span-1 space-y-1">
+                <label className="text-xs font-medium">Date</label>
                 <DatePicker
                   hideTimeZone
                   classNames={{
                     base: "w-full",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   granularity="day"
+                  radius="md"
+                  size="sm"
                   value={date}
                   variant="bordered"
                   onChange={setDate}
@@ -1816,16 +1814,14 @@ export const CreateBloodDriveEventModal: React.FC<
                   <p className="text-danger text-xs mt-1">{dateError}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Start time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={startTime}
                   variant="bordered"
@@ -1834,16 +1830,14 @@ export const CreateBloodDriveEventModal: React.FC<
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  End time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">End time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={endTime}
                   variant="bordered"
@@ -1855,18 +1849,18 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             {/* Goal Count */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Goal Count
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
-                placeholder="Enter location"
+                placeholder="Enter goal count"
+                radius="md"
+                size="sm"
                 type="text"
                 value={goalCount}
                 variant="bordered"
@@ -1875,17 +1869,16 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             {/* Event Description */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Event Description
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Event Description</label>
               <Textarea
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400",
+                  inputWrapper: "border-default-200",
                 }}
                 minRows={4}
                 placeholder="The event is about..."
+                radius="md"
+                size="sm"
                 value={eventDescription}
                 variant="bordered"
                 onChange={(e) => setEventDescription(e.target.value)}
@@ -1893,18 +1886,18 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             {/* Location */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Location
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter location"
+                radius="md"
+                size="sm"
                 type="text"
                 value={location}
                 variant="bordered"
@@ -1913,34 +1906,34 @@ export const CreateBloodDriveEventModal: React.FC<
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Contact Email<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="email@example.com"
+                  radius="md"
+                  size="sm"
                   type="email"
                   value={email}
                   variant="bordered"
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Contact Number<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="09xxxxxxxxx"
+                  radius="md"
+                  size="sm"
                   type="tel"
                   value={contactNumber}
                   variant="bordered"
@@ -2538,27 +2531,27 @@ export const CreateAdvocacyEventModal: React.FC<
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center gap-3 pb-4">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-            <Megaphone className="w-5 h-5 text-default-600" />
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className="bg-default-100 border-1 border-default"
+              icon={<Megaphone />}
+            />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">Create an advocacy event</h2>
-            <p className="text-xs text-default-500 font-normal mt-0.5">
-              Start providing your information by selecting your blood type. Add
-              details below to proceed.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold py-2">
+            Create an advocacy event
+          </h3>
+          <p className="text-xs font-normal">
+            Start providing your information by selecting your blood type. Add
+            details below to proceed.
+          </p>
         </ModalHeader>
 
         <ModalBody className="py-6">
           <div className="space-y-5">
             {/* Coordinator */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Coordinator
-                <span className="text-danger ml-1">*</span>
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Coordinator</label>
               {(() => {
                 const rawUser =
                   typeof window !== "undefined"
@@ -2583,10 +2576,10 @@ export const CreateAdvocacyEventModal: React.FC<
                       <Input
                         disabled
                         classNames={{
-                          inputWrapper:
-                            "border-default-200 h-10 bg-default-100",
-                          input: "text-sm",
+                          inputWrapper: "border-default-200 h-9 bg-default-100",
                         }}
+                        radius="md"
+                        size="sm"
                         type="text"
                         value={"No coordinators available"}
                         variant="bordered"
@@ -2597,12 +2590,12 @@ export const CreateAdvocacyEventModal: React.FC<
                   return (
                     <Select
                       classNames={{
-                        trigger:
-                          "border-default-200 hover:border-default-400 h-10",
-                        value: "text-sm",
+                        trigger: "border-default-200 h-9",
                       }}
                       placeholder="Select one"
+                      radius="md"
                       selectedKeys={coordinator ? [coordinator] : []}
+                      size="sm"
                       variant="bordered"
                       onSelectionChange={(keys) =>
                         setCoordinator(Array.from(keys)[0] as string)
@@ -2624,9 +2617,10 @@ export const CreateAdvocacyEventModal: React.FC<
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "border-default-200 h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     type="text"
                     value={selected?.label || ""}
                     variant="bordered"
@@ -2636,10 +2630,8 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             {/* Stakeholder - appears immediately below Coordinator */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Stakeholder
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Stakeholder</label>
               {(() => {
                 const rawUser =
                   typeof window !== "undefined"
@@ -2659,9 +2651,10 @@ export const CreateAdvocacyEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={name || "Stakeholder"}
                       variant="bordered"
@@ -2674,9 +2667,10 @@ export const CreateAdvocacyEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={"Select a coordinator first"}
                       variant="bordered"
@@ -2691,9 +2685,10 @@ export const CreateAdvocacyEventModal: React.FC<
                     <Input
                       disabled
                       classNames={{
-                        inputWrapper: "border-default-200 h-10 bg-default-100",
-                        input: "text-sm",
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
                       }}
+                      radius="md"
+                      size="sm"
                       type="text"
                       value={"No stakeholders available"}
                       variant="bordered"
@@ -2704,12 +2699,12 @@ export const CreateAdvocacyEventModal: React.FC<
                 return (
                   <Select
                     classNames={{
-                      trigger:
-                        "border-default-200 hover:border-default-400 h-10",
-                      value: "text-sm",
+                      trigger: "border-default-200 h-9",
                     }}
                     placeholder="Select one (optional)"
+                    radius="md"
                     selectedKeys={stakeholder ? [stakeholder] : []}
+                    size="sm"
                     variant="bordered"
                     onSelectionChange={(keys) =>
                       setStakeholder(Array.from(keys)[0] as string)
@@ -2724,18 +2719,18 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             {/* Event Title */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Event Title
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter event title"
+                radius="md"
+                size="sm"
                 type="text"
                 value={eventTitle}
                 variant="bordered"
@@ -2752,18 +2747,18 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             {/* Audience Type (free input) */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Audience Type
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="e.g. Students, Farmers, Community Members"
+                radius="md"
+                size="sm"
                 type="text"
                 value={audienceType}
                 variant="bordered"
@@ -2772,17 +2767,17 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             <div className="grid grid-cols-3 gap-3 items-end">
-              <div className="col-span-1">
-                <label className="text-sm font-medium mb-1.5 block">Date</label>
+              <div className="col-span-1 space-y-1">
+                <label className="text-xs font-medium">Date</label>
                 <DatePicker
                   hideTimeZone
                   classNames={{
                     base: "w-full",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   granularity="day"
+                  radius="md"
+                  size="sm"
                   value={date}
                   variant="bordered"
                   onChange={setDate}
@@ -2791,16 +2786,14 @@ export const CreateAdvocacyEventModal: React.FC<
                   <p className="text-danger text-xs mt-1">{dateError}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Start time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={startTime}
                   variant="bordered"
@@ -2809,16 +2802,14 @@ export const CreateAdvocacyEventModal: React.FC<
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  End time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">End time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={endTime}
                   variant="bordered"
@@ -2830,18 +2821,18 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             {/* Target number of audience */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Target number of audience
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="e.g. 200"
+                radius="md"
+                size="sm"
                 type="text"
                 value={numberOfParticipants}
                 variant="bordered"
@@ -2850,17 +2841,16 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             {/* Event Description */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Event Description
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Event Description</label>
               <Textarea
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400",
+                  inputWrapper: "border-default-200",
                 }}
                 minRows={4}
                 placeholder="The event is about..."
+                radius="md"
+                size="sm"
                 value={eventDescription}
                 variant="bordered"
                 onChange={(e) => setEventDescription(e.target.value)}
@@ -2868,18 +2858,18 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             {/* Location */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Location
                 <span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter location"
+                radius="md"
+                size="sm"
                 type="text"
                 value={location}
                 variant="bordered"
@@ -2888,34 +2878,34 @@ export const CreateAdvocacyEventModal: React.FC<
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Contact Email<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="email@example.com"
+                  radius="md"
+                  size="sm"
                   type="email"
                   value={email}
                   variant="bordered"
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Contact Number<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="09xxxxxxxxx"
+                  radius="md"
+                  size="sm"
                   type="tel"
                   value={contactNumber}
                   variant="bordered"

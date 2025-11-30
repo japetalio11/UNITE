@@ -11,6 +11,7 @@ import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Chip } from "@heroui/chip";
+import { Avatar } from "@heroui/avatar";
 import { Persons, Droplet, Megaphone } from "@gravity-ui/icons";
 
 interface EventViewModalProps {
@@ -160,77 +161,87 @@ export const EventViewModal: React.FC<EventViewModalProps> = ({
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-start gap-4 pb-3">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-default-100">
-            {category === "Blood Drive" ? (
-              <Droplet className="w-6 h-6 text-default-600" />
-            ) : category === "Advocacy" ? (
-              <Megaphone className="w-6 h-6 text-default-600" />
-            ) : (
-              <Persons className="w-6 h-6 text-default-600" />
-            )}
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className="bg-default-100 border-1 border-default"
+              icon={
+                category === "Blood Drive" ? (
+                  <Droplet />
+                ) : category === "Advocacy" ? (
+                  <Megaphone />
+                ) : (
+                  <Persons />
+                )
+              }
+            />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">{title}</h2>
-            </div>
-            <div className="mt-1">
-              <Chip className="px-2 py-0.5" size="sm" variant="faded">
-                {category}
-              </Chip>
-            </div>
+          <h3 className="text-sm font-semibold py-2">{title}</h3>
+          <div className="flex items-center">
+            <Chip
+              classNames={{ content: "text-xs font-medium" }}
+              radius="sm"
+              size="sm"
+              variant="flat"
+            >
+              {category}
+            </Chip>
           </div>
         </ModalHeader>
 
         <ModalBody className="py-4">
           <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label className="text-xs text-default-700">Coordinator</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Coordinator</label>
               <Input
                 disabled
                 classNames={{
-                  inputWrapper: "h-10 bg-default-100",
-                  input: "text-sm",
+                  inputWrapper: "border-default-200 h-9 bg-default-100",
                 }}
+                radius="md"
+                size="sm"
                 value={coordinatorLabel}
                 variant="bordered"
               />
             </div>
 
-            <div>
-              <label className="text-xs text-default-700">Location</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Location</label>
               <Input
                 disabled
                 classNames={{
-                  inputWrapper: "h-10 bg-default-100",
-                  input: "text-sm",
+                  inputWrapper: "border-default-200 h-9 bg-default-100",
                 }}
+                radius="md"
+                size="sm"
                 value={location}
                 variant="bordered"
               />
             </div>
 
-            <div>
-              <label className="text-xs text-default-700">Date</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Date</label>
               <Input
                 disabled
                 classNames={{
-                  inputWrapper: "h-10 bg-default-100",
-                  input: "text-sm",
+                  inputWrapper: "border-default-200 h-9 bg-default-100",
                 }}
+                radius="md"
+                size="sm"
                 value={dateDisplay}
                 variant="bordered"
               />
             </div>
 
-            <div>
-              <label className="text-xs text-default-700">Time</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Time</label>
               <Input
                 disabled
                 classNames={{
-                  inputWrapper: "h-10 bg-default-100",
-                  input: "text-sm",
+                  inputWrapper: "border-default-200 h-9 bg-default-100",
                 }}
+                radius="md"
+                size="sm"
                 value={timeDisplay}
                 variant="bordered"
               />
@@ -239,30 +250,32 @@ export const EventViewModal: React.FC<EventViewModalProps> = ({
             {/* Dynamic fields: show relevant metadata per category */}
             {category === "Training" && (
               <>
-                <div>
-                  <label className="text-xs text-default-700">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
                     Type of training
                   </label>
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     value={trainingType || ""}
                     variant="bordered"
                   />
                 </div>
-                <div>
-                  <label className="text-xs text-default-700">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
                     Max participants
                   </label>
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     value={safe(participants)}
                     variant="bordered"
                   />
@@ -271,16 +284,15 @@ export const EventViewModal: React.FC<EventViewModalProps> = ({
             )}
 
             {category === "Blood Drive" && (
-              <div>
-                <label className="text-xs text-default-700">
-                  Target donation
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Target donation</label>
                 <Input
                   disabled
                   classNames={{
-                    inputWrapper: "h-10 bg-default-100",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9 bg-default-100",
                   }}
+                  radius="md"
+                  size="sm"
                   value={safe(goal)}
                   variant="bordered"
                 />
@@ -289,30 +301,28 @@ export const EventViewModal: React.FC<EventViewModalProps> = ({
 
             {category === "Advocacy" && (
               <>
-                <div>
-                  <label className="text-xs text-default-700">
-                    Target audience
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Target audience</label>
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     value={audience || ""}
                     variant="bordered"
                   />
                 </div>
-                <div>
-                  <label className="text-xs text-default-700">
-                    Target number
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Target number</label>
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     value={safe(participants)}
                     variant="bordered"
                   />
@@ -320,39 +330,46 @@ export const EventViewModal: React.FC<EventViewModalProps> = ({
               </>
             )}
 
-            <div>
-              <label className="text-xs text-default-700">Contact Email</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Contact Email</label>
               <Input
                 disabled
                 classNames={{
-                  inputWrapper: "h-10 bg-default-100",
-                  input: "text-sm",
+                  inputWrapper: "border-default-200 h-9 bg-default-100",
                 }}
+                radius="md"
+                size="sm"
                 value={contactEmail}
                 variant="bordered"
               />
             </div>
 
-            <div>
-              <label className="text-xs text-default-700">Contact Number</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Contact Number</label>
               <Input
                 disabled
                 classNames={{
-                  inputWrapper: "h-10 bg-default-100",
-                  input: "text-sm",
+                  inputWrapper: "border-default-200 h-9 bg-default-100",
                 }}
+                radius="md"
+                size="sm"
                 value={contactNumber}
                 variant="bordered"
               />
             </div>
 
-            <div className="col-span-2">
-              <label className="text-xs text-default-700">Description</label>
+            <div className="col-span-2 space-y-1">
+              <label className="text-xs font-medium">Description</label>
               <Textarea
                 disabled
-                className="mt-1"
+                classNames={{
+                  inputWrapper: "border-default-200 bg-default-100",
+                }}
                 minRows={4}
+                radius="md"
+                size="sm"
                 value={description}
+                variant="bordered"
               />
             </div>
           </div>

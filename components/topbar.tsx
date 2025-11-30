@@ -45,7 +45,7 @@ export default function Topbar({
   }, []);
 
   return (
-    <div className="w-full bg-white border-gray-200">
+    <div className="w-full bg-white border-default">
       <div className="flex items-center justify-between px-6 py-3">
         {/* Left side - User Profile */}
         <div className="flex items-center gap-3">
@@ -58,7 +58,7 @@ export default function Topbar({
             classNames={{
               base: "cursor-pointer",
               name: "font-semibold text-gray-900 text-sm",
-              description: "text-gray-500 text-xs",
+              description: "text-default text-xs",
             }}
             description={userEmail}
             name={userName}
@@ -74,8 +74,9 @@ export default function Topbar({
         {/* Right side - Search Input */}
         <div>
           <Button
-            className=" text-gray-500 bg-gray-100 borderursor-pointer text-xs"
+            className=" text-default bg-gray-100 borderursor-pointer text-xs"
             radius="lg"
+            size="md"
             id="topbar-search-button"
             onClick={handleSearchButtonClick}
           >

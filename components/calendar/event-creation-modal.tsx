@@ -12,7 +12,8 @@ import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { DatePicker } from "@heroui/date-picker";
-import { Persons } from "@gravity-ui/icons";
+import { Avatar } from "@heroui/avatar";
+import { Person, Droplet, Megaphone } from "@gravity-ui/icons";
 
 import { getUserInfo } from "@/utils/getUserInfo";
 import { decodeJwt } from "@/utils/decodeJwt";
@@ -431,22 +432,32 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center gap-3 pb-4">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-default-100">
-            <Persons className="w-5 h-5 text-default-600" />
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className="bg-default-100 border-1 border-default"
+              icon={
+                variant === "training" ? (
+                  <Person />
+                ) : variant === "blood-drive" ? (
+                  <Droplet />
+                ) : (
+                  <Megaphone />
+                )
+              }
+            />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">
-              {variant === "training"
-                ? "Create a training event"
-                : variant === "blood-drive"
-                  ? "Create a blood drive event"
-                  : "Create an advocacy event"}
-            </h2>
-            <p className="text-xs text-default-500 font-normal mt-0.5">
-              Add details below to proceed.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold py-2">
+            {variant === "training"
+              ? "Create a training event"
+              : variant === "blood-drive"
+                ? "Create a blood drive event"
+                : "Create an advocacy event"}
+          </h3>
+          <p className="text-xs font-normal">
+            Start providing your information by selecting your blood type. Add
+            details below to proceed.
+          </p>
         </ModalHeader>
 
         <ModalBody className="py-6">
@@ -456,10 +467,8 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
                 {errorMessage}
               </div>
             )}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Coordinator<span className="text-danger ml-1">*</span>
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Coordinator</label>
               {(() => {
                 const rawUser =
                   typeof window !== "undefined"
@@ -478,12 +487,12 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
                   return (
                     <Select
                       classNames={{
-                        trigger:
-                          "border-default-200 hover:border-default-400 h-10",
-                        value: "text-sm",
+                        trigger: "border-default-200 h-9",
                       }}
                       placeholder="Select one"
+                      radius="md"
                       selectedKeys={coordinator ? [coordinator] : []}
+                      size="sm"
                       variant="bordered"
                       onSelectionChange={(keys) =>
                         setCoordinator(Array.from(keys)[0] as string)
@@ -505,9 +514,10 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
                   <Input
                     disabled
                     classNames={{
-                      inputWrapper: "border-default-200 h-10 bg-default-100",
-                      input: "text-sm",
+                      inputWrapper: "border-default-200 h-9 bg-default-100",
                     }}
+                    radius="md"
+                    size="sm"
                     type="text"
                     value={selected?.label || ""}
                     variant="bordered"
@@ -516,17 +526,17 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
               })()}
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Event Title<span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter event title"
+                radius="md"
+                size="sm"
                 type="text"
                 value={eventTitle}
                 variant="bordered"
@@ -543,32 +553,30 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
             </div>
 
             <div className="grid grid-cols-3 gap-3 items-end">
-              <div className="col-span-1">
-                <label className="text-sm font-medium mb-1.5 block">Date</label>
+              <div className="col-span-1 space-y-1">
+                <label className="text-xs font-medium">Date</label>
                 <DatePicker
                   hideTimeZone
                   classNames={{
                     base: "w-full",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   granularity="day"
+                  radius="md"
+                  size="sm"
                   value={date}
                   variant="bordered"
                   onChange={setDate}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Start time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={startTime}
                   variant="bordered"
@@ -577,16 +585,14 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  End time
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">End time</label>
                 <Input
                   classNames={{
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                    input: "text-sm",
+                    inputWrapper: "border-default-200 h-9",
                   }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={endTime}
                   variant="bordered"
@@ -599,33 +605,33 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
 
             {/* Variant-specific fields */}
             {variant === "training" && (
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Training Type
-                </label>
-                <Input
-                  classNames={{
-                    input: "text-sm",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                  }}
-                  placeholder="e.g. Basic Life Support"
-                  type="text"
-                  value={trainingType}
-                  variant="bordered"
-                  onChange={(e) => setTrainingType(e.target.value)}
-                />
-                <div className="mt-3">
-                  <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Training Type</label>
+                  <Input
+                    classNames={{
+                      inputWrapper: "border-default-200 h-9",
+                    }}
+                    placeholder="e.g. Basic Life Support"
+                    radius="md"
+                    size="sm"
+                    type="text"
+                    value={trainingType}
+                    variant="bordered"
+                    onChange={(e) => setTrainingType(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
                     Participant Count
                   </label>
                   <Input
                     classNames={{
-                      input: "text-sm",
-                      inputWrapper:
-                        "border-default-200 hover:border-default-400 h-10",
+                      inputWrapper: "border-default-200 h-9",
                     }}
                     placeholder="200"
+                    radius="md"
+                    size="sm"
                     type="text"
                     value={numberOfParticipants}
                     variant="bordered"
@@ -635,17 +641,15 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
               </div>
             )}
             {variant === "blood-drive" && (
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Goal Count
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Goal Count</label>
                 <Input
                   classNames={{
-                    input: "text-sm",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="e.g. 100"
+                  radius="md"
+                  size="sm"
                   type="text"
                   value={goalCount}
                   variant="bordered"
@@ -654,33 +658,33 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
               </div>
             )}
             {variant === "advocacy" && (
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Audience Type
-                </label>
-                <Input
-                  classNames={{
-                    input: "text-sm",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
-                  }}
-                  placeholder="e.g. Students"
-                  type="text"
-                  value={audienceType}
-                  variant="bordered"
-                  onChange={(e) => setAudienceType(e.target.value)}
-                />
-                <div className="mt-3">
-                  <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Audience Type</label>
+                  <Input
+                    classNames={{
+                      inputWrapper: "border-default-200 h-9",
+                    }}
+                    placeholder="e.g. Students"
+                    radius="md"
+                    size="sm"
+                    type="text"
+                    value={audienceType}
+                    variant="bordered"
+                    onChange={(e) => setAudienceType(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
                     Expected Audience
                   </label>
                   <Input
                     classNames={{
-                      input: "text-sm",
-                      inputWrapper:
-                        "border-default-200 hover:border-default-400 h-10",
+                      inputWrapper: "border-default-200 h-9",
                     }}
                     placeholder="200"
+                    radius="md"
+                    size="sm"
                     type="text"
                     value={numberOfParticipants}
                     variant="bordered"
@@ -690,34 +694,33 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
               </div>
             )}
 
-            <div className="mt-4">
-              <label className="text-sm font-medium mb-1.5 block">
-                Event Description
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Event Description</label>
               <Textarea
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper: "border-default-200 hover:border-default-400",
+                  inputWrapper: "border-default-200",
                 }}
                 minRows={4}
                 placeholder="The event is about..."
+                radius="md"
+                size="sm"
                 value={eventDescription}
                 variant="bordered"
                 onChange={(e) => setEventDescription(e.target.value)}
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
                 Location<span className="text-danger ml-1">*</span>
               </label>
               <Input
                 classNames={{
-                  input: "text-sm",
-                  inputWrapper:
-                    "border-default-200 hover:border-default-400 h-10",
+                  inputWrapper: "border-default-200 h-9",
                 }}
                 placeholder="Enter location"
+                radius="md"
+                size="sm"
                 type="text"
                 value={location}
                 variant="bordered"
@@ -726,17 +729,17 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
             </div>
             {/* Contact fields */}
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Email<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    input: "text-sm",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="name@domain.com"
+                  radius="md"
+                  size="sm"
                   type="email"
                   value={email}
                   variant="bordered"
@@ -750,17 +753,17 @@ const GenericCreateEventModal: React.FC<GenericCreateEventModalProps> = ({
                   </p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
                   Phone<span className="text-danger ml-1">*</span>
                 </label>
                 <Input
                   classNames={{
-                    input: "text-sm",
-                    inputWrapper:
-                      "border-default-200 hover:border-default-400 h-10",
+                    inputWrapper: "border-default-200 h-9",
                   }}
                   placeholder="e.g. +63 912 345 6789"
+                  radius="md"
+                  size="sm"
                   type="text"
                   value={contactNumber}
                   variant="bordered"

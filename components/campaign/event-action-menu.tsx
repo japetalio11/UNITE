@@ -1,7 +1,16 @@
 "use client";
 import React from "react";
 import { DropdownSection, DropdownItem, DropdownMenu } from "@heroui/dropdown";
-import { Eye, Pencil, Clock, TrashBin, Check, Xmark, Person, File } from "@gravity-ui/icons";
+import {
+  Eye,
+  Pencil,
+  Clock,
+  TrashBin,
+  Check,
+  Xmark,
+  Persons,
+  File,
+} from "@gravity-ui/icons";
 
 interface Props {
   allowedActionSet: Set<string>;
@@ -53,20 +62,13 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "view-event";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="View event details" startContent={<Eye />} onPress={onViewEvent}>
+          <DropdownItem
+            key={k}
+            description="View event details"
+            startContent={<Eye />}
+            onPress={onViewEvent}
+          >
             View Event
-          </DropdownItem>,
-        );
-        seenKeys.add(k);
-      }
-    }
-
-    {
-      const k = "view-request";
-      if (!seenKeys.has(k)) {
-        actions.push(
-          <DropdownItem key={k} description="View request details" startContent={<File />} onPress={async () => { if (openViewRequest) await openViewRequest(); }}>
-            View Request
           </DropdownItem>,
         );
         seenKeys.add(k);
@@ -77,7 +79,14 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "manage-staff";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="Manage staff for this event" startContent={<Persons />} onPress={() => { if (setManageStaffOpen) setManageStaffOpen(true); }}>
+          <DropdownItem
+            key={k}
+            description="Manage staff for this event"
+            startContent={<Persons />}
+            onPress={() => {
+              if (setManageStaffOpen) setManageStaffOpen(true);
+            }}
+          >
             Manage Staff
           </DropdownItem>,
         );
@@ -89,7 +98,12 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "accept";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="Accept this request" startContent={<Check />} onPress={() => setAcceptOpen && setAcceptOpen(true)}>
+          <DropdownItem
+            key={k}
+            description="Accept this request"
+            startContent={<Check />}
+            onPress={() => setAcceptOpen && setAcceptOpen(true)}
+          >
             Accept Request
           </DropdownItem>,
         );
@@ -101,7 +115,12 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "reject";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="Reject this request" startContent={<Xmark />} onPress={() => setRejectOpen && setRejectOpen(true)}>
+          <DropdownItem
+            key={k}
+            description="Reject this request"
+            startContent={<Xmark />}
+            onPress={() => setRejectOpen && setRejectOpen(true)}
+          >
             Reject Request
           </DropdownItem>,
         );
@@ -113,7 +132,12 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "reschedule";
       if (!seenKeys.has(k)) {
         actions.push(
-          <DropdownItem key={k} description="Propose a new schedule" startContent={<Clock />} onPress={() => setRescheduleOpen && setRescheduleOpen(true)}>
+          <DropdownItem
+            key={k}
+            description="Propose a new schedule"
+            startContent={<Clock />}
+            onPress={() => setRescheduleOpen && setRescheduleOpen(true)}
+          >
             Reschedule
           </DropdownItem>,
         );
@@ -122,7 +146,7 @@ const EventActionMenu: React.FC<Props> = ({
     }
 
     // Confirm action: show when explicitly allowed or when fallback requested
-    if (flagFor("canConfirm", "confirm") || (showConfirmFallback)) {
+    if (flagFor("canConfirm", "confirm") || showConfirmFallback) {
       const k = "confirm";
       if (!seenKeys.has(k)) {
         actions.push(
@@ -134,8 +158,13 @@ const EventActionMenu: React.FC<Props> = ({
               try {
                 if (onConfirm) await onConfirm();
               } catch (e) {
-                console.error('Confirm action error:', e);
-                try { alert('Failed to confirm request: ' + (e as any)?.message || 'Unknown error'); } catch (_) {}
+                console.error("Confirm action error:", e);
+                try {
+                  alert(
+                    "Failed to confirm request: " + (e as any)?.message ||
+                      "Unknown error",
+                  );
+                } catch (_) {}
               }
             }}
           >
@@ -148,14 +177,25 @@ const EventActionMenu: React.FC<Props> = ({
 
     // Do not show Cancel for already rejected requests — canceling a rejected
     // request is confusing and previously caused duplicate Cancel entries.
-    const statusString = String((request && (request.Status || request.status)) || '').toLowerCase();
-    const isRejectedStatus = statusString.includes('reject');
+    const statusString = String(
+      (request && (request.Status || request.status)) || "",
+    ).toLowerCase();
+    const isRejectedStatus = statusString.includes("reject");
 
     if (flagFor("canAdminAction", "cancel") && !isRejectedStatus) {
       const k = "cancel";
       if (!seenKeys.has(k)) {
         danger.push(
-          <DropdownItem key={k} className="text-danger" color="danger" description="Cancel this request" startContent={<TrashBin className="text-xl text-danger pointer-events-none shrink-0" />} onPress={() => setCancelOpen && setCancelOpen(true)}>
+          <DropdownItem
+            key={k}
+            className="text-danger"
+            color="danger"
+            description="Cancel this request"
+            startContent={
+              <TrashBin className="text-xl text-danger pointer-events-none shrink-0" />
+            }
+            onPress={() => setCancelOpen && setCancelOpen(true)}
+          >
             Cancel Request
           </DropdownItem>,
         );
@@ -167,7 +207,16 @@ const EventActionMenu: React.FC<Props> = ({
       const k = "delete";
       if (!seenKeys.has(k)) {
         danger.push(
-          <DropdownItem key={k} className="text-danger" color="danger" description="Delete this request" startContent={<Trash2 className="text-xl text-danger pointer-events-none shrink-0" />} onPress={() => setDeleteOpen && setDeleteOpen(true)}>
+          <DropdownItem
+            key={k}
+            className="text-danger"
+            color="danger"
+            description="Delete this request"
+            startContent={
+              <TrashBin className="text-xl text-danger pointer-events-none shrink-0" />
+            }
+            onPress={() => setDeleteOpen && setDeleteOpen(true)}
+          >
             Delete Request
           </DropdownItem>,
         );
@@ -186,20 +235,29 @@ const EventActionMenu: React.FC<Props> = ({
         try {
           const props = (it as any)?.props || {};
           // Prefer description prop (explicit) as it is a stable string.
-          let raw = props.description ?? props['data-description'] ?? props.children ?? '';
+          let raw =
+            props.description ??
+            props["data-description"] ??
+            props.children ??
+            "";
 
           // If children is an array or JSX, try to extract the last string child.
           if (Array.isArray(raw)) {
-            const last = raw.slice().reverse().find((c) => typeof c === 'string' && c.trim().length > 0);
-            raw = last ?? raw.join(' ');
+            const last = raw
+              .slice()
+              .reverse()
+              .find((c) => typeof c === "string" && c.trim().length > 0);
+            raw = last ?? raw.join(" ");
           }
 
           // If children is a React element, attempt to access its props.children
-          if (typeof raw === 'object' && raw !== null && raw.props) {
-            raw = raw.props.children ?? '';
+          if (typeof raw === "object" && raw !== null && raw.props) {
+            raw = raw.props.children ?? "";
           }
 
-          const label = String(raw || '').trim().toLowerCase();
+          const label = String(raw || "")
+            .trim()
+            .toLowerCase();
           if (!label) {
             out.push(it);
             continue;
@@ -228,17 +286,21 @@ const EventActionMenu: React.FC<Props> = ({
     try {
       const labels = uniqueCombined.map((it) => {
         const p = (it as any)?.props || {};
-        const raw = p.description ?? p.children ?? '';
+        const raw = p.description ?? p.children ?? "";
         return String(raw).toLowerCase().slice(0, 200);
       });
       // eslint-disable-next-line no-console
-      console.debug('[EventActionMenu] menu labels:', labels);
+      console.debug("[EventActionMenu] menu labels:", labels);
     } catch (e) {}
 
     return (
       <DropdownMenu aria-label="Event actions menu" variant="faded">
-        {actions.length > 0 ? <DropdownSection title="Actions">{actions}</DropdownSection> : null}
-        {danger.length > 0 ? <DropdownSection title="Danger zone">{danger}</DropdownSection> : null}
+        {actions.length > 0 ? (
+          <DropdownSection title="Actions">{actions}</DropdownSection>
+        ) : null}
+        {danger.length > 0 ? (
+          <DropdownSection title="Danger zone">{danger}</DropdownSection>
+        ) : null}
       </DropdownMenu>
     );
   };
@@ -252,11 +314,13 @@ const EventActionMenu: React.FC<Props> = ({
   return (
     <DropdownMenu aria-label="Event actions menu" variant="faded">
       <DropdownSection title="Actions">
-        <DropdownItem key="view-event" description="View event details" startContent={<Eye />} onPress={onViewEvent}>
+        <DropdownItem
+          key="view-event"
+          description="View event details"
+          startContent={<Eye />}
+          onPress={onViewEvent}
+        >
           View Event
-        </DropdownItem>
-        <DropdownItem key="view-request" description="View request details" startContent={<FileText />} onPress={async () => { if (openViewRequest) await openViewRequest(); }}>
-          View Request
         </DropdownItem>
       </DropdownSection>
     </DropdownMenu>

@@ -42,9 +42,13 @@ export default function CampaignPage() {
   const pageSize = 6; // show max 6 requests per page
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
-  const [quickFilterCategory, setQuickFilterCategory] = useState<
-    string | undefined
-  >(undefined);
+  const [quickFilter, setQuickFilter] = useState<{
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+    province?: string;
+    district?: string;
+  } | null>(null);
   const [advancedFilter, setAdvancedFilter] = useState<{
     start?: string;
     end?: string;
@@ -68,6 +72,38 @@ export default function CampaignPage() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      try {
+        const token = localStorage.getItem("unite_token");
+        const res = await fetch(`${API_URL}/api/loc/provinces`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (json.success) setProvinces(json.data);
+      } catch (error) {
+        console.error("Failed to fetch provinces:", error);
+      }
+    };
+    fetchProvinces();
+  }, [API_URL]);
+
+  const fetchDistricts = async (provinceId: number | string) => {
+    try {
+      const token = localStorage.getItem("unite_token");
+      const res = await fetch(`${API_URL}/api/loc/districts/${provinceId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) setDistricts(json.data);
+    } catch (error) {
+      console.error("Failed to fetch districts:", error);
+    }
+  };
 
   // Helper to parse a variety of date shapes (ISO string, ms timestamp,
   // and Mongo Extended JSON like { $date: { $numberLong: '...' } }).
@@ -137,7 +173,8 @@ export default function CampaignPage() {
       // Do not send date_from/date_to to server; advanced date filtering is
       // performed client-side against the event's Start_Date to avoid server
       // timezone/format mismatches.
-      if (quickFilterCategory) params.set("category", quickFilterCategory);
+      if (quickFilter?.category && quickFilter.category !== "all")
+        params.set("category", quickFilter.category);
 
       const url = `${API_URL}/api/requests/me?${params.toString()}`;
       // Request fresh data (avoid cached 304 responses) so client-side filters
@@ -282,7 +319,7 @@ export default function CampaignPage() {
   }, [
     searchQuery,
     selectedTab,
-    quickFilterCategory,
+    JSON.stringify(quickFilter),
     JSON.stringify(advancedFilter),
   ]);
 
@@ -300,7 +337,7 @@ export default function CampaignPage() {
     currentPage,
     selectedTab,
     searchQuery,
-    quickFilterCategory,
+    JSON.stringify(quickFilter),
     JSON.stringify(advancedFilter),
   ]);
 
@@ -426,14 +463,8 @@ export default function CampaignPage() {
   };
 
   // Handler for quick filter
-  const handleQuickFilter = (filter?: { category?: string | undefined }) => {
-    // called from toolbar dropdown with selected filters
-    if (filter && Object.prototype.hasOwnProperty.call(filter, "category")) {
-      setQuickFilterCategory(filter.category);
-    } else {
-      // clear
-      setQuickFilterCategory(undefined);
-    }
+  const handleQuickFilter = (filter: any) => {
+    setQuickFilter(filter);
   };
 
   // Handler for advanced filter (expects { start?, title?, requester? })
@@ -870,6 +901,31 @@ export default function CampaignPage() {
     return "Pending";
   };
 
+  const requestCounts = useMemo(() => {
+    const counts = {
+      approved: 0,
+      pending: 0,
+      rejected: 0,
+    };
+
+    requests.forEach((req) => {
+      const status = normalizeStatus(req);
+
+      if (status === "approved") {
+        counts.approved++;
+      } else if (status === "pending") {
+        counts.pending++;
+      } else if (status === "rejected") {
+        counts.rejected++;
+      }
+    });
+
+    return {
+      all: requests.length,
+      ...counts,
+    };
+  }, [requests]);
+
   const filteredRequests = requests.filter((r: any) => {
     // Tab/status filter (using event.Status preferred)
     if (selectedTab && selectedTab !== "all") {
@@ -880,17 +936,57 @@ export default function CampaignPage() {
       if (selectedTab === "rejected" && s !== "Rejected") return false;
     }
 
-    // Quick filter: category (from toolbar)
-    if (quickFilterCategory) {
+    // Quick filter (from toolbar)
+    if (quickFilter) {
       const ev = r.event || {};
-      const rawCategory = ev.Category || ev.categoryType || ev.category || "";
-      const catKey = String(rawCategory || "").toLowerCase();
-      let categoryLabel = "Event";
 
-      if (catKey.includes("blood")) categoryLabel = "Blood Drive";
-      else if (catKey.includes("training")) categoryLabel = "Training";
-      else if (catKey.includes("advocacy")) categoryLabel = "Advocacy";
-      if (categoryLabel !== quickFilterCategory) return false;
+      // Category
+      if (quickFilter.category && quickFilter.category !== "all") {
+        const rawCategory = ev.Category || ev.categoryType || ev.category || "";
+        const catKey = String(rawCategory || "").toLowerCase();
+        let categoryLabel = "Event";
+
+        if (catKey.includes("blood")) categoryLabel = "Blood Drive";
+        else if (catKey.includes("training")) categoryLabel = "Training";
+        else if (catKey.includes("advocacy")) categoryLabel = "Advocacy";
+
+        if (categoryLabel !== quickFilter.category) return false;
+      }
+
+      // Date Range
+      if (quickFilter.startDate && quickFilter.endDate) {
+        const start = parseDate(quickFilter.startDate);
+        const end = parseDate(quickFilter.endDate);
+        const evStart = parseDate(ev.Start_Date || ev.date);
+
+        if (start && end && evStart) {
+          // Reset times for comparison (inclusive)
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          if (evStart < start || evStart > end) return false;
+        }
+      }
+
+      // Province
+      if (quickFilter.province) {
+        const pId = String(quickFilter.province);
+        // Check against various possible field names for province ID
+        const evPId = String(
+          ev.Province_ID || ev.province_id || ev.provinceId || "",
+        );
+
+        if (evPId && evPId !== pId) return false;
+      }
+
+      // District
+      if (quickFilter.district) {
+        const dId = String(quickFilter.district);
+        const evDId = String(
+          ev.District_ID || ev.district_id || ev.districtId || "",
+        );
+
+        if (evDId && evDId !== dId) return false;
+      }
     }
 
     // Search query (global search box) - match title or requester or coordinator
@@ -1047,7 +1143,7 @@ export default function CampaignPage() {
     <div className="min-h-screen bg-white">
       {/* Page Header */}
       <div className="px-6 pt-6 pb-4">
-        <h1 className="text-2xl font-semibold text-gray-900">Campaign</h1>
+        <h1 className="text-2xl font-semibold">Campaign</h1>
       </div>
 
       {/* Topbar Component */}
@@ -1060,12 +1156,16 @@ export default function CampaignPage() {
 
       {/* Campaign Toolbar Component */}
       <CampaignToolbar
+        counts={requestCounts}
         currentPage={currentPage}
         defaultTab={selectedTab}
         onAdvancedFilter={handleAdvancedFilter}
         onCreateEvent={handleCreateEvent}
         onExport={handleExport}
         onPageChange={setCurrentPage}
+        districts={districts}
+        provinces={provinces}
+        onDistrictFetch={fetchDistricts}
         onQuickFilter={handleQuickFilter}
         onTabChange={handleTabChange}
         totalPages={totalPages}
@@ -1087,9 +1187,9 @@ export default function CampaignPage() {
               relative to this wrapper (keeps overlay fixed in the visible viewport while
               the inner content scrolls). */}
           <div className="overflow-y-auto h-full pb-12">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
               {requestsError && (
-                <div className="col-span-2 text-sm text-danger">
+                <div className="col-span-full text-sm text-danger">
                   {requestsError}
                 </div>
               )}

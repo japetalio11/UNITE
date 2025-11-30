@@ -10,6 +10,8 @@ import {
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Textarea } from "@heroui/input";
+import { Avatar } from "@heroui/avatar";
+import { Person, Droplet, Megaphone } from "@gravity-ui/icons";
 
 interface EditEventModalProps {
   isOpen: boolean;
@@ -456,30 +458,63 @@ export default function EditEventModal({
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center gap-3 pb-4">
-          <div>
-            <h2 className="text-xl font-semibold">Edit event</h2>
-            <p className="text-xs text-default-500">
-              Edit details (date cannot be changed here)
-            </p>
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Avatar
+              className="bg-default-100 border-1 border-default"
+              icon={
+                String(
+                  (request?.category &&
+                    (request.category.type || request.category.Type)) ||
+                    (request?.event &&
+                      (request.event.categoryType || request.event.Category)) ||
+                    "",
+                )
+                  .toLowerCase()
+                  .includes("blood") ? (
+                  <Droplet />
+                ) : String(
+                    (request?.category &&
+                      (request.category.type || request.category.Type)) ||
+                      (request?.event &&
+                        (request.event.categoryType ||
+                          request.event.Category)) ||
+                      "",
+                  )
+                    .toLowerCase()
+                    .includes("advocacy") ? (
+                  <Megaphone />
+                ) : (
+                  <Person />
+                )
+              }
+            />
           </div>
+          <h3 className="text-sm font-semibold py-2">Edit Event</h3>
+          <p className="text-xs font-normal">
+            Edit details (date cannot be changed here)
+          </p>
         </ModalHeader>
         <ModalBody className="py-4">
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Event Title</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Event Title</label>
               <Input
-                classNames={{ inputWrapper: "h-10" }}
+                classNames={{ inputWrapper: "border-default-200 h-9" }}
+                radius="md"
+                size="sm"
                 type="text"
                 value={title}
                 variant="bordered"
                 onChange={(e) => setTitle((e.target as HTMLInputElement).value)}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">Location</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Location</label>
               <Input
-                classNames={{ inputWrapper: "h-10" }}
+                classNames={{ inputWrapper: "border-default-200 h-9" }}
+                radius="md"
+                size="sm"
                 type="text"
                 value={location}
                 variant="bordered"
@@ -489,10 +524,12 @@ export default function EditEventModal({
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">Contact Email</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Contact Email</label>
                 <Input
-                  classNames={{ inputWrapper: "h-10" }}
+                  classNames={{ inputWrapper: "border-default-200 h-9" }}
+                  radius="md"
+                  size="sm"
                   type="email"
                   value={email}
                   variant="bordered"
@@ -501,10 +538,12 @@ export default function EditEventModal({
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">Contact Number</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Contact Number</label>
                 <Input
-                  classNames={{ inputWrapper: "h-10" }}
+                  classNames={{ inputWrapper: "border-default-200 h-9" }}
+                  radius="md"
+                  size="sm"
                   type="tel"
                   value={contactNumber}
                   variant="bordered"
@@ -528,12 +567,14 @@ export default function EditEventModal({
               if (key.includes("training")) {
                 return (
                   <>
-                    <div>
-                      <label className="text-sm font-medium">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">
                         Type of training
                       </label>
                       <Input
-                        classNames={{ inputWrapper: "h-10" }}
+                        classNames={{ inputWrapper: "border-default-200 h-9" }}
+                        radius="md"
+                        size="sm"
                         type="text"
                         value={trainingType}
                         variant="bordered"
@@ -542,12 +583,14 @@ export default function EditEventModal({
                         }
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">
                         Max participants
                       </label>
                       <Input
-                        classNames={{ inputWrapper: "h-10" }}
+                        classNames={{ inputWrapper: "border-default-200 h-9" }}
+                        radius="md"
+                        size="sm"
                         type="number"
                         value={maxParticipants}
                         variant="bordered"
@@ -558,10 +601,15 @@ export default function EditEventModal({
                         }
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Description</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Description</label>
                       <Textarea
+                        classNames={{
+                          inputWrapper: "border-default-200",
+                        }}
                         minRows={3}
+                        radius="md"
+                        size="sm"
                         value={description}
                         variant="bordered"
                         onChange={(e: any) => setDescription(e.target.value)}
@@ -573,13 +621,15 @@ export default function EditEventModal({
               if (key.includes("blood")) {
                 return (
                   <>
-                    <div>
-                      <label className="text-sm font-medium">Goal count</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Goal count</label>
                       <Input
                         classNames={{
-                          inputWrapper: `h-10 ${!isAdmin ? "bg-default-100" : ""}`,
+                          inputWrapper: `border-default-200 h-9 ${!isAdmin ? "bg-default-100" : ""}`,
                         }}
                         disabled={!isAdmin}
+                        radius="md"
+                        size="sm"
                         type="number"
                         value={goalCount}
                         variant="bordered"
@@ -588,10 +638,15 @@ export default function EditEventModal({
                         }
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Description</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Description</label>
                       <Textarea
+                        classNames={{
+                          inputWrapper: "border-default-200",
+                        }}
                         minRows={3}
+                        radius="md"
+                        size="sm"
                         value={description}
                         variant="bordered"
                         onChange={(e: any) => setDescription(e.target.value)}
@@ -603,12 +658,14 @@ export default function EditEventModal({
               if (key.includes("advocacy")) {
                 return (
                   <>
-                    <div>
-                      <label className="text-sm font-medium">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">
                         Audience Type
                       </label>
                       <Input
-                        classNames={{ inputWrapper: "h-10" }}
+                        classNames={{ inputWrapper: "border-default-200 h-9" }}
+                        radius="md"
+                        size="sm"
                         type="text"
                         value={audienceType}
                         variant="bordered"
@@ -617,12 +674,14 @@ export default function EditEventModal({
                         }
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">
                         Target number of audience
                       </label>
                       <Input
-                        classNames={{ inputWrapper: "h-10" }}
+                        classNames={{ inputWrapper: "border-default-200 h-9" }}
+                        radius="md"
+                        size="sm"
                         type="number"
                         value={expectedAudienceSize}
                         variant="bordered"
@@ -633,10 +692,15 @@ export default function EditEventModal({
                         }
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Description</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Description</label>
                       <Textarea
+                        classNames={{
+                          inputWrapper: "border-default-200",
+                        }}
                         minRows={3}
+                        radius="md"
+                        size="sm"
                         value={description}
                         variant="bordered"
                         onChange={(e: any) => setDescription(e.target.value)}
@@ -651,11 +715,15 @@ export default function EditEventModal({
 
             {/* Show date but disabled to indicate not editable here (End Date intentionally omitted) */}
             <div className="grid grid-cols-1 gap-3 mt-2 items-end">
-              <div>
-                <label className="text-sm font-medium">Start Date</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start Date</label>
                 <Input
                   disabled
-                  classNames={{ inputWrapper: "h-10 bg-default-100" }}
+                  classNames={{
+                    inputWrapper: "border-default-200 h-9 bg-default-100",
+                  }}
+                  radius="md"
+                  size="sm"
                   type="text"
                   value={
                     request.event?.Start_Date
@@ -672,10 +740,12 @@ export default function EditEventModal({
 
             {/* Time inputs: allow editing times while keeping date unchanged */}
             <div className="grid grid-cols-2 gap-3 mt-2">
-              <div>
-                <label className="text-sm font-medium">Start Time</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start Time</label>
                 <Input
-                  classNames={{ inputWrapper: "h-10" }}
+                  classNames={{ inputWrapper: "border-default-200 h-9" }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={startTime}
                   variant="bordered"
@@ -684,10 +754,12 @@ export default function EditEventModal({
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">End Time</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">End Time</label>
                 <Input
-                  classNames={{ inputWrapper: "h-10" }}
+                  classNames={{ inputWrapper: "border-default-200 h-9" }}
+                  radius="md"
+                  size="sm"
                   type="time"
                   value={endTime}
                   variant="bordered"

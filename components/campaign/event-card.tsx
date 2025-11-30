@@ -3,7 +3,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import { DatePicker } from "@heroui/date-picker";
 import { Card, CardHeader, CardBody, CardFooter } from "@heroui/card";
 import { Chip } from "@heroui/chip";
-import { Avatar } from "@heroui/avatar";
 import {
   Dropdown,
   DropdownTrigger,
@@ -19,6 +18,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
+import { Avatar } from "@heroui/avatar";
 import {
   EllipsisVertical,
   Eye,
@@ -951,19 +951,6 @@ const EventCard: React.FC<EventCardProps> = ({
       );
     }
 
-    actions.push(
-      <DropdownItem
-        key="view-request"
-        description="View request details"
-        startContent={<FileText />}
-        onPress={async () => {
-          await openViewRequest();
-        }}
-      >
-        View Request
-      </DropdownItem>,
-    );
-
     if (flagFor("canManageStaff", "manage-staff")) {
       actions.push(
         <DropdownItem
@@ -1348,7 +1335,7 @@ const EventCard: React.FC<EventCardProps> = ({
 
   return (
     <>
-      <Card className="w-full max-w-md rounded-xl border border-gray-200 shadow-none bg-white">
+      <Card className="w-full rounded-xl border border-gray-200 shadow-none bg-white">
         <CardHeader className="flex justify-between items-start">
           {/* Title and Organization */}
           <div>
@@ -1483,7 +1470,8 @@ const EventCard: React.FC<EventCardProps> = ({
             </div>
           </div>
         </CardBody>
-        <CardFooter className="pt-4 border-t border-gray-200">
+        <CardFooter className="pt-4 flex-col items-stretch gap-3">
+          <div className="h-px w-full bg-default-200"></div>
           <div className="flex justify-between w-full items-center">
             <span className="text-xs">Goal Count</span>
             <span className="text-2xl font-bold text-default-800">
@@ -1505,10 +1493,19 @@ const EventCard: React.FC<EventCardProps> = ({
         }}
       >
         <ModalContent>
-          <ModalHeader>
-            <span className="text-lg font-semibold">Request Details</span>
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Avatar
+                className="bg-default-100 border-1 border-default"
+                icon={<FileText />}
+              />
+            </div>
+            <h3 className="text-sm font-semibold py-2">Request Details</h3>
+            <p className="text-xs font-normal">
+              Review the details of this request below.
+            </p>
           </ModalHeader>
-          <ModalBody>
+          <ModalBody className="py-4">
             {(() => {
               const r = resolvedRequest || {};
               const reviewSummary =
@@ -1828,6 +1825,7 @@ const EventCard: React.FC<EventCardProps> = ({
         confirmText="Cancel Event"
         onConfirm={async (note?: string) => await handleCancelWithNote(note)}
         requireNote={true}
+        color="danger"
       />
 
       <ConfirmModal
@@ -1858,6 +1856,7 @@ const EventCard: React.FC<EventCardProps> = ({
         confirmText="Delete"
         onConfirm={async () => await handleDelete()}
         requireNote={false}
+        color="danger"
       />
 
       {/* Success Modal */}
@@ -1868,17 +1867,17 @@ const EventCard: React.FC<EventCardProps> = ({
         onClose={() => setSuccessModal(false)}
       >
         <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success-50">
-              <Check className="w-5 h-5 text-success-500" />
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Avatar
+                className="border-1"
+                icon={<Check className="w-4 h-4" />}
+              />
             </div>
-            <span className="text-lg font-semibold">Success</span>
+            <h3 className="text-sm font-semibold py-2">Success</h3>
+            <p className="text-xs font-normal">Request deleted successfully.</p>
           </ModalHeader>
-          <ModalBody>
-            <p className="text-xs text-default-600">
-              Request deleted successfully.
-            </p>
-          </ModalBody>
+          <ModalBody className="py-4"></ModalBody>
           <ModalFooter>
             <Button
               className="bg-black text-white font-medium"
