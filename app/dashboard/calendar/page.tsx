@@ -45,7 +45,7 @@ import { fetchWithAuth } from "@/utils/fetchWithAuth";
 import { getUserInfo } from "@/utils/getUserInfo";
 import { Menu } from "lucide-react";
 
-export default function CalendarPage() {
+export default function CalendarPage({ publicTitle }: { publicTitle?: string } = {}) {
   const pathname = usePathname();
   // Allow create on dashboard calendar, but not on public calendar route
   const allowCreate = pathname === "/calendar" ? false : true;
@@ -1795,7 +1795,7 @@ export default function CalendarPage() {
     <div className="flex-1 flex flex-col overflow-visible bg-white">
       {/* Header: match campaign spacing */}
       <div className="px-6 pt-6 pb-4">
-        <h1 className="text-2xl font-semibold">Calendar</h1>
+        <h1 className="text-2xl font-semibold">{publicTitle ?? "Calendar"}</h1>
       </div>
 
       <Topbar
