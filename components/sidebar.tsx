@@ -738,7 +738,7 @@ export default function Sidebar({
                 aria-label="Settings"
                 className={`relative w-10 h-10 inline-flex items-center justify-center rounded-full transition-colors duration-200 cursor-pointer ${
                   isActive
-                    ? "bg-black text-white border-black"
+                    ? "bg-danger text-white"
                     : "text-black border border-gray-300 hover:bg-gray-100"
                 }`}
                 onClick={() => setIsSettingsOpen(true)}

@@ -843,7 +843,7 @@ export default function CalendarPage() {
         "Coordinator";
 
       // District number — prefer detailed event coordinator district, then stakeholder district, then fall back to basic event data
-      const districtNumber =
+      const rawDistrictSource =
         detailedEvent?.coordinator?.district_number ??
         detailedEvent?.stakeholder?.district_number ??
         detailedEvent?.coordinator?.District_Number ??
@@ -864,9 +864,55 @@ export default function CalendarPage() {
         (e.stakeholder?.district?.name
           ? extractDistrictNumber(e.stakeholder.district.name)
           : null);
-      const districtDisplay = districtNumber
-        ? `${makeOrdinal(districtNumber)} District`
-        : "District TBD";
+
+      // Compute a user-friendly district display. If `rawDistrictSource` is numeric, show ordinal style
+      // Otherwise it may be a slug like 'camarines-sur-district-v' — try to parse province and district from it.
+      let districtDisplay = "District TBD";
+      let provinceDisplay: string | null =
+        detailedEvent?.province ||
+        detailedEvent?.Province ||
+        detailedEvent?.coordinator?.province ||
+        detailedEvent?.stakeholder?.province ||
+        e.province ||
+        e.Province ||
+        null;
+
+      // If rawDistrictSource is a number (or parsable to number), use ordinal formatting
+      if (typeof rawDistrictSource === "number" || !isNaN(Number(rawDistrictSource))) {
+        const num = Number(rawDistrictSource);
+        districtDisplay = `${makeOrdinal(num)} District`;
+      } else if (typeof rawDistrictSource === "string") {
+        const s = rawDistrictSource as string;
+        // Try to parse slug like 'camarines-sur-district-v'
+        const slugMatch = s.match(/^(.*)-district-(.+)$/i);
+        if (slugMatch) {
+          const provSlug = slugMatch[1];
+          const distPart = slugMatch[2];
+
+          // Format province: replace hyphens with spaces and capitalize words
+          const prov = provSlug
+            .split("-")
+            .map((p) => (p.length ? p.charAt(0).toUpperCase() + p.slice(1) : p))
+            .join(" ");
+
+          provinceDisplay = provinceDisplay || prov;
+
+          // district: if numeric use ordinal, else show as Roman/letter uppercased
+          const distNum = Number(distPart);
+          const distLabel = !isNaN(distNum)
+            ? `${makeOrdinal(distNum)} District`
+            : `District ${distPart.toUpperCase()}`;
+
+          districtDisplay = distLabel;
+        } else {
+          // Fallback: if district looks like a plain name, use it
+          const simple = s.trim();
+          if (simple) districtDisplay = simple;
+        }
+      }
+
+      // Province display only (derived from detailed event or parsed slug)
+      // `provinceDisplay` already contains the parsed province name when available
 
       // Determine category (case-insensitive, check both Category and category)
       const rawCat = (e.Category ?? e.category ?? "").toString().toLowerCase();
@@ -955,6 +1001,7 @@ export default function CalendarPage() {
         time: startTime,
         type: typeKey,
         district: districtDisplay,
+        province: provinceDisplay,
         location:
           detailedEvent?.Location ||
           detailedEvent?.location ||
@@ -1961,7 +2008,17 @@ export default function CalendarPage() {
                                 </div>
                               </div>
 
-                              {/* District */}
+                              {/* Province (new) */}
+                              <div className="mb-1">
+                                <div className="text-xs font-medium text-gray-700 mb-0.5">
+                                  Province
+                                </div>
+                                <div className="text-xs text-gray-600 line-clamp-1">
+                                  {event.province || "-"}
+                                </div>
+                              </div>
+
+                              {/* District (legacy) */}
                               <div className="mb-1">
                                 <div className="text-xs font-medium text-gray-700 mb-0.5">
                                   District
