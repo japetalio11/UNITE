@@ -906,7 +906,7 @@ export default function RequisitionManagement() {
                             <Button
                               variant="light"
                               size="sm"
-                              className="min-w-0 p-2 bg-default-100 hover:bg-default-200 rounded-md"
+                              className="min-w-0 p-4 bg-default-100 hover:bg-default-200 rounded-md"
                             >
                               <MoreHorizontal className="w-4 h-4 text-default-600" />
                             </Button>
