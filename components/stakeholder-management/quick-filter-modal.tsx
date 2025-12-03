@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import {
   Modal,
@@ -9,7 +10,7 @@ import {
 } from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Select, SelectItem } from "@heroui/select";
-import { Input } from "@heroui/input";
+import { fetchJsonWithAuth } from "@/utils/fetchWithAuth";
 
 interface QuickFilterModalProps {
   isOpen: boolean;
@@ -17,9 +18,7 @@ interface QuickFilterModalProps {
   onApply: (filters: {
     province?: string;
     districtId?: string;
-    organization?: string;
-    type?: string;
-    q?: string;
+    municipalityId?: string;
   }) => void;
 }
 
@@ -28,185 +27,280 @@ export default function QuickFilterModal({
   onClose,
   onApply,
 }: QuickFilterModalProps) {
+  const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
-  const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(
-    null,
-  );
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-  const [organization, setOrganization] = useState<string>("");
-  const [stakeholderType, setStakeholderType] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [municipalities, setMunicipalities] = useState<any[]>([]);
+  
+  const [selectedProvince, setSelectedProvince] = useState<string>("");
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>("");
+  const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string>("");
+  
+  const [provincesLoading, setProvincesLoading] = useState(false);
+  const [districtsLoading, setDistrictsLoading] = useState(false);
+  const [municipalitiesLoading, setMunicipalitiesLoading] = useState(false);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+  // Load Provinces on Open
   useEffect(() => {
     if (!isOpen) return;
-    (async () => {
+
+    const fetchProvinces = async () => {
+      setProvincesLoading(true);
       try {
-        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-        const url = base
-          ? `${base}/api/districts?limit=1000`
-          : `/api/districts?limit=1000`;
-        const res = await fetch(url);
-        const text = await res.text();
-        const json = text ? JSON.parse(text) : null;
-        const items = json?.data || [];
+        const response = await fetchJsonWithAuth(`${API_URL}/api/locations/provinces`);
+        const items = response.data || response.provinces || [];
+        
+        const normalized = items.map((p: any) => ({
+          id: p._id || p.id,
+          name: p.name || p.Name || p.Province_Name,
+        }));
 
-        setDistricts(items);
-      } catch (e) {
-        setDistricts([]);
+        setProvinces(normalized.filter(Boolean));
+      } catch (err: any) {
+        console.error("Failed to load provinces:", err);
+        setProvinces([]);
+      } finally {
+        setProvincesLoading(false);
       }
-    })();
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!selectedDistrictId) return;
-    const pick = districts.find(
-      (d) =>
-        String(d.District_ID) === String(selectedDistrictId) ||
-        String(d.id) === String(selectedDistrictId) ||
-        String(d._id) === String(selectedDistrictId),
-    );
-
-    if (pick) setSelectedProvince(pick.Province_Name || pick.province || "");
-  }, [selectedDistrictId, districts]);
-
-  // instant apply: whenever a filter field changes, call onApply
-  useEffect(() => {
-    // do not call if modal is closed
-    if (!isOpen) return;
-    const payload: any = {
-      province: selectedProvince || undefined,
-      districtId: selectedDistrictId || undefined,
-      organization: organization || undefined,
-      type: stakeholderType || undefined,
-      q: searchTerm || undefined,
     };
 
-    // small debounce could be added later; for now call immediately
-    onApply(payload);
-  }, [
-    selectedDistrictId,
-    selectedProvince,
-    organization,
-    stakeholderType,
-    searchTerm,
-    isOpen,
-  ]);
+    fetchProvinces();
+  }, [isOpen]);
 
+  // Load Districts when Province changes
+  useEffect(() => {
+    if (!selectedProvince) {
+      setDistricts([]);
+      setSelectedDistrictId("");
+      setMunicipalities([]);
+      setSelectedMunicipalityId("");
+      return;
+    }
+
+    const fetchDistricts = async () => {
+      setDistrictsLoading(true);
+      try {
+        const response = await fetchJsonWithAuth(
+          `${API_URL}/api/locations/provinces/${encodeURIComponent(selectedProvince)}/districts?limit=1000`
+        );
+        const items = response.data || response.districts || [];
+        
+        const normalized = items.map((d: any) => ({
+          id: d._id || d.id || d.District_ID,
+          name: d.name || d.Name || d.District_Name || d.District_Number,
+        }));
+
+        setDistricts(normalized.filter(Boolean));
+      } catch (err: any) {
+        console.error("Failed to load districts:", err);
+        setDistricts([]);
+      } finally {
+        setDistrictsLoading(false);
+      }
+    };
+
+    fetchDistricts();
+  }, [selectedProvince]);
+
+  // Load Municipalities when District changes
+  useEffect(() => {
+    if (!selectedDistrictId) {
+      setMunicipalities([]);
+      setSelectedMunicipalityId("");
+      return;
+    }
+
+    const fetchMunicipalities = async () => {
+      setMunicipalitiesLoading(true);
+      try {
+        const response = await fetchJsonWithAuth(
+          `${API_URL}/api/locations/districts/${encodeURIComponent(selectedDistrictId)}/municipalities?limit=1000`
+        );
+        const items = response.data || response.municipalities || [];
+        
+        const normalized = items.map((m: any) => ({
+          id: m._id || m.id || m.Municipality_ID,
+          name: m.name || m.Name || m.Municipality_Name || m.City_Municipality,
+        }));
+
+        setMunicipalities(normalized.filter(Boolean));
+      } catch (err: any) {
+        console.error("Failed to load municipalities:", err);
+        setMunicipalities([]);
+      } finally {
+        setMunicipalitiesLoading(false);
+      }
+    };
+
+    fetchMunicipalities();
+  }, [selectedDistrictId]);
+
+  // Apply current selection
   const handleApply = () => {
     onApply({
       province: selectedProvince || undefined,
       districtId: selectedDistrictId || undefined,
+      municipalityId: selectedMunicipalityId || undefined,
     });
     onClose();
   };
 
+  // Clear all selections AND apply the empty filter immediately
   const handleClear = () => {
-    setSelectedDistrictId(null);
-    setSelectedProvince(null);
+    setSelectedProvince("");
+    setSelectedDistrictId("");
+    setSelectedMunicipalityId("");
+    
+    // Apply empty filter to clear the list
+    onApply({});
+    // Close the modal so user sees the result
+    onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} placement="center" size="sm" onClose={onClose}>
+    <Modal
+      isOpen={isOpen}
+      placement="center"
+      size="sm"
+      onClose={onClose}
+      classNames={{
+        base: "max-w-[380px]",
+      }}
+    >
       <ModalContent>
-        <ModalHeader className="pb-2">
-          <h3 className="text-lg font-semibold">Quick Filter</h3>
-          <p className="text-xs text-default-500">
-            Fast filters for stakeholders
-          </p>
+        <ModalHeader className="pb-1.5 pt-4 px-5">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Quick Filter</h3>
+          </div>
         </ModalHeader>
-        <ModalBody>
+        <ModalBody className="px-5 py-3">
           <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium">District</label>
+            {/* Province */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-900">
+                Province
+              </label>
               <Select
-                placeholder="Select district"
-                selectedKeys={
-                  selectedDistrictId ? [String(selectedDistrictId)] : []
-                }
-                onSelectionChange={(keys: any) =>
-                  setSelectedDistrictId(Array.from(keys)[0] as string)
-                }
+                placeholder="Choose a province"
+                selectedKeys={selectedProvince ? [selectedProvince] : []}
+                variant="bordered"
+                radius="lg"
+                size="sm"
+                classNames={{
+                  trigger: "border-gray-300 bg-white shadow-sm h-9",
+                  value: "text-xs text-gray-700",
+                }}
+                isLoading={provincesLoading}
+                onSelectionChange={(keys: any) => {
+                  const id = Array.from(keys)[0] as string;
+                  setSelectedProvince(id);
+                  // Reset dependent fields
+                  setSelectedDistrictId("");
+                  setSelectedMunicipalityId("");
+                }}
               >
-                <SelectItem key="">All districts</SelectItem>
-                {
-                  // build items in a const and cast to any to satisfy the Select children typing
-                  districts.map((d) => (
-                    <SelectItem key={d.District_ID || d.id || d._id}>
-                      {d.District_Name || d.District_Number || d.District_ID}
-                    </SelectItem>
-                  )) as unknown as any
-                }
+                {provinces.map((prov) => (
+                  <SelectItem key={String(prov.id)} textValue={String(prov.name)}>
+                    {String(prov.name)}
+                  </SelectItem>
+                ))}
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Province</label>
-              <Input
-                disabled
-                classNames={{ inputWrapper: "h-10 bg-default-100" }}
-                value={selectedProvince || ""}
-                variant="bordered"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Organization</label>
-              <Input
-                classNames={{ inputWrapper: "h-10" }}
-                placeholder="Organization name"
-                value={organization}
-                variant="bordered"
-                onChange={(e) =>
-                  setOrganization((e.target as HTMLInputElement).value)
-                }
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Stakeholder type</label>
-              <Input
-                classNames={{ inputWrapper: "h-10" }}
-                placeholder="Type (e.g. vendor, partner)"
-                value={stakeholderType}
-                variant="bordered"
-                onChange={(e) =>
-                  setStakeholderType((e.target as HTMLInputElement).value)
-                }
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">
-                Search within results
+            {/* District */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-900">
+                District
               </label>
-              <Input
-                classNames={{ inputWrapper: "h-10" }}
-                placeholder="Search term"
-                value={searchTerm}
-                variant="bordered"
-                onChange={(e) =>
-                  setSearchTerm((e.target as HTMLInputElement).value)
+              <Select
+                placeholder={
+                  selectedProvince ? "Choose a district" : "Select province first"
                 }
-              />
+                selectedKeys={selectedDistrictId ? [selectedDistrictId] : []}
+                variant="bordered"
+                radius="lg"
+                size="sm"
+                classNames={{
+                  trigger: "border-gray-300 bg-white shadow-sm h-9",
+                  value: "text-xs text-gray-700",
+                }}
+                isDisabled={!selectedProvince}
+                isLoading={districtsLoading}
+                onSelectionChange={(keys: any) => {
+                  const id = Array.from(keys)[0] as string;
+                  setSelectedDistrictId(id);
+                  // Reset dependent field
+                  setSelectedMunicipalityId("");
+                }}
+              >
+                {districts.map((district) => (
+                  <SelectItem
+                    key={String(district.id)}
+                    textValue={String(district.name)}
+                  >
+                    {String(district.name)}
+                  </SelectItem>
+                ))}
+              </Select>
+            </div>
+
+            {/* Municipality */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-900">
+                Municipality
+              </label>
+              <Select
+                placeholder={
+                  selectedDistrictId
+                    ? "Choose a municipality"
+                    : "Select district first"
+                }
+                selectedKeys={selectedMunicipalityId ? [selectedMunicipalityId] : []}
+                variant="bordered"
+                radius="lg"
+                size="sm"
+                classNames={{
+                  trigger: "border-gray-300 bg-white shadow-sm h-9",
+                  value: "text-xs text-gray-700",
+                }}
+                isDisabled={!selectedDistrictId}
+                isLoading={municipalitiesLoading}
+                onSelectionChange={(keys: any) => {
+                  const id = Array.from(keys)[0] as string;
+                  setSelectedMunicipalityId(id);
+                }}
+              >
+                {municipalities.map((municipality) => (
+                  <SelectItem
+                    key={String(municipality.id)}
+                    textValue={String(municipality.name)}
+                  >
+                    {String(municipality.name)}
+                  </SelectItem>
+                ))}
+              </Select>
             </div>
           </div>
         </ModalBody>
-        <ModalFooter>
+        <ModalFooter className="px-5 pb-4 pt-3 gap-2.5">
           <Button
             variant="bordered"
-            onPress={() => {
-              handleClear();
-              onApply({});
-            }}
+            radius="lg"
+            size="sm"
+            className="flex-1 h-9 border-gray-300 font-medium text-xs"
+            onPress={handleClear}
           >
-            Reset
+            Clear
           </Button>
           <Button
-            className="bg-black text-white"
+            className="flex-1 h-9 bg-black text-white font-medium text-xs hover:bg-gray-800"
             color="default"
-            onPress={onClose}
+            radius="lg"
+            size="sm"
+            onPress={handleApply}
           >
-            Close
+            Apply
           </Button>
         </ModalFooter>
       </ModalContent>
