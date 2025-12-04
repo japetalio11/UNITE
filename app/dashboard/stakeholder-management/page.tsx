@@ -96,19 +96,24 @@ export default function StakeholderManagement() {
 
   // 1. Determine the source data based on the selected tab
   const rawData = useMemo(() => {
-    if (selectedTab === "pending") return signupRequests;
-    
-    // Filter base list for approved/all tabs
+  // 1. PENDING TAB: Return signup requests directly
+  if (selectedTab === "pending") {
+    return signupRequests;
+  }
+
+  // 2. APPROVED TAB: Filter stakeholders for "Approved" or "Completed" status
+  if (selectedTab === "approved") {
     return stakeholders.filter((s: any) => {
-      const statusRaw = s.Status || s.status || s.Approval || s.approval || "";
-      const st = String(statusRaw || "").toLowerCase();
-      
-      if (selectedTab === "approved") {
-        return st.includes("approve") || st.includes("completed");
-      }
-      return true; // 'all' tab
+      const status = String(s.status || "").toLowerCase();
+      return status.includes("approve") || status.includes("complete");
     });
-  }, [selectedTab, signupRequests, stakeholders]);
+  }
+
+  // 3. ALL TAB: Return all stakeholders (usually just the active ones)
+  // If you want "All" to combine Pending + Approved, you would concat them here,
+  // but typically "All" in this context means "All Active Stakeholders".
+  return stakeholders; 
+}, [selectedTab, signupRequests, stakeholders]);
 
   // 2. Apply Search Filtering (Lifted from Table)
   const filteredData = useMemo(() => {
@@ -1883,18 +1888,18 @@ export default function StakeholderManagement() {
       if (!res.ok) throw new Error(json?.message || "Failed to fetch requests");
       const items = json.data || [];
       // Populate with resolved names
-      const mapped = items.map((req: any) => ({
-        id: req._id,
-        name: `${req.firstName} ${req.middleName || ''} ${req.lastName}`.trim(),
-        email: req.email,
-        phone: req.phoneNumber,
-        organization: req.organization || '',
-        province: req.province?.name || req.province?.Province_Name || provincesMap[req.province] || req.province,
-        district: req.district?.name || req.district?.District_Name || districtsMap?.[req.district]?.name || req.district,
-        municipality: req.municipality?.name || req.municipality?.Name || req.municipality?.City_Municipality || municipalityCache[req.municipality] || req.municipality,
-        status: req.status,
-        submittedAt: new Date(req.submittedAt).toLocaleDateString(),
-      }));
+  const mapped = items.map((req: any) => ({
+    id: req._id,
+    name: `${req.firstName} ${req.middleName || ''} ${req.lastName}`.trim(),
+    email: req.email,
+    phone: req.phoneNumber,
+    organization: req.organization || '',
+    province: req.province?.name || req.province?.Province_Name || provincesMap[req.province] || req.province,
+    district: req.district?.name || req.district?.District_Name || districtsMap?.[req.district]?.name || req.district,
+    municipality: req.municipality?.name || req.municipality?.Name || req.municipality?.City_Municipality || municipalityCache[req.municipality] || req.municipality,
+    status: req.status || "Pending",
+    submittedAt: req.submittedAt ? new Date(req.submittedAt).toLocaleDateString() : "",
+  }));
 
       setSignupRequests(mapped);
     } catch (err: any) {

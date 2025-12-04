@@ -198,38 +198,38 @@ export default function StakeholderTable({
         <table className="w-full">
           {/* Table Header */}
           <thead>
-            <tr className="bg-gray-50/80">
+            <tr className="bg-[#F4F4F5]">
               <th className="px-6 py-3.5 text-left w-12">
-                <Checkbox
-                  aria-label="Select all stakeholders"
-                  checked={isAllSelected}
-                  size="sm"
-                  onValueChange={onSelectAll}
-                />
+              <Checkbox
+                aria-label="Select all stakeholders"
+                checked={isAllSelected}
+                size="sm"
+                onValueChange={onSelectAll}
+              />
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
+              Name
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Email
+              Email
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Phone Number
+              Phone Number
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Entity
+              Entity
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Province
+              Province
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                District
+              District
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Municipality
+              Municipality
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Action
+              Action
               </th>
             </tr>
           </thead>
