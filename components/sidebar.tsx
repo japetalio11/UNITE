@@ -9,7 +9,6 @@ import {
   Bell,
   PersonPlanetEarth,
 } from "@gravity-ui/icons";
-import { ClipboardList } from "lucide-react"; 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -490,13 +489,6 @@ export default function Sidebar({
       href: "/dashboard/coordinator-management",
       icon: Persons,
       key: "coordinator",
-      visible: showCoordinatorLink,
-    },
-    // Add requisition management link - only visible to system admins
-    {
-      href: "/dashboard/requisition",
-      icon: ClipboardList, 
-      key: "requisition",
       visible: showCoordinatorLink,
     },
   ];

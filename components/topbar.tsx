@@ -61,7 +61,7 @@ export default function Topbar({
             classNames={{
               base: "cursor-pointer",
               name: "font-semibold text-gray-900 text-sm",
-              description: "text-defau  lt text-xs",
+              description: "text-default text-xs",
             }}
             description={userEmail}
             name={userName}
