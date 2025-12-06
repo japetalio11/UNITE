@@ -947,10 +947,7 @@ export default function CampaignPage() {
       // Province
       if (quickFilter.province) {
         const pId = String(quickFilter.province);
-        // Check against various possible field names for province ID
-        const evPId = String(
-          ev.Province_ID || ev.province_id || ev.provinceId || "",
-        );
+        const evPId = String(r.province || ev.province || "");
 
         if (evPId && evPId !== pId) return false;
       }
@@ -958,9 +955,7 @@ export default function CampaignPage() {
       // District
       if (quickFilter.district) {
         const dId = String(quickFilter.district);
-        const evDId = String(
-          ev.District_ID || ev.district_id || ev.districtId || "",
-        );
+        const evDId = String(r.district?._id || r.district || ev.district?._id || ev.district || "");
 
         if (evDId && evDId !== dId) return false;
       }
@@ -968,9 +963,7 @@ export default function CampaignPage() {
       // Municipality
       if (quickFilter.municipality) {
         const mId = String(quickFilter.municipality);
-        const evMId = String(
-          ev.Municipality_ID || ev.municipality_id || ev.municipalityId || "",
-        );
+        const evMId = String(r.municipality || ev.municipality || "");
 
         if (evMId && evMId !== mId) return false;
       }
@@ -1083,6 +1076,18 @@ export default function CampaignPage() {
         if (!requestee.includes(String(advancedFilter.requester).toLowerCase()))
           return false;
       }
+      if (advancedFilter.coordinator) {
+        const cId = String(advancedFilter.coordinator);
+        const rCId = String(r.coordinator_id || "");
+
+        if (rCId && rCId !== cId) return false;
+      }
+      if (advancedFilter.stakeholder) {
+        const sId = String(advancedFilter.stakeholder);
+        const rSId = String(r.stakeholder_id || "");
+
+        if (rSId && rSId !== sId) return false;
+      }
       if (advancedFilter.start) {
         try {
           const filterDate = parseDate(advancedFilter.start);
@@ -1100,16 +1105,6 @@ export default function CampaignPage() {
         } catch (e) {
           // ignore malformed date filter
         }
-      }
-
-      // Municipality
-      if (advancedFilter.municipality) {
-        const mId = String(advancedFilter.municipality);
-        const evMId = String(
-          ev.Municipality_ID || ev.municipality_id || ev.municipalityId || "",
-        );
-
-        if (evMId && evMId !== mId) return false;
       }
     }
 
