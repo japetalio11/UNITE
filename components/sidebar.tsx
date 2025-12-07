@@ -7,6 +7,7 @@ import {
   Persons,
   Ticket,
   Bell,
+  Comments,
   PersonPlanetEarth,
 } from "@gravity-ui/icons";
 import Link from "next/link";
@@ -476,6 +477,12 @@ export default function Sidebar({
       href: "/dashboard/calendar",
       icon: Calendar,
       key: "calendar",
+      visible: true,
+    },
+    {
+      href: "/dashboard/chat",
+      icon: Comments,
+      key: "chat",
       visible: true,
     },
     // Only show stakeholder-management to system admins OR coordinators.
