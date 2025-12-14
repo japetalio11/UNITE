@@ -9,7 +9,9 @@ import {
   ModalFooter,
 } from "@heroui/modal";
 import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
+import { Magnifier as Search } from "@gravity-ui/icons";
 import { fetchJsonWithAuth } from "@/utils/fetchWithAuth";
 
 interface QuickFilterModalProps {
@@ -19,13 +21,20 @@ interface QuickFilterModalProps {
     province?: string;
     districtId?: string;
     municipalityId?: string;
+    searchQuery?: string;
   }) => void;
+  isMobile?: boolean;
+  searchQuery?: string;
+  onSearch?: (query: string) => void;
 }
 
 export default function QuickFilterModal({
   isOpen,
   onClose,
   onApply,
+  isMobile = false,
+  searchQuery = "",
+  onSearch,
 }: QuickFilterModalProps) {
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -34,10 +43,16 @@ export default function QuickFilterModal({
   const [selectedProvince, setSelectedProvince] = useState<string>("");
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>("");
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string>("");
+  const [localSearchQuery, setLocalSearchQuery] = useState<string>(searchQuery);
   
   const [provincesLoading, setProvincesLoading] = useState(false);
   const [districtsLoading, setDistrictsLoading] = useState(false);
   const [municipalitiesLoading, setMunicipalitiesLoading] = useState(false);
+
+  // Sync local search query with prop
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -142,6 +157,7 @@ export default function QuickFilterModal({
       province: selectedProvince || undefined,
       districtId: selectedDistrictId || undefined,
       municipalityId: selectedMunicipalityId || undefined,
+      searchQuery: isMobile ? localSearchQuery : undefined,
     });
     onClose();
   };
@@ -151,9 +167,14 @@ export default function QuickFilterModal({
     setSelectedProvince("");
     setSelectedDistrictId("");
     setSelectedMunicipalityId("");
+    if (isMobile) {
+      setLocalSearchQuery("");
+    }
     
     // Apply empty filter to clear the list
-    onApply({});
+    onApply({
+      searchQuery: isMobile ? "" : undefined,
+    });
     // Close the modal so user sees the result
     onClose();
   };
@@ -176,6 +197,28 @@ export default function QuickFilterModal({
         </ModalHeader>
         <ModalBody className="px-5 py-3">
           <div className="space-y-3">
+            {/* Search input - only show on mobile */}
+            {isMobile && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-900">
+                  Search
+                </label>
+                <Input
+                  placeholder="Search user..."
+                  radius="lg"
+                  size="sm"
+                  value={localSearchQuery}
+                  classNames={{
+                    input: "text-sm",
+                    inputWrapper: "border-gray-300 bg-white shadow-sm h-9",
+                  }}
+                  startContent={<Search className="w-4 h-4 text-default-400" />}
+                  variant="bordered"
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+
             {/* Province */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-900">

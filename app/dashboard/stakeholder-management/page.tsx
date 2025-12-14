@@ -14,6 +14,15 @@ import QuickFilterModal from "@/components/stakeholder-management/quick-filter-m
 import AdvancedFilterModal from "@/components/stakeholder-management/advanced-filter-modal";
 import EditStakeholderModal from "@/components/stakeholder-management/stakeholder-edit-modal";
 import DeleteStakeholderModal from "@/components/stakeholder-management/delete-stakeholder-modal";
+import {
+  Ticket,
+  Calendar as CalIcon,
+  PersonPlanetEarth,
+  Persons,
+  Bell,
+  Gear,
+  Comments,
+} from "@gravity-ui/icons";
 // Removed verbose debug logging from this page per request
 
 interface StakeholderFormData {
@@ -88,6 +97,10 @@ export default function StakeholderManagement() {
   // Add Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Or whatever size you prefer
+
+  // Mobile navigation state (matches Calendar page pattern)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Reset to page 1 when search or tab changes
   useEffect(() => {
@@ -217,6 +230,18 @@ export default function StakeholderManagement() {
       };
     }));
   };
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkViewport = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    if (typeof window !== "undefined") {
+      checkViewport();
+      window.addEventListener("resize", checkViewport);
+      return () => window.removeEventListener("resize", checkViewport);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -1991,11 +2016,74 @@ export default function StakeholderManagement() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Mobile Navigation Drawer (right-side) - matches Calendar page pattern */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="ml-auto w-3/4 max-w-sm bg-white h-full shadow-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-sm font-semibold">{displayName || "User"}</div>
+                <div className="text-xs text-default-500">{displayEmail || ""}</div>
+              </div>
+              <button
+                aria-label="Close navigation"
+                onClick={() => setMobileNavOpen(false)}
+                className="p-2 text-xl hover:bg-gray-100 rounded transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <nav className="flex flex-col gap-3">
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/campaign">
+                <Ticket className="w-5 h-5" />
+                Campaign
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/calendar">
+                <CalIcon className="w-5 h-5" />
+                Calendar
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/chat">
+                <Comments className="w-5 h-5" />
+                Chat
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors bg-gray-50 font-semibold" href="/dashboard/stakeholder-management">
+                <Persons className="w-5 h-5" />
+                Stakeholder Management
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/settings">
+                <Gear className="w-5 h-5" />
+                Settings
+              </a>
+            </nav>
+          </div>
+          <div className="flex-1" onClick={() => setMobileNavOpen(false)} />
+        </div>
+      )}
+
       {/* Page Header */}
-      <div className="px-6 pt-6 pb-4">
+      <div className="px-4 sm:px-6 pt-6 pb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">
           Stakeholder Management
         </h1>
+        {/* Mobile hamburger at top-right */}
+        <button
+          aria-label="Open navigation"
+          className="inline-flex items-center justify-center p-2 rounded-md md:hidden hover:bg-gray-100 transition-colors"
+          onClick={() => setMobileNavOpen(true)}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M3 5H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 15H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
 
       {/* Topbar Component */}
@@ -2019,10 +2107,11 @@ export default function StakeholderManagement() {
         totalPages={totalPages}
         onPageChange={setCurrentPage}
         pendingCount={signupRequests.length}
+        isMobile={isMobile}
       />
 
       {/* Table Content */}
-      <div className="px-6 py-4 bg-gray-50">
+      <div className="px-4 sm:px-6 py-4 bg-gray-50">
         <StakeholderTable
           // Pass the SLICED data here
           coordinators={paginatedData} 
@@ -2100,8 +2189,15 @@ export default function StakeholderManagement() {
 
       <QuickFilterModal
         isOpen={openQuickFilter}
+        isMobile={isMobile}
+        searchQuery={searchQuery}
+        onSearch={handleSearch}
         onApply={(f) => {
           setFilters(f);
+          // If search query is in filters, update it
+          if (f.searchQuery !== undefined && isMobile) {
+            setSearchQuery(f.searchQuery);
+          }
           // quick filter is instant: refresh immediately; do not auto-close modal
           fetchStakeholders(f);
         }}
