@@ -47,6 +47,7 @@ export default function SignUp() {
     Field: "",
     Email: "",
     Verification_Code: "",
+    accountType: "",
   });
 
   const update = (patch: Partial<typeof formData>) =>
@@ -54,6 +55,16 @@ export default function SignUp() {
 
   const inputClass =
     "text-sm h-10 bg-white border border-gray-200 rounded-lg placeholder-gray-400 px-3 shadow-sm";
+
+  // Helper to move priority-named items to the top of a list while preserving
+  // the relative order of the remaining items.
+  const prioritize = (items: any[], priorities: string[] = []) => {
+    if (!Array.isArray(items) || items.length === 0) return items;
+    const set = new Set(priorities);
+    const first = items.filter((i) => set.has(i?.name));
+    const rest = items.filter((i) => !set.has(i?.name));
+    return [...first, ...rest];
+  };
 
   const validateStep = () => {
     if (step === 0) {
@@ -65,7 +76,7 @@ export default function SignUp() {
       );
     }
     if (step === 1) {
-      return !!(formData.Province && formData.District && formData.Municipality);
+      return !!(formData.accountType && formData.Province && formData.District && formData.Municipality);
     }
     if (step === 2) {
       return (
@@ -157,6 +168,7 @@ export default function SignUp() {
         province: formData.Province,
         district: formData.District,
         municipality: formData.Municipality,
+        accountType: formData.accountType,
       };
       const res = await fetch(`${API_URL}/api/signup-requests`, {
         method: "POST",
@@ -317,6 +329,27 @@ export default function SignUp() {
           >
             <div className="space-y-3 pb-20">
               <div>
+                <label className="text-sm font-medium block mb-1" htmlFor="accountType">Account Type <span className="text-danger-500">*</span></label>
+                <Select
+                  id="accountType"
+                  className="h-10"
+                  placeholder="Select Account Type"
+                  selectedKeys={formData.accountType ? [formData.accountType] : []}
+                  radius="md"
+                  size="sm"
+                  variant="bordered"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    update({ accountType: val, Province: "", District: "", Municipality: "" });
+                    setDistricts([]);
+                    setMunicipalities([]);
+                  }}
+                >
+                  <SelectItem key="LGU">LGU</SelectItem>
+                  <SelectItem key="Others">Others</SelectItem>
+                </Select>
+              </div>
+              <div>
                 <label className="text-sm font-medium block mb-1" htmlFor="province">Province <span className="text-danger-500">*</span></label>
                 <Select
                   id="province"
@@ -326,6 +359,7 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
+                  isDisabled={!formData.accountType}
                   onChange={(e) => {
                     const val = e.target.value;
                     update({ Province: val, District: "", Municipality: "" });
@@ -337,37 +371,37 @@ export default function SignUp() {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1" htmlFor="district">District <span className="text-danger-500">*</span></label>
+                <label className="text-sm font-medium block mb-1" htmlFor="district">District / City <span className="text-danger-500">*</span></label>
                 <Select
                   id="district"
                   className="h-10"
-                  placeholder="Select District"
+                  placeholder="Select District / Category"
                   selectedKeys={formData.District ? [formData.District] : []}
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.Province}
+                  isDisabled={!formData.Province || !formData.accountType}
                   onChange={(e) => {
                     const val = e.target.value;
                     update({ District: val, Municipality: "" });
                   }}
                 >
-                  {districts.map((dist) => (
+                  {prioritize(districts, ["Blood Service Facilities", "NGO's & Gov't Agencies"]).map((dist) => (
                     <SelectItem key={dist._id}>{dist.name}</SelectItem>
                   ))}
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1" htmlFor="municipality">Municipality <span className="text-danger-500">*</span></label>
+                <label className="text-sm font-medium block mb-1" htmlFor="municipality">Municipality / City <span className="text-danger-500">*</span></label>
                 <Select
                   id="municipality"
                   className="h-10"
-                  placeholder="Select Municipality"
+                  placeholder="Select City / Municipality / Type"
                   selectedKeys={formData.Municipality ? [formData.Municipality] : []}
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.District}
+                  isDisabled={!formData.District || !formData.accountType}
                   onChange={(e) => update({ Municipality: e.target.value })}
                 >
                   {municipalities.map((mun) => (

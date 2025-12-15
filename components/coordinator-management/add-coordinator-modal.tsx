@@ -20,6 +20,10 @@ interface AddCoordinatorModalProps {
   onClose: () => void
   onSubmit: (data: CoordinatorFormData) => void
   isSubmitting?: boolean
+  isSysAdmin?: boolean
+  userAccountType?: string
+  userDistrictId?: string
+  userProvinceId?: string
 }
 
 interface CoordinatorFormData {
@@ -34,6 +38,7 @@ interface CoordinatorFormData {
   province: string
   district: string
   districtId?: string
+  accountType: string
 }
 
 export default function AddCoordinatorModal({
@@ -41,6 +46,10 @@ export default function AddCoordinatorModal({
   onClose,
   onSubmit,
   isSubmitting = false,
+  isSysAdmin = false,
+  userAccountType,
+  userDistrictId,
+  userProvinceId,
 }: AddCoordinatorModalProps) {
   const { getAllProvinces, getDistrictsForProvince } = useLocations();
   const [selectedProvince, setSelectedProvince] = useState<string>("")
@@ -54,6 +63,7 @@ export default function AddCoordinatorModal({
   const [districtsError, setDistrictsError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showRetypePassword, setShowRetypePassword] = useState(false)
+  const [selectedAccountType, setSelectedAccountType] = useState<string>(userAccountType || "")
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -75,6 +85,7 @@ export default function AddCoordinatorModal({
       province: selectedProvince,
       district: formData.get("district") as string,
       districtId: selectedDistrictId,
+      accountType: selectedAccountType,
     }
 
     if (data.password !== data.retypePassword) {
@@ -84,6 +95,11 @@ export default function AddCoordinatorModal({
 
     if (!data.province || !data.district) {
       alert("Please select a Province and District before submitting.")
+      return
+    }
+
+    if (!data.accountType) {
+      alert("Please select an Account Type before submitting.")
       return
     }
 
@@ -291,10 +307,45 @@ export default function AddCoordinatorModal({
                 />
               </div>
 
+              {/* Account Type */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Account Type <span className="text-red-500">*</span></label>
+                <Select
+                  isRequired
+                  classNames={{
+                    trigger: "border-gray-300 bg-white shadow-sm h-10",
+                    value: "text-sm text-gray-900"
+                  }}
+                  name="accountType"
+                  placeholder="Choose Account Type"
+                  radius="lg"
+                  selectedKeys={selectedAccountType ? [selectedAccountType] : []}
+                  variant="bordered"
+                  isDisabled={!isSysAdmin && !!userAccountType}
+                  onSelectionChange={(keys: any) => {
+                    const type = Array.from(keys)[0] as string
+                    setSelectedAccountType(type)
+                    if (!isSysAdmin) {
+                      // For non-sys admin, clear locations when account type changes
+                      setSelectedProvince("")
+                      setSelectedDistrictId("")
+                      setDistricts([])
+                    }
+                  }}
+                >
+                  <SelectItem key="LGU" textValue="LGU">
+                    LGU
+                  </SelectItem>
+                  <SelectItem key="Others" textValue="Others">
+                    Others
+                  </SelectItem>
+                </Select>
+              </div>
+
               {/* Province and District - 2 col */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Province</label>
+                  <label className="text-sm font-medium text-gray-700">Province <span className="text-red-500">*</span></label>
                   <Select
                     isRequired
                     classNames={{
@@ -306,6 +357,7 @@ export default function AddCoordinatorModal({
                     radius="lg"
                     selectedKeys={selectedProvince ? [selectedProvince] : []}
                     variant="bordered"
+                    isDisabled={!selectedAccountType}
                     onSelectionChange={(keys: any) => {
                       const id = Array.from(keys)[0] as string
                       setSelectedProvince(id)
@@ -320,7 +372,7 @@ export default function AddCoordinatorModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">District</label>
+                  <label className="text-sm font-medium text-gray-700">District <span className="text-red-500">*</span></label>
                   <Select
                     isRequired
                     classNames={{
@@ -332,7 +384,7 @@ export default function AddCoordinatorModal({
                     radius="lg"
                     selectedKeys={selectedDistrictId ? [selectedDistrictId] : []}
                     variant="bordered"
-                    isDisabled={!selectedProvince}
+                    isDisabled={!selectedProvince || !selectedAccountType}
                     onSelectionChange={(keys: any) => {
                       const id = Array.from(keys)[0] as string
                       setSelectedDistrictId(id)

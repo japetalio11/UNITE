@@ -37,6 +37,7 @@ interface CalendarToolbarProps {
   onAdvancedFilter?: (filter?: any) => void;
   onCreateEvent?: (eventType: string, eventData: any) => void;
   showCreate?: boolean;
+  showExport?: boolean;
 }
 
 export default function CalendarToolbar({
@@ -45,6 +46,7 @@ export default function CalendarToolbar({
   onAdvancedFilter,
   onCreateEvent,
   showCreate = true,
+  showExport = true,
 }: CalendarToolbarProps) {
   const [selectedEventType, setSelectedEventType] = useState(
     new Set(["blood-drive"]),
@@ -154,29 +156,33 @@ export default function CalendarToolbar({
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <Button
-        className=" border-default-200 bg-white font-medium text-xs"
-        radius="md"
-        size="sm"
-        startContent={<Download className="w-4 h-4" />}
-        variant="bordered"
-        onPress={onExport}
-      >
-        Export
-      </Button>
+    <div className="flex flex-wrap items-center gap-2">
+      {showExport && (
+        <Button
+          className="border-default-200 bg-white font-medium text-xs"
+          radius="md"
+          size="sm"
+          startContent={<Download className="w-3 h-3 sm:w-4 sm:h-4" />}
+          variant="bordered"
+          onPress={onExport}
+        >
+          <span className="hidden sm:inline">Export</span>
+          <span className="sm:hidden">Export</span>
+        </Button>
+      )}
 
       <Dropdown>
         <DropdownTrigger>
           <Button
-            className=" border-default-200 bg-white font-medium text-xs"
-            endContent={<ChevronDown className="w-4 h-4" />}
+            className="border-default-200 bg-white font-medium text-xs"
+            endContent={<ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
             radius="md"
             size="sm"
-            startContent={<Filter className="w-4 h-4" />}
+            startContent={<Filter className="w-3 h-3 sm:w-4 sm:h-4" />}
             variant="bordered"
           >
-            Quick Filter
+            <span className="hidden sm:inline">Quick Filter</span>
+            <span className="sm:hidden">Filter</span>
           </Button>
         </DropdownTrigger>
         <DropdownMenu
@@ -208,15 +214,16 @@ export default function CalendarToolbar({
       </Dropdown>
 
       <Button
-        className=" border-default-200 bg-white font-medium text-xs"
-        endContent={<ChevronDown className="w-4 h-4" />}
+        className="border-default-200 bg-white font-medium text-xs"
+        endContent={<ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
         radius="md"
         size="sm"
-        startContent={<SlidersHorizontal className="w-4 h-4" />}
+        startContent={<SlidersHorizontal className="w-3 h-3 sm:w-4 sm:h-4" />}
         variant="bordered"
         onPress={() => setIsAdvancedModalOpen(true)}
       >
-        Advanced Filter
+        <span className="hidden sm:inline">Advanced Filter</span>
+        <span className="sm:hidden">Advanced</span>
       </Button>
 
       {showCreate && (
@@ -224,15 +231,16 @@ export default function CalendarToolbar({
           <ButtonGroup radius="md" size="sm" variant="solid">
             <Button
               color="primary"
-              startContent={<Ticket className="w-4 h-4" />}
+              startContent={<Ticket className="w-3 h-3 sm:w-4 sm:h-4" />}
               onPress={handleCreateEventClick}
             >
-              {currentEventLabel}
+              <span className="hidden sm:inline">{currentEventLabel}</span>
+              <span className="sm:hidden">Create</span>
             </Button>
             <Dropdown placement="bottom-end">
               <DropdownTrigger>
                 <Button isIconOnly color="primary">
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
               </DropdownTrigger>
               <DropdownMenu

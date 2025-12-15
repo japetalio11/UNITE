@@ -43,13 +43,22 @@ import CalendarToolbar from "@/components/calendar/calendar-toolbar";
 import Topbar from "@/components/topbar";
 import { fetchWithAuth } from "@/utils/fetchWithAuth";
 import { getUserInfo } from "@/utils/getUserInfo";
-import { Menu } from "lucide-react";
+import {
+  Ticket,
+  Calendar as CalIcon,
+  PersonPlanetEarth,
+  Persons,
+  Bell,
+  Gear,
+  Comments,
+} from "@gravity-ui/icons";
 
 export default function CalendarPage(props: any) {
   const publicTitle: string | undefined = props?.publicTitle;
   const pathname = usePathname();
   // Allow create on dashboard calendar, but not on public calendar route
   const allowCreate = pathname === "/calendar" ? false : true;
+  // Default to month view on mobile, week view on desktop
   const [activeView, setActiveView] = useState("week");
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(today.getDate());
@@ -159,8 +168,29 @@ export default function CalendarPage(props: any) {
   >({});
   const [staffLoading, setStaffLoading] = useState(false);
 
-  // Mobile state
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Mobile navigation state (matches Campaign page pattern)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Set default view to month on mobile, week on desktop
+  useEffect(() => {
+    const checkViewport = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile && activeView === "week") {
+        // Mobile: force month view
+        setActiveView("month");
+      }
+    };
+    
+    // Check on mount
+    if (typeof window !== "undefined") {
+      checkViewport();
+      // Listen for resize events
+      window.addEventListener("resize", checkViewport);
+      return () => window.removeEventListener("resize", checkViewport);
+    }
+  }, [activeView]);
 
   // Horizontal scroll refs for calendar views
   const weekViewRef = useRef<HTMLDivElement>(null);
@@ -1441,6 +1471,10 @@ export default function CalendarPage(props: any) {
   };
 
   const handleViewChange = (view: string) => {
+    // Prevent switching to week view on mobile
+    if (isMobile && view === "week") {
+      return; // Don't allow week view on mobile
+    }
     setIsViewTransitioning(true);
     setTimeout(() => {
       setActiveView(view);
@@ -1824,9 +1858,27 @@ export default function CalendarPage(props: any) {
 
   return (
     <div className="flex-1 flex flex-col overflow-visible bg-white">
-      {/* Header: match campaign spacing */}
-      <div className="px-6 pt-6 pb-4">
+      {/* Header: match campaign spacing with mobile hamburger */}
+      <div className="px-4 sm:px-6 pt-6 pb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{publicTitle ?? "Calendar"}</h1>
+        {/* Mobile hamburger at top-right next to Calendar title */}
+        <button
+          aria-label="Open navigation"
+          className="inline-flex items-center justify-center p-2 rounded-md md:hidden hover:bg-gray-100 transition-colors"
+          onClick={() => setMobileNavOpen(true)}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M3 5H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 15H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
 
       <Topbar
@@ -1835,12 +1887,12 @@ export default function CalendarPage(props: any) {
         onUserClick={() => {}}
       />
 
-      {/* Toolbar area with campaign padding */}
-      <div className="px-6 py-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+      {/* Toolbar area with campaign padding - restore desktop layout */}
+      <div className="px-4 sm:px-6 py-4 sm:py-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4 sm:mb-6">
           {/* Left side - View Toggle and Date Navigation */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            {/* View Toggle: use campaign Tabs for consistent sizing */}
+            {/* View Toggle: hide week view on mobile, show only month */}
             <Tabs
               classNames={{
                 tabList: "bg-gray-100 p-1",
@@ -1853,44 +1905,48 @@ export default function CalendarPage(props: any) {
               variant="solid"
               onSelectionChange={(key: React.Key) => handleViewChange(String(key))}
             >
-              <Tab key="week" title="Week" />
+              {/* Hide week tab on mobile */}
+              {!isMobile && <Tab key="week" title="Week" />}
               <Tab key="month" title="Month" />
             </Tabs>
 
-            {/* Date Navigation */}
+            {/* Date Navigation - touch-friendly on mobile */}
             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
               <button
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors touch-manipulation"
                 onClick={() =>
                   activeView === "week"
                     ? navigateWeek("prev")
                     : navigateMonth("prev")
                 }
+                aria-label="Previous period"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <span className="text-sm font-medium text-gray-900 min-w-[160px] sm:min-w-[200px] text-center px-2">
+              <span className="text-xs sm:text-sm font-medium text-gray-900 min-w-[140px] sm:min-w-[200px] text-center px-2">
                 {activeView === "week"
                   ? formatWeekRange(currentDate)
                   : formatMonthYear(currentDate)}
               </span>
               <button
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors touch-manipulation"
                 onClick={() =>
                   activeView === "week"
                     ? navigateWeek("next")
                     : navigateMonth("next")
                 }
+                aria-label="Next period"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
             </div>
           </div>
 
-          {/* Right side - Action Buttons (calendar toolbar copied from campaign) */}
-          <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} sm:block`}>
+          {/* Right side - Action Buttons (calendar toolbar) - restored to right side */}
+          <div className="w-full lg:w-auto">
             <CalendarToolbar
               showCreate={allowCreate}
+              showExport={false}
               onAdvancedFilter={handleAdvancedFilter}
               onCreateEvent={allowCreate ? handleCreateEvent : undefined}
               onExport={handleExport}
@@ -1899,16 +1955,16 @@ export default function CalendarPage(props: any) {
           </div>
         </div>
 
-        {/* Views Container - Now horizontally scrollable */}
-        <div className="relative min-h-[500px] sm:min-h-[700px] overflow-x-auto hide-scrollbar">
+        {/* Views Container - Responsive with proper mobile scrolling */}
+        <div className="relative min-h-[400px] sm:min-h-[500px] md:min-h-[700px] overflow-x-auto hide-scrollbar -mx-4 sm:mx-0 px-4 sm:px-0">
           {/* Week View */}
           <div
             ref={weekViewRef}
             className={`transition-all duration-500 ease-in-out w-full ${getViewTransitionStyle("week")}`}
           >
             <div className="w-full overflow-x-auto">
-              {/* Days of Week Header */}
-              <div className="grid grid-cols-7 gap-1 sm:gap-4 mb-4 w-full min-w-[600px]">
+              {/* Days of Week Header - responsive grid */}
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-4 mb-3 sm:mb-4 w-full min-w-[320px] sm:min-w-[600px]">
                 {days.map((day, index) => (
                   <div key={`day-${index}`} className="text-center">
                     <div className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">
@@ -1929,13 +1985,13 @@ export default function CalendarPage(props: any) {
                 ))}
               </div>
 
-              {/* Event Cards */}
-              <div className="grid grid-cols-7 gap-2 sm:gap-4 mt-4 sm:mt-6 w-full min-w-[600px]">
+              {/* Event Cards - responsive grid with touch-friendly spacing */}
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 md:gap-4 mt-3 sm:mt-4 md:mt-6 w-full min-w-[320px] sm:min-w-[600px]">
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day.fullDate);
 
                   return (
-                    <div key={index} className="min-h-[500px]">
+                    <div key={index} className="min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
                       {eventsLoading ? (
                         // Skeleton loading for events
                         <div className="space-y-3">
@@ -1982,7 +2038,7 @@ export default function CalendarPage(props: any) {
                           {dayEvents.map((event, eventIndex) => (
                             <div
                               key={eventIndex}
-                              className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 hover:shadow-md transition-shadow"
+                              className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 hover:shadow-md active:shadow-sm transition-shadow touch-manipulation"
                             >
                               {/* Three-dot menu */}
                               <div className="flex justify-between items-start mb-1">
@@ -2097,8 +2153,8 @@ export default function CalendarPage(props: any) {
             className={`transition-all duration-500 ease-in-out w-full ${getViewTransitionStyle("month")}`}
           >
             <div className="w-full overflow-x-auto">
-              {/* Days of Week Header */}
-              <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 sm:mb-4 w-full min-w-[600px]">
+              {/* Days of Week Header - responsive */}
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 sm:mb-4 w-full min-w-[320px] sm:min-w-[600px]">
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
                   <div key={day} className="text-center">
                     <div className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">
@@ -2109,13 +2165,13 @@ export default function CalendarPage(props: any) {
                 ))}
               </div>
 
-              {/* Calendar Grid */}
-              <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden w-full min-w-[600px]">
+              {/* Calendar Grid - responsive */}
+              <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden w-full min-w-[320px] sm:min-w-[600px]">
                 <div className="grid grid-cols-7 gap-px bg-gray-200">
                   {generateMonthDays(currentDate).map((day, index) => (
                     <div
                       key={index}
-                      className={`min-h-[80px] sm:min-h-[100px] bg-white p-1 sm:p-2 ${
+                      className={`min-h-[60px] sm:min-h-[80px] md:min-h-[100px] bg-white p-1 sm:p-2 ${
                         !day.isCurrentMonth && "bg-gray-50 text-gray-400"
                       }`}
                     >
@@ -2151,7 +2207,7 @@ export default function CalendarPage(props: any) {
                           {day.events.map((event, eventIndex) => (
                             <div
                               key={eventIndex}
-                              className="text-xs p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm"
+                              className="text-[10px] sm:text-xs p-1 rounded font-medium truncate cursor-pointer transition-colors hover:shadow-sm active:opacity-80 touch-manipulation"
                               role="button"
                               style={{
                                 backgroundColor: `${event.color}22`,
@@ -2411,6 +2467,62 @@ export default function CalendarPage(props: any) {
         </ModalContent>
       </Modal>
 
+      {/* Mobile Navigation Drawer (right-side) - matches Campaign page pattern */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="ml-auto w-3/4 max-w-sm bg-white h-full shadow-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-sm font-semibold">{currentUserName || "User"}</div>
+                <div className="text-xs text-default-500">{currentUserEmail || ""}</div>
+              </div>
+              <button
+                aria-label="Close navigation"
+                onClick={() => setMobileNavOpen(false)}
+                className="p-2 text-xl hover:bg-gray-100 rounded transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <nav className="flex flex-col gap-3">
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/campaign">
+                <Ticket className="w-5 h-5" />
+                Campaign
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors bg-gray-50 font-semibold" href="/dashboard/calendar">
+                <CalIcon className="w-5 h-5" />
+                Calendar
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/chat">
+                <Comments className="w-5 h-5" />
+                Chat
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/stakeholder-management">
+                <PersonPlanetEarth className="w-5 h-5" />
+                Stakeholders
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/coordinator-management">
+                <Persons className="w-5 h-5" />
+                Coordinators
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/notification">
+                <Bell className="w-5 h-5" />
+                Notifications
+              </a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/settings">
+                <Gear className="w-5 h-5" />
+                Settings
+              </a>
+              <a className="flex items-center gap-3 text-sm text-danger hover:bg-red-50 p-2 rounded transition-colors" href="/auth/login">
+                Logout
+              </a>
+            </nav>
+          </div>
+          <div className="flex-1" onClick={() => setMobileNavOpen(false)} />
+        </div>
+      )}
+
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -2418,6 +2530,9 @@ export default function CalendarPage(props: any) {
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        .touch-manipulation {
+          touch-action: manipulation;
         }
       `}</style>
     </div>
