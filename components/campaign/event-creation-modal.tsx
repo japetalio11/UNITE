@@ -68,12 +68,8 @@ export const CreateTrainingEventModal: React.FC<
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [dateError, setDateError] = useState("");
-  const coordinators = [
-    // placeholder - will be replaced by fetched coordinators when modal opens
-    { key: "john", label: "John Doe" },
-    { key: "jane", label: "Jane Smith" },
-    { key: "bob", label: "Bob Johnson" },
-  ];
+  // no placeholder coordinators; real options come from `coordinatorOptions`
+  const coordinators: { key: string; label: string }[] = [];
 
   const [coordinatorOptions, setCoordinatorOptions] = useState<
     { key: string; label: string }[]
@@ -657,9 +653,7 @@ export const CreateTrainingEventModal: React.FC<
 
                 if (isAdmin) {
                   // If there are no coordinator options at all, show a disabled message
-                  const availableCount =
-                    (coordinatorOptions?.length || 0) +
-                    (coordinators?.length || 0);
+                  const availableCount = (coordinatorOptions?.length || 0);
 
                   if (availableCount === 0) {
                     return (
@@ -691,10 +685,7 @@ export const CreateTrainingEventModal: React.FC<
                         setCoordinator(Array.from(keys)[0] as string)
                       }
                     >
-                      {(coordinatorOptions.length
-                        ? coordinatorOptions
-                        : coordinators
-                      ).map((coord) => (
+                      {coordinatorOptions.map((coord) => (
                         <SelectItem key={coord.key}>{coord.label}</SelectItem>
                       ))}
                     </Select>
@@ -702,7 +693,23 @@ export const CreateTrainingEventModal: React.FC<
                 }
 
                 // Non-admin: show locked input with coordinator full name if available
-                const selected = coordinatorOptions[0];
+                if ((coordinatorOptions?.length || 0) === 0) {
+                  return (
+                    <Input
+                      disabled
+                      classNames={{
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
+                      }}
+                      radius="md"
+                      size="sm"
+                      type="text"
+                      value={"No coordinators available"}
+                      variant="bordered"
+                    />
+                  )
+                }
+
+                const selected = coordinatorOptions.find((c) => c.key === coordinator) || coordinatorOptions[0]
 
                 return (
                   <Input
@@ -1642,9 +1649,7 @@ export const CreateBloodDriveEventModal: React.FC<
                 );
 
                 if (isAdmin) {
-                  const availableCount =
-                    (coordinatorOptions?.length || 0) +
-                    (coordinators?.length || 0);
+                  const availableCount = (coordinatorOptions?.length || 0);
 
                   if (availableCount === 0) {
                     return (
@@ -1676,17 +1681,30 @@ export const CreateBloodDriveEventModal: React.FC<
                         setCoordinator(Array.from(keys)[0] as string)
                       }
                     >
-                      {(coordinatorOptions.length
-                        ? coordinatorOptions
-                        : coordinators
-                      ).map((coord) => (
+                      {coordinatorOptions.map((coord) => (
                         <SelectItem key={coord.key}>{coord.label}</SelectItem>
                       ))}
                     </Select>
                   );
                 }
 
-                const selected = coordinatorOptions[0];
+                if ((coordinatorOptions?.length || 0) === 0) {
+                  return (
+                    <Input
+                      disabled
+                      classNames={{
+                        inputWrapper: "border-default-200 h-9 bg-default-100",
+                      }}
+                      radius="md"
+                      size="sm"
+                      type="text"
+                      value={"No coordinators available"}
+                      variant="bordered"
+                    />
+                  )
+                }
+
+                const selected = coordinatorOptions.find((c) => c.key === coordinator) || coordinatorOptions[0]
 
                 return (
                   <Input

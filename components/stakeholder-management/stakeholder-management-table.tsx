@@ -44,6 +44,12 @@ interface StakeholderTableProps {
   onAcceptRequest?: (id: string) => void;
   onRejectRequest?: (id: string) => void;
   loading?: boolean;
+  // Optional current user context to enable role-aware filtering
+  currentUser?: {
+    role?: string;
+    district?: string;
+    accountType?: string;
+  };
 }
 
 export default function StakeholderTable({
@@ -61,6 +67,7 @@ export default function StakeholderTable({
   onAcceptRequest,
   onRejectRequest,
   loading = false,
+  currentUser,
 }: StakeholderTableProps) {
   const [, /*unused*/ setUnused] = useState(false);
 
@@ -90,7 +97,32 @@ export default function StakeholderTable({
     return fallback;
   };
 
-  const filteredCoordinators = coordinators.filter((coordinator) => {
+  // Apply role-aware visible set first: sysadmin sees all, coordinator sees only matching district+accountType
+  const userRole = (currentUser?.role || "").toString().toLowerCase();
+  const userDistrict = (currentUser?.district || "").toString().toLowerCase();
+  const userAccountType = (currentUser?.accountType || "").toString().toLowerCase();
+
+  const visibleCoordinators =
+    userRole === "sysadmin" || userRole === "systemadmin" || !userRole
+      ? coordinators
+      : coordinators.filter((coordinator) => {
+          const coordDistrict = (displayValue(coordinator.district, "")).toLowerCase();
+          const coordAccountType = (
+            (coordinator as any).accountType || (coordinator as any).Account_Type || ""
+          )
+            .toString()
+            .toLowerCase();
+
+          // If user provided both, require both to match. Otherwise match available criterion.
+          if (userDistrict && userAccountType) {
+            return coordDistrict === userDistrict && coordAccountType === userAccountType;
+          }
+          if (userDistrict) return coordDistrict === userDistrict;
+          if (userAccountType) return coordAccountType === userAccountType;
+          return true;
+        });
+
+  const filteredCoordinators = visibleCoordinators.filter((coordinator) => {
     const q = searchQuery.toLowerCase();
 
     return (

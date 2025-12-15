@@ -406,39 +406,57 @@ export default function EditStakeholderModal({
 
   // ... existing code for displayedProvinceName and displayedDistrictName ...
   const displayedProvinceName = (() => {
-    if (selectedProvince && !String(selectedProvince).match(/^[0-9a-fA-F]{24}$/)) {
+    const provKey = selectedProvince || province || null
+    if (!provKey) return ""
+
+    // If selectedProvince is a readable name (not an ObjectId), prefer it
+    if (typeof provKey === "string" && !String(provKey).match(/^[0-9a-fA-F]{24}$/)) {
+      // Try to find a district that references this province to get a nicer name
       const pick = districts.find(
         (d) =>
-          String(d.Province_Name) === String(selectedProvince) ||
-          String(d.Province) === String(selectedProvince) ||
-          String(d.province) === String(selectedProvince),
+          String(d.Province_Name) === String(provKey) ||
+          String(d.Province) === String(provKey) ||
+          String(d.province) === String(provKey),
       )
-      if (pick) return pick.Province_Name || pick.Province || pick.province || String(selectedProvince)
-      return String(selectedProvince)
+      if (pick) return pick.Province_Name || pick.Province || pick.province || String(provKey)
+      return String(provKey)
     }
-    if (province) {
-      const objIdLike = String(province).match(/^[0-9a-fA-F]{24}$/)
-      if (objIdLike) {
-        const pmatch = provinces.find((p) => String(p.id) === String(province))
-        if (pmatch) {
-          if (!selectedProvinceId) setSelectedProvinceId(String(pmatch.id))
-          return pmatch.name || String(pmatch.id)
-        }
-        if (districts && districts.length > 0) {
-          const pick = districts.find(
-            (d) =>
-              String(d.Province) === String(province) ||
-              String(d.Province_ID) === String(province) ||
-              (d.Province && String(d.Province._id) === String(province)) ||
-              String(d._id) === String(province) ||
-              String(d.id) === String(province),
-          )
-          if (pick) return pick.Province_Name || pick.Province || pick.province || String(province)
-        }
+
+    // If provKey looks like an ObjectId (or numeric id), try to resolve against loaded provinces
+    const keyStr = String(provKey)
+    const idLike = keyStr.match(/^[0-9a-fA-F]{24}$/)
+    if (idLike) {
+      // Look for common fields in province objects
+      const pmatch = provinces.find((p: any) =>
+        String(p._id) === keyStr || String(p.id) === keyStr || String(p.Province_ID || "") === keyStr,
+      )
+      if (pmatch) {
+        if (!selectedProvinceId) setSelectedProvinceId(String(pmatch._id || pmatch.id))
+        return pmatch.name || pmatch.Province_Name || String(pmatch._id || pmatch.id)
       }
-      return String(province)
+
+      // Last resort: search districts for a province mapping
+      if (districts && districts.length > 0) {
+        const pick = districts.find(
+          (d) =>
+            String(d.Province) === keyStr ||
+            String(d.Province_ID) === keyStr ||
+            (d.Province && String(d.Province._id) === keyStr) ||
+            String(d._id) === keyStr ||
+            String(d.id) === keyStr,
+        )
+        if (pick) return pick.Province_Name || pick.Province || pick.province || keyStr
+      }
     }
-    return ""
+
+    // If provKey is an object (may come from coordinator.Province), try common name fields
+    if (typeof provKey === "object") {
+      const p = provKey as any
+      return p.Province_Name || p.name || p.Province || String(p._id || p.id || "")
+    }
+
+    // Fallback: return stringified key
+    return String(provKey)
   })()
 
   const displayedDistrictName = (() => {
