@@ -30,6 +30,7 @@ export default function EditCoordinatorModal({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [accountType, setAccountType] = useState("");
 
   const [districts, setDistricts] = useState<any[]>([]);
   const [districtId, setDistrictId] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export default function EditCoordinatorModal({
     setPhoneNumber(
       staff.Phone_Number || staff.phoneNumber || staff.phone || "",
     );
+    setAccountType(coordinator.accountType || "");
 
     // Try to derive province and district ids or fallback to legacy names/ids
     const districtObj = coordinator.District || null;
@@ -268,6 +270,16 @@ export default function EditCoordinatorModal({
         return;
       }
 
+      // Validate account type selection
+      if (!accountType) {
+        setValidationErrors([
+          "Please select an Assignment before saving.",
+        ]);
+        setIsSubmitting(false);
+
+        return;
+      }
+
       // Build payload: include both new refs and legacy fields for compatibility
       const payload: any = {};
 
@@ -280,6 +292,7 @@ export default function EditCoordinatorModal({
       // New normalized fields (ObjectId refs)
       payload.district = districtId;
       payload.province = selectedProvinceId;
+      payload.accountType = accountType;
 
       // Legacy compatibility fields
       payload.District_ID = districtId;
@@ -429,6 +442,25 @@ export default function EditCoordinatorModal({
                   }
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Assignment</label>
+              <Select
+                placeholder="Select assignment"
+                selectedKeys={accountType ? [accountType] : []}
+                onSelectionChange={(keys: any) => {
+                  const type = Array.from(keys)[0] as string;
+                  setAccountType(type);
+                }}
+              >
+                <SelectItem key="LGU" textValue="LGU">
+                  LGU
+                </SelectItem>
+                <SelectItem key="Others" textValue="Others">
+                  Others
+                </SelectItem>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

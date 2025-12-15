@@ -25,6 +25,7 @@ interface CoordinatorFormData {
   province: string;
   district: string;
   districtId?: string;
+  accountType: string;
 }
 
 export default function CoordinatorManagement() {
@@ -177,6 +178,7 @@ export default function CoordinatorManagement() {
         province: data.province,
         District_ID: data.districtId || data.district,
         Province_Name: data.province,
+        accountType: data.accountType,
       };
 
       const body = { staffData, coordinatorData, createdByAdminId: adminId };
@@ -544,6 +546,16 @@ export default function CoordinatorManagement() {
           provinceId: resolveProvinceId(),
           district: resolveDistrictName(),
           districtId: resolveDistrictId(),
+          // accountType/assignment: prefer top-level coordinator field, then staff or legacy keys
+          accountType:
+            c.accountType ||
+            c.account_type ||
+            c.AccountType ||
+            (c.Coordinator && (c.Coordinator.accountType || c.Coordinator.account_type)) ||
+            staff.accountType ||
+            staff.AccountType ||
+            c.account ||
+            "",
         };
       });
 

@@ -647,6 +647,8 @@ export default function StakeholderManagement() {
         Phone_Number: data.contactNumber,
         Password: data.password,
         Province_Name: data.province,
+        // Account type (LGU / Others)
+        Account_Type: data.accountType || data.accountType || null,
         // Primary field used by backend validations
         District_ID: resolvedDistrictValue || null,
         // Supplemental: include DB object id when available (some backends expect this)
@@ -664,6 +666,8 @@ export default function StakeholderManagement() {
         phoneNumber: data.contactNumber,
         password: data.password,
         organizationInstitution: data.organization || null,
+        // accountType for normalized payload
+        accountType: data.accountType || null,
         // Send DB object ids for district/province/municipality where possible
         district: resolvedDistrictObj?._id || resolvedDistrictValue || null,
         province: resolvedDistrictObj?.Province_ID || data.provinceId || null,
@@ -2165,6 +2169,7 @@ export default function StakeholderManagement() {
         coordinator={editingStakeholder}
         isOpen={isEditModalOpen}
         isSysAdmin={canManageStakeholders}
+        districtsProp={districtsList}
         userDistrictId={userDistrictId}
         onClose={() => {
           setIsEditModalOpen(false);

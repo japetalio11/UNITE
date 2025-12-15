@@ -22,6 +22,7 @@ interface Coordinator {
   phone: string;
   province: string;
   district: string;
+  accountType?: string;
 }
 
 interface CoordinatorTableProps {
@@ -118,6 +119,9 @@ export default function CoordinatorTable({
                   Phone Number
                 </th>
                 <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assignment
+                </th>
+                <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Province
                 </th>
                 <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -142,6 +146,9 @@ export default function CoordinatorTable({
                   </td>
                   <td className="px-6 py-4">
                     <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="h-4 bg-gray-200 rounded w-24"></div>
@@ -187,6 +194,9 @@ export default function CoordinatorTable({
                 Phone Number
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Assignment
+              </th>
+              <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Province
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -223,6 +233,9 @@ export default function CoordinatorTable({
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {coordinator.phone}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {coordinator.accountType || "—"}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {normalizeProvince(coordinator) || "—"}

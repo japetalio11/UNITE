@@ -14,6 +14,7 @@ interface EditStakeholderModalProps {
   isSysAdmin?: boolean
   userDistrictId?: string | null
   onSaved?: () => void
+  districtsProp?: any[]
 }
 
 export default function EditStakeholderModal({
@@ -23,6 +24,7 @@ export default function EditStakeholderModal({
   isSysAdmin = false,
   userDistrictId = null,
   onSaved,
+  districtsProp = [],
 }: EditStakeholderModalProps) {
   const [firstName, setFirstName] = useState("")
   const [middleName, setMiddleName] = useState("")
@@ -32,9 +34,8 @@ export default function EditStakeholderModal({
   const [organization, setOrganization] = useState("")
   const [cityMunicipality, setCityMunicipality] = useState("")
   const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  
   const [districts, setDistricts] = useState<any[]>([])
   const [districtId, setDistrictId] = useState<string | null>(null)
   const [province, setProvince] = useState<string>("")
@@ -46,8 +47,179 @@ export default function EditStakeholderModal({
   const [districtsLoading, setDistrictsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [accountType, setAccountType] = useState<string | null>(null)
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+  // preload districts if parent passed them and fetch provinces
+  useEffect(() => {
+    if (Array.isArray(districtsProp) && districtsProp.length > 0) {
+      setDistricts(districtsProp)
+    }
+
+    const fetchProvinces = async () => {
+      setProvincesLoading(true)
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+        const url = base ? `${base}/api/locations/provinces` : `/api/locations/provinces`
+        let token = null
+        try {
+          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token")
+        } catch (e) {
+          token = null
+        }
+        const headers: any = {}
+        if (token) headers["Authorization"] = `Bearer ${token}`
+        const res = await fetch(url, { headers })
+        const bodyText = await res.text()
+        let body: any = null
+        try {
+          body = bodyText ? JSON.parse(bodyText) : null
+        } catch {
+          throw new Error("Invalid JSON from provinces endpoint")
+        }
+        if (!res.ok) throw new Error(body?.message || `Failed to fetch provinces (status ${res.status})`)
+        const items = body.data || body || []
+        setProvinces(Array.isArray(items) ? items : [])
+      } catch (err: any) {
+        // ignore; leave provinces empty
+      } finally {
+        setProvincesLoading(false)
+      }
+    }
+    fetchProvinces()
+  }, [districtsProp])
+
+  // when a province id/name is available, try to resolve selectedProvinceId
+  useEffect(() => {
+    if (!provinces || provinces.length === 0) return
+    const provKey = selectedProvince || province
+    if (!provKey) return
+    const match = provinces.find((p: any) => String(p.id) === String(provKey) || String(p._id) === String(provKey) || String(p.name) === String(provKey) || String(p.Province_Name) === String(provKey))
+    if (match) setSelectedProvinceId(String(match.id || match._id || match.id))
+  }, [provinces, selectedProvince, province])
+
+  // Try to resolve districtId from loaded `districts` when possible (match by name or district id)
+  useEffect(() => {
+    if ((!districts || districts.length === 0) || districtId) return
+    const coordDistrictCandidates = [
+      coordinator?.District?.District_Name,
+      coordinator?.District?.name,
+      coordinator?.District_Name,
+      coordinator?.districtName,
+      coordinator?.District,
+      coordinator?.district,
+    ].filter(Boolean)
+    if (coordDistrictCandidates.length === 0) return
+    for (const cand of coordDistrictCandidates) {
+      const found = districts.find((d: any) => {
+        const name = String(d.District_Name || d.name || d.District || d.District_Number || d.District_ID || d.id || d._id)
+        return String(name) === String(cand) || String(d.District_ID) === String(cand) || String(d._id) === String(cand) || String(d.id) === String(cand)
+      })
+      if (found) {
+        setDistrictId(String(found._id || found.id || found.District_ID))
+        break
+      }
+    }
+  }, [districts, coordinator, districtId])
+
+  // fetch districts for selected province if not provided
+  useEffect(() => {
+    const fetchDistrictsForProvince = async () => {
+      if (!selectedProvinceId) return
+      setDistrictsLoading(true)
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+        const url = base
+          ? `${base}/api/locations/provinces/${encodeURIComponent(selectedProvinceId)}/districts`
+          : `/api/locations/provinces/${encodeURIComponent(selectedProvinceId)}/districts`
+        let token = null
+        try {
+          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token")
+        } catch (e) {
+          token = null
+        }
+        const headers: any = {}
+        if (token) headers["Authorization"] = `Bearer ${token}`
+        const res = await fetch(url, { headers })
+        const bodyText = await res.text()
+        let body: any = null
+        try {
+          body = bodyText ? JSON.parse(bodyText) : null
+        } catch {
+          throw new Error("Invalid JSON from districts endpoint")
+        }
+        if (!res.ok) throw new Error(body?.message || `Failed to fetch districts (status ${res.status})`)
+        const items = body.data || body || []
+        setDistricts(Array.isArray(items) ? items : [])
+      } catch (err: any) {
+        // ignore
+      } finally {
+        setDistrictsLoading(false)
+      }
+    }
+    fetchDistrictsForProvince()
+  }, [selectedProvinceId])
+
+  // fetch municipalities for district
+  useEffect(() => {
+    const loadMunicipalities = async () => {
+      if (!districtId) {
+        setMunicipalities([])
+        return
+      }
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+        const url = base
+          ? `${base}/api/locations/districts/${encodeURIComponent(String(districtId))}/municipalities`
+          : `/api/locations/districts/${encodeURIComponent(String(districtId))}/municipalities`
+        let token = null
+        try {
+          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token")
+        } catch (e) {
+          token = null
+        }
+        const headers: any = {}
+        if (token) headers["Authorization"] = `Bearer ${token}`
+        const res = await fetch(url, { headers })
+        const bodyText = await res.text()
+        let body: any = null
+        try {
+          body = bodyText ? JSON.parse(bodyText) : null
+        } catch {
+          throw new Error("Invalid JSON from municipalities endpoint")
+        }
+        if (!res.ok) throw new Error(body?.message || `Failed to fetch municipalities (status ${res.status})`)
+        const items = body.data || body || []
+        setMunicipalities(Array.isArray(items) ? items : [])
+      } catch (err: any) {
+        setMunicipalities([])
+      }
+    }
+    loadMunicipalities()
+  }, [districtId])
+
+  // When municipalities load, try to resolve coordinator's municipality to an id so Select shows it
+  useEffect(() => {
+    if (!Array.isArray(municipalities) || municipalities.length === 0) return
+    const coordMuniId = coordinator?.Municipality_ID || coordinator?.municipalityId || coordinator?.municipality || null
+    const coordMuniName = coordinator?.City_Municipality || coordinator?.cityMunicipality || coordinator?.City || coordinator?.Municipality || null
+    if (coordMuniId) {
+      const found = municipalities.find((m: any) =>
+        String(m._id || m.id || m.Municipality_ID || m.MunicipalityId) === String(coordMuniId),
+      )
+      if (found) {
+        setCityMunicipality(String(found._id || found.id || found.Municipality_ID || found.MunicipalityId))
+        return
+      }
+    }
+    if (coordMuniName) {
+      const found = municipalities.find((m: any) => {
+        const name = String(m.name || m.Name || m.City_Municipality || m.City || m.CityMunicipality || m).toLowerCase()
+        return name === String(coordMuniName).toLowerCase()
+      })
+      if (found) setCityMunicipality(String(found._id || found.id || found.Municipality_ID || found.MunicipalityId))
+    }
+  }, [municipalities, coordinator])
 
   useEffect(() => {
     if (isOpen && coordinator) {
@@ -60,26 +232,87 @@ export default function EditStakeholderModal({
       setEmail(coordinator.Email || coordinator.email || "")
       setPhoneNumber(coordinator.Phone_Number || coordinator.phoneNumber || "")
 
-      // Populate organization and location
-      setOrganization(coordinator.Organization_Institution || coordinator.organization || "")
-      setCityMunicipality(coordinator.City_Municipality || coordinator.cityMunicipality || "")
+      // Populate organization from multiple possible shapes (mirror page resolution)
+      const resolveOrg = (() => {
+        const s: any = coordinator || {}
+        const tryValues = [
+          s.Organization_Institution,
+          s.Organization,
+          s.organization,
+          s.OrganizationName,
+          s.Organization_Name,
+            s.organization_institution,
+            s.organizationInstitution,
+          s.Organisation,
+          s.organisation,
+          s.OrganizationInstitution,
+          s.data && s.data.Organization_Institution,
+          s.data && s.data.organization,
+          s.stakeholder && s.stakeholder.Organization_Institution,
+          s.stakeholder && s.stakeholder.organization,
+          s.result && s.result.Organization_Institution,
+          s.details && s.details.Organization_Institution,
+        ]
+        for (const v of tryValues) {
+          if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim()
+        }
+        for (const k of Object.keys(s || {})) {
+          const key = String(k).toLowerCase()
+          if (key.includes("organ") || key.includes("institut") || key.includes("organisation")) {
+            const v = s[k]
+            if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim()
+          }
+        }
+        return ""
+      })()
+      setOrganization(resolveOrg)
+      setCityMunicipality(
+        coordinator.City_Municipality || coordinator.cityMunicipality || coordinator.City || coordinator.Municipality || coordinator.Municipality_Name || "",
+      )
 
-      // Populate province and district
-      const provName = coordinator.Province_Name || coordinator.province || ""
+
+      // Populate province and district (support multiple shapes)
+      let provName = ""
+      if (coordinator.Province_Name) provName = coordinator.Province_Name
+      else if (coordinator.province) provName = coordinator.province
+      else if (coordinator.Province) {
+        if (typeof coordinator.Province === "string") provName = coordinator.Province
+        else provName = coordinator.Province.Province_Name || coordinator.Province.name || coordinator.Province.province || ""
+      }
       setProvince(provName)
       setSelectedProvince(provName)
 
-      const distId = coordinator.District_ID || coordinator.districtId || coordinator.district?.id || null
+      const distId =
+        coordinator.District_ID || coordinator.districtId || coordinator.District?.District_ID || coordinator.District?.id || coordinator.District?._id || null
       setDistrictId(distId ? String(distId) : null)
 
-      // Clear password fields for edit mode
+      // Try to pick a municipality id if present on the coordinator (prefer ids over names)
+      const muniId =
+        coordinator.Municipality_ID || coordinator.municipalityId || coordinator.municipality || coordinator.Municipality || null
+      if (muniId) setCityMunicipality(String(muniId))
+
+      // Populate account type (assignment)
+      setAccountType(coordinator.Account_Type || coordinator.accountType || null)
+
+      // Clear password field for edit mode
       setNewPassword("")
-      setConfirmPassword("")
 
       // Clear validation errors
       setValidationErrors([])
     }
   }, [isOpen, coordinator])
+
+  // Accept districtsProp and preload provinces/districts similar to AddStakeholderModal
+  useEffect(() => {
+    // @ts-ignore
+    const propsAny: any = ({} as any)
+    try {
+      // read via the actual variable name from the outer scope
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+    } catch (e) {
+      /* noop */
+    }
+  }, [])
 
   const handleSave = async () => {
     if (!coordinator) return
@@ -101,23 +334,27 @@ export default function EditStakeholderModal({
       if (lastName) payload.Last_Name = lastName
       if (email) payload.Email = email
       if (phoneNumber) payload.Phone_Number = phoneNumber
-      if (isSysAdmin && districtId) payload.District_ID = districtId
-      payload.Province_Name = (selectedProvince || province) as any
+      // Only sysadmin may change province/district/accountType
+      if (isSysAdmin) {
+        if (districtId) payload.District_ID = districtId
+        payload.Province_Name = (selectedProvince || province) as any
+      }
       if (organization !== undefined) payload.Organization_Institution = organization || null
       if (cityMunicipality !== undefined) payload.City_Municipality = cityMunicipality || null
 
       if (newPassword && String(newPassword).trim().length > 0) {
-        if (newPassword !== confirmPassword) {
-          setValidationErrors(["Passwords do not match"])
-          setIsSubmitting(false)
-          return
-        }
         payload.Password = newPassword
         payload.password = newPassword
       }
 
       if (isSysAdmin && districtId) payload.district = districtId
       if (cityMunicipality !== undefined) payload.municipality = cityMunicipality || null
+
+      // Account type (assignment) only editable by sysadmin
+      if (isSysAdmin && (accountType !== undefined && accountType !== null)) {
+        payload.Account_Type = accountType || null
+        payload.accountType = accountType || null
+      }
 
       const res = await fetch(`${API_URL}/api/stakeholders/${coordId}`, {
         method: "PUT",
@@ -316,10 +553,10 @@ export default function EditStakeholderModal({
             {/* Password Fields */}
             <div>
               <label className="text-sm font-semibold text-gray-900 mb-2 block">
-                Set Password <span className="text-red-500">*</span>
+                Password <span className="text-gray-500 text-xs">(leave blank to keep current)</span>
               </label>
               <Input
-                placeholder="Set password"
+                placeholder="Leave blank to keep current password"
                 classNames={{ inputWrapper: "h-10" }}
                 endContent={
                   <button
@@ -343,31 +580,19 @@ export default function EditStakeholderModal({
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-900 mb-2 block">
-                Retype Password <span className="text-red-500">*</span>
-              </label>
-              <Input
-                placeholder="Enter contact number"
-                classNames={{ inputWrapper: "h-10" }}
-                endContent={
-                  <button
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                    className="focus:outline-none"
-                    type="button"
-                    onClick={() => setShowConfirmPassword((s) => !s)}
-                  >
-                    {showConfirmPassword ? (
-                      <Eye className="text-gray-600 pointer-events-none w-5 h-5" />
-                    ) : (
-                      <EyeOff className="text-gray-600 pointer-events-none w-5 h-5" />
-                    )}
-                  </button>
-                }
-                type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                variant="bordered"
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+              <label className="text-sm font-semibold text-gray-900 mb-2 block">Account Type</label>
+              <Select
+                placeholder={isSysAdmin ? "Choose Account Type" : "Account type (view only)"}
+                selectedKeys={accountType ? [String(accountType)] : []}
+                disabled={!isSysAdmin}
+                onSelectionChange={(keys: any) => {
+                  const v = Array.from(keys)[0] as string
+                  setAccountType(v || null)
+                }}
+              >
+                <SelectItem key="LGU" textValue="LGU">LGU</SelectItem>
+                <SelectItem key="Others" textValue="Others">Others</SelectItem>
+              </Select>
             </div>
 
             {/* Province and District */}
@@ -380,19 +605,25 @@ export default function EditStakeholderModal({
                     selectedKeys={selectedProvinceId ? [String(selectedProvinceId)] : []}
                     onSelectionChange={(keys: any) => {
                       const id = Array.from(keys)[0] as string
-                      const match = provinces.find((p) => String(p.id) === String(id))
+                      const match = provinces.find((p) =>
+                        String(p.id) === String(id) || String(p._id) === String(id) || String(p.name) === String(id) || String(p.Province_Name) === String(id),
+                      )
                       if (match) {
-                        setSelectedProvinceId(String(match.id))
-                        setSelectedProvince(match.name || String(match.id))
+                        setSelectedProvinceId(String(match.id || match._id))
+                        setSelectedProvince(match.name || match.Province_Name || String(match.id || match._id))
                         setDistrictId(null)
                       }
                     }}
                   >
-                    {(provinces || []).map((p: any) => (
-                      <SelectItem key={String(p.id)} textValue={String(p.name)}>
-                        {String(p.name)}
-                      </SelectItem>
-                    ))}
+                    {(provinces || []).map((p: any, idx: number) => {
+                      const key = String(p.id ?? p._id ?? p._id ?? p.name ?? idx)
+                      const label = String(p.name || p.Province_Name || p.name || p.Province || key)
+                      return (
+                        <SelectItem key={key} textValue={label}>
+                          {label}
+                        </SelectItem>
+                      )
+                    })}
                   </Select>
                 ) : (
                   <Input
@@ -527,6 +758,8 @@ export default function EditStakeholderModal({
                 />
               </div>
             </div>
+
+            
 
             {/* Validation Errors */}
             {validationErrors && validationErrors.length > 0 && (
