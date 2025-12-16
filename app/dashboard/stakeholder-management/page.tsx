@@ -95,6 +95,7 @@ export default function StakeholderManagement() {
   const [openUserDistrictId, setOpenUserDistrictId] = useState<string | null>(
     null,
   );
+  const [userAccountType, setUserAccountType] = useState<string | null>(null);
   // Add Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Or whatever size you prefer
@@ -271,6 +272,17 @@ export default function StakeholderManagement() {
       // Previous logic required both which could incorrectly block sys-admin users.
       const resolvedCanManage = !!(isSystemAdmin || isStaffAdmin || roleLower === "admin");
       setCanManageStakeholders(resolvedCanManage);
+      // Determine a default account type for non-sysadmin roles (e.g. Coordinators)
+      let accountType: string | null = null;
+      try {
+        const staffLower = (staffType || "").toString().toLowerCase();
+        if (staffLower === "coordinator" || roleLower.includes("coordinator")) {
+          accountType = "LGU";
+        }
+      } catch (e) {
+        accountType = null;
+      }
+      setUserAccountType(accountType);
       // Stakeholders cannot access this page
       if (roleLower === "stakeholder") {
         try {
@@ -2086,6 +2098,7 @@ export default function StakeholderManagement() {
         isSysAdmin={canManageStakeholders}
         modalError={modalError}
         userDistrictId={openUserDistrictId ?? userDistrictId}
+        userAccountType={userAccountType ?? undefined}
         onClearError={() => setModalError(null)}
         onClose={handleModalClose}
         onSubmit={handleModalSubmit}

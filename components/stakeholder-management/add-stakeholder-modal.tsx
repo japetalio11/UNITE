@@ -7,6 +7,7 @@ import { Button } from "@heroui/button"
 import { Input } from "@heroui/input"
 import { Select, SelectItem } from "@heroui/select"
 import { getUserInfo } from "@/utils/getUserInfo"
+import { useLocations } from "../providers/locations-provider"
 
 interface AddStakeholderModalProps {
   isOpen: boolean
@@ -35,7 +36,9 @@ export default function AddStakeholderModal({
 }: AddStakeholderModalProps) {
   const [selectedProvinceId, setSelectedProvinceId] = useState<string>("")
   const [provinces, setProvinces] = useState<any[]>([])
+  const [resolvedProvinceName, setResolvedProvinceName] = useState<string>("")
   const [districts, setDistricts] = useState<any[]>([])
+    const { getAllDistricts, getAllProvinces } = useLocations()
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>("")
   const [districtsLoading, setDistrictsLoading] = useState(false)
   const [districtsError, setDistrictsError] = useState<string | null>(null)
@@ -45,6 +48,107 @@ export default function AddStakeholderModal({
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string>("")
   const [municipalities, setMunicipalities] = useState<any[]>([])
   const [selectedAccountType, setSelectedAccountType] = useState<string>(userAccountType || "")
+
+  // Helper normalizers for legacy/new district shapes
+  const findDistrictByAnyId = (id: string | number | null) => {
+    if (!id) return null
+    const sid = String(id).trim().toLowerCase()
+    return (
+      districts.find((x) => {
+        if (!x) return false
+        const candidates = [
+          x.District_ID,
+          x.DistrictId,
+          x._id,
+          x.id,
+          x.District_Number,
+          x.District_Name,
+          x.DistrictName,
+          x.name,
+        ]
+        for (const c of candidates) {
+          if (c == null) continue
+          try {
+            if (String(c).trim().toLowerCase() === sid) return true
+          } catch (e) {
+            continue
+          }
+        }
+
+        // also accept numeric-only match (e.g. id contains digits and user passed a number)
+        const m = String(sid).match(/(\d+)$/)
+        if (m && x.District_Number && String(x.District_Number) === m[1]) return true
+        return false
+      }) || null
+    )
+  }
+
+  const getDistrictProvinceId = (d: any) => {
+    if (!d) return null
+    return d?.Province_ID || d?.ProvinceId || d?.province || d?.provinceId || d?.province_id || null
+  }
+
+  const getDistrictProvinceName = (d: any) => {
+    if (!d) return null
+    return d?.Province_Name || d?.ProvinceName || d?.provinceName || null
+  }
+
+  const getDistrictCity = (d: any) => {
+    if (!d) return ""
+    return d?.City_Municipality || d?.City || d?.CityMunicipality || d?.city || ""
+  }
+
+  // Keep selectedAccountType in sync when parent updates the prop (e.g. coordinator -> LGU)
+  useEffect(() => {
+    if (userAccountType) {
+      setSelectedAccountType(userAccountType)
+    }
+    
+    // If userDistrictId is provided and user is not sysadmin, resolve district and province
+    if (!isSysAdmin && userDistrictId) {
+      const uid = String(userDistrictId)
+      // Try resolving from provider cache first
+      try {
+        const all = (getAllDistricts && typeof getAllDistricts === "function") ? (getAllDistricts() as any[]) : []
+        const found = Array.isArray(all) ? all.find((x: any) => String(x.District_ID) === uid || String(x._id) === uid || String(x.id) === uid) : null
+        if (found) {
+          setDistricts((prev) => {
+            const exists = prev.find((d) => String(d.District_ID || d._id || d.id) === String(found.District_ID || found._id || found.id))
+            return exists ? prev : [found, ...prev]
+          })
+          const provId = found.Province_ID || found.ProvinceId || found.province || found.provinceId || found.province_id || null
+          if (provId) {
+            setSelectedProvinceId(String(provId))
+          } else {
+            const prov = (getAllProvinces && typeof getAllProvinces === "function") ? ((getAllProvinces() as any[]) || []).find((p: any) => (p.name || p.Province_Name) === (found.Province_Name || found.ProvinceName)) : provinces.find((p) => (p.name || p.Province_Name) === (found.Province_Name || found.ProvinceName))
+            if (prov) setSelectedProvinceId(String(prov._id || prov.id))
+          }
+          if (found.Province_Name || found.ProvinceName) {
+            setResolvedProvinceName(String(found.Province_Name || found.ProvinceName))
+          }
+          setSelectedDistrictId(String(found.District_ID || found._id || found.id || uid))
+          return
+        }
+      } catch (e) {
+        // fall through to previous fallback
+      }
+
+      setSelectedDistrictId(uid)
+      const d = districts.find((x) => String(x.District_ID) === uid || String(x._id) === uid || String(x.id) === uid)
+      if (d) {
+        const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null
+        if (provId) {
+          setSelectedProvinceId(String(provId))
+        } else {
+          const prov = provinces.find((p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName))
+          if (prov) setSelectedProvinceId(String(prov._id || prov.id))
+        }
+        if (d.Province_Name || d.ProvinceName) {
+          setResolvedProvinceName(String(d.Province_Name || d.ProvinceName))
+        }
+      }
+    }
+  }, [userAccountType, userDistrictId, isSysAdmin, districts, provinces, getAllDistricts, getAllProvinces])
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -124,10 +228,62 @@ export default function AddStakeholderModal({
     setCityInput("")
   }
 
-  const computedProvince =
-    provinces.find((p) => String(p._id || p.id) === String(selectedProvinceId))?.name ||
-    districts.find((d) => String(d.District_ID) === String(selectedDistrictId))?.Province_Name ||
-    ""
+  const computedProvince = (() => {
+    // First, try to resolve from selectedProvinceId using provinces list
+    if (selectedProvinceId) {
+      const provFromSelectedById = provinces.find((p) => String(p._id || p.id) === String(selectedProvinceId))
+      if (provFromSelectedById) return provFromSelectedById.name || provFromSelectedById.Province_Name || ""
+      const provFromSelectedByName = provinces.find(
+        (p) => String(p.name || p.Province_Name || "").toLowerCase() === String(selectedProvinceId || "").toLowerCase(),
+      )
+      if (provFromSelectedByName) return provFromSelectedByName.name || provFromSelectedByName.Province_Name || ""
+      
+      // Try locations provider
+      try {
+        const allProvinces = (getAllProvinces && typeof getAllProvinces === "function") ? (getAllProvinces() as any[]) : []
+        const providerProv = Array.isArray(allProvinces) ? allProvinces.find((p: any) => 
+          String(p._id || p.id) === String(selectedProvinceId)
+        ) : null
+        if (providerProv) {
+          return providerProv.name || providerProv.Province_Name || ""
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    // Try to get province from district
+    const d = findDistrictByAnyId(selectedDistrictId || userDistrictId)
+    if (d) {
+      const provNameFromDistrict = getDistrictProvinceName(d)
+      if (provNameFromDistrict) return provNameFromDistrict
+      
+      const provIdFromDistrict = getDistrictProvinceId(d)
+      if (provIdFromDistrict) {
+        // try both id and name matches for provIdFromDistrict
+        const prov = provinces.find(
+          (p) => String(p._id || p.id) === String(provIdFromDistrict) || String(p.name || p.Province_Name || "").toLowerCase() === String(provIdFromDistrict || "").toLowerCase(),
+        )
+        if (prov) return prov.name || prov.Province_Name || ""
+        
+        // Try locations provider
+        try {
+          const allProvinces = (getAllProvinces && typeof getAllProvinces === "function") ? (getAllProvinces() as any[]) : []
+          const providerProv = Array.isArray(allProvinces) ? allProvinces.find((p: any) => 
+            String(p._id || p.id) === String(provIdFromDistrict)
+          ) : null
+          if (providerProv) {
+            return providerProv.name || providerProv.Province_Name || ""
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    
+    // Fallback to resolved province name
+    return resolvedProvinceName || ""
+  })()
 
   const ordinalSuffix = (n: number | string) => {
     const num = Number(n)
@@ -144,7 +300,8 @@ export default function AddStakeholderModal({
     if (!d) return ""
     if (d.District_Number) return `${ordinalSuffix(d.District_Number)} District`
     if (d.District_Name) return d.District_Name
-    return String(d.District_ID || "")
+    if (d.name) return d.name
+    return String(d.District_ID || d._id || d.id || "")
   }
 
   const getDistrictLabel = (d: any, idx: number) => {
@@ -213,23 +370,49 @@ export default function AddStakeholderModal({
     })()
   }, [districts])
 
-  const districtObj = districts.find((x) => String(x.District_ID) === String(selectedDistrictId)) || null
+  const districtObj = findDistrictByAnyId(selectedDistrictId || userDistrictId)
   let districtLabel = ""
   if (districtObj) {
     districtLabel = formatDistrict(districtObj)
-  } else if (selectedDistrictId) {
-    const m = String(selectedDistrictId).match(/(\d+)$/)
-    if (m) {
-      const num = Number(m[1])
-      if (!Number.isNaN(num)) districtLabel = `${ordinalSuffix(num)} District`
-      else districtLabel = String(selectedDistrictId)
-    } else {
-      districtLabel = String(selectedDistrictId)
+  } else if (selectedDistrictId || userDistrictId) {
+    const districtIdToCheck = selectedDistrictId || userDistrictId
+    // Try locations provider
+    try {
+      const allDistricts = (getAllDistricts && typeof getAllDistricts === "function") ? (getAllDistricts() as any[]) : []
+      const providerDistrict = Array.isArray(allDistricts) ? allDistricts.find((x: any) => 
+        String(x.District_ID) === String(districtIdToCheck) || 
+        String(x._id) === String(districtIdToCheck) || 
+        String(x.id) === String(districtIdToCheck) ||
+        String(x.District_Number) === String(districtIdToCheck)
+      ) : null
+      
+      if (providerDistrict) {
+        districtLabel = formatDistrict(providerDistrict)
+      } else {
+        // Fallback: try to infer from ID format
+        const m = String(districtIdToCheck).match(/(\d+)$/)
+        if (m) {
+          const num = Number(m[1])
+          if (!Number.isNaN(num)) districtLabel = `${ordinalSuffix(num)} District`
+          else districtLabel = String(districtIdToCheck)
+        } else {
+          districtLabel = String(districtIdToCheck)
+        }
+      }
+    } catch (e) {
+      // Fallback: try to infer from ID format
+      const m = String(districtIdToCheck).match(/(\d+)$/)
+      if (m) {
+        const num = Number(m[1])
+        if (!Number.isNaN(num)) districtLabel = `${ordinalSuffix(num)} District`
+        else districtLabel = String(districtIdToCheck)
+      } else {
+        districtLabel = String(districtIdToCheck)
+      }
     }
   }
 
-  const computedCity =
-    (districtObj && (districtObj.City_Municipality || districtObj.City || districtObj.CityMunicipality)) || ""
+  const computedCity = (districtObj && getDistrictCity(districtObj)) || ""
 
   useEffect(() => {
     setCityInput(computedCity || "")
@@ -272,6 +455,38 @@ export default function AddStakeholderModal({
     }
     fetchProvinces()
   }, [])
+
+  // If provinces load and we previously set a resolvedProvinceName from a district,
+  // prefer the province lookup and clear the fallback name so the canonical province displays.
+  useEffect(() => {
+    if (resolvedProvinceName && provinces && provinces.length > 0) {
+      const prov = provinces.find((p) => (p.name || p.Province_Name) === resolvedProvinceName)
+      if (prov && !selectedProvinceId) {
+        setSelectedProvinceId(String(prov._id || prov.id))
+        setResolvedProvinceName("")
+      } else if (prov && selectedProvinceId && String(prov._id || prov.id) !== String(selectedProvinceId)) {
+        // Update if province ID doesn't match
+        setSelectedProvinceId(String(prov._id || prov.id))
+        setResolvedProvinceName("")
+      }
+    }
+    
+    // Also try locations provider
+    if (resolvedProvinceName && !selectedProvinceId) {
+      try {
+        const allProvinces = (getAllProvinces && typeof getAllProvinces === "function") ? (getAllProvinces() as any[]) : []
+        const providerProv = Array.isArray(allProvinces) ? allProvinces.find((p: any) => 
+          (p.name || p.Province_Name) === resolvedProvinceName
+        ) : null
+        if (providerProv) {
+          setSelectedProvinceId(String(providerProv._id || providerProv.id))
+          setResolvedProvinceName("")
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [provinces, selectedProvinceId, resolvedProvinceName, getAllProvinces])
 
   useEffect(() => {
     const fetchDistrictsForProvince = async () => {
@@ -352,14 +567,68 @@ export default function AddStakeholderModal({
 
   useEffect(() => {
     if (!isSysAdmin && userDistrictId) {
-      setSelectedDistrictId(String(userDistrictId))
-      const d = districts.find((x) => String(x.District_ID) === String(userDistrictId))
+      const uid = String(userDistrictId)
+      setSelectedDistrictId(uid)
+      
+      // First try to find in districts list
+      let d = findDistrictByAnyId(uid)
+      
+      // If not found, try locations provider
+      if (!d) {
+        try {
+          const allDistricts = (getAllDistricts && typeof getAllDistricts === "function") ? (getAllDistricts() as any[]) : []
+          const providerDistrict = Array.isArray(allDistricts) ? allDistricts.find((x: any) => 
+            String(x.District_ID) === uid || 
+            String(x._id) === uid || 
+            String(x.id) === uid ||
+            String(x.District_Number) === uid
+          ) : null
+          
+          if (providerDistrict) {
+            d = providerDistrict
+            // Add to districts list if not already there
+            setDistricts((prev) => {
+              const exists = prev.find((pd) => String(pd.District_ID || pd._id || pd.id) === String(providerDistrict.District_ID || providerDistrict._id || providerDistrict.id))
+              return exists ? prev : [providerDistrict, ...prev]
+            })
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      
       if (d) {
-        const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null
-        if (provId) setSelectedProvinceId(String(provId))
-        else {
-          const prov = provinces.find((p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName))
-          if (prov) setSelectedProvinceId(String(prov._id || prov.id))
+        const provId = getDistrictProvinceId(d)
+        if (provId) {
+          setSelectedProvinceId(String(provId))
+        } else {
+          const provName = getDistrictProvinceName(d) || d.Province_Name || d.ProvinceName
+          if (provName) {
+            // Try to find province by name in provinces list
+            const prov = provinces.find((p) => (p.name || p.Province_Name) === provName)
+            if (prov) {
+              setSelectedProvinceId(String(prov._id || prov.id))
+            } else {
+              // Try locations provider
+              try {
+                const allProvinces = (getAllProvinces && typeof getAllProvinces === "function") ? (getAllProvinces() as any[]) : []
+                const providerProv = Array.isArray(allProvinces) ? allProvinces.find((p: any) => 
+                  (p.name || p.Province_Name) === provName
+                ) : null
+                if (providerProv) {
+                  setSelectedProvinceId(String(providerProv._id || providerProv.id))
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+            setResolvedProvinceName(String(provName))
+          }
+        }
+        // also set resolved province name from district if available
+        const pName = getDistrictProvinceName(d) || d.Province_Name || d.ProvinceName
+        if (pName && !resolvedProvinceName) {
+          setResolvedProvinceName(String(pName))
         }
       }
       return
@@ -469,9 +738,13 @@ export default function AddStakeholderModal({
       }
       if (uid) {
         setSelectedDistrictId(String(uid))
-        const d = districts.find((x) => String(x.District_ID) === String(uid))
+        const d = findDistrictByAnyId(uid)
         if (d) {
-          const provId = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null
+          let provId: any = d.Province_ID || d.ProvinceId || d.province || d.provinceId || d.province_id || null
+          // If province is an object, try to extract its id or name
+          if (provId && typeof provId === "object") {
+            provId = provId._id || provId.id || provId.name || provId.Province_Name || provId.ProvinceName || null
+          }
           if (provId) setSelectedProvinceId(String(provId))
           else {
             const prov = provinces.find((p) => (p.name || p.Province_Name) === (d.Province_Name || d.ProvinceName))
@@ -480,7 +753,132 @@ export default function AddStakeholderModal({
         }
       }
     }
-  }, [isSysAdmin, userDistrictId, districts])
+  }, [isSysAdmin, userDistrictId, districts, provinces, getAllDistricts, getAllProvinces])
+
+  // If a userDistrictId is provided but we couldn't resolve the district/province
+  // from the preloaded `districts` array, attempt to fetch the district details
+  // from the API and populate local state so the Province field can be computed.
+  useEffect(() => {
+    if (!userDistrictId || isSysAdmin) return
+    const id = String(userDistrictId)
+    const found = findDistrictByAnyId(id)
+    
+    // If found in districts list, ensure province is set
+    if (found) {
+      const provId = getDistrictProvinceId(found)
+      if (provId && !selectedProvinceId) {
+        setSelectedProvinceId(String(provId))
+      }
+      const pName = getDistrictProvinceName(found)
+      if (pName && !resolvedProvinceName) {
+        setResolvedProvinceName(String(pName))
+      }
+      return
+    }
+
+    // Try to get from locations provider first
+    try {
+      const allDistricts = (getAllDistricts && typeof getAllDistricts === "function") ? (getAllDistricts() as any[]) : []
+      const providerDistrict = Array.isArray(allDistricts) ? allDistricts.find((x: any) => 
+        String(x.District_ID) === id || 
+        String(x._id) === id || 
+        String(x.id) === id ||
+        String(x.District_Number) === id
+      ) : null
+      
+      if (providerDistrict) {
+        setDistricts((prev) => {
+          const exists = prev.find((d) => String(d.District_ID || d._id || d.id) === String(providerDistrict.District_ID || providerDistrict._id || providerDistrict.id))
+          return exists ? prev : [providerDistrict, ...prev]
+        })
+        const provId = getDistrictProvinceId(providerDistrict)
+        if (provId) {
+          setSelectedProvinceId(String(provId))
+        }
+        const pName = getDistrictProvinceName(providerDistrict)
+        if (pName) {
+          setResolvedProvinceName(String(pName))
+        }
+        setSelectedDistrictId(String(providerDistrict.District_ID || providerDistrict._id || providerDistrict.id || id))
+        return
+      }
+    } catch (e) {
+      // fall through to API fetch
+    }
+
+    // If not found, fetch from API
+    ;(async () => {
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+        const url = base ? `${base}/api/districts/${encodeURIComponent(id)}` : `/api/districts/${encodeURIComponent(id)}`
+        let token = null
+        try {
+          token = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token")
+        } catch (e) {
+          token = null
+        }
+        const headers: any = {}
+        if (token) headers["Authorization"] = `Bearer ${token}`
+        const res = await fetch(url, { headers })
+        const txt = await res.text()
+        let j: any = null
+        try {
+          j = txt ? JSON.parse(txt) : null
+        } catch (e) {
+          j = null
+        }
+        let rec = j?.data || j || null
+        if (!rec) {
+          // direct fetch returned nothing — try fallback: fetch all districts and search locally
+          try {
+            const listUrl = base ? `${base}/api/districts?limit=1000` : `/api/districts?limit=1000`
+            const listRes = await fetch(listUrl, { headers })
+            const listTxt = await listRes.text()
+            const listJson = listTxt ? JSON.parse(listTxt) : null
+            const items = listJson?.data || listJson?.districts || listJson || []
+            const trailing = (String(id).match(/(\d+)$/) || [])[1]
+            const found = Array.isArray(items)
+              ? items.find((it: any) => {
+                  if (!it) return false
+                  if (String(it.District_ID) === id || String(it._id) === id || String(it.id) === id) return true
+                  if (it.District_Number && String(it.District_Number) === String(id)) return true
+                  if (it.District_Number && trailing && String(it.District_Number) === trailing) return true
+                  return false
+                })
+              : null
+            if (found) rec = found
+          } catch (e) {
+            /* ignore */
+          }
+        }
+        if (!rec) return
+
+        // normalize district object shape and add to local districts list
+        const normalized = rec && rec.District_ID ? rec : rec
+        setDistricts((prev) => {
+          // avoid duplicates
+          const exists = prev.find((d) => String(d.District_ID || d._id || d.id) === String(normalized.District_ID || normalized._id || normalized.id))
+          if (exists) return prev
+          return [normalized, ...prev]
+        })
+
+        const provId = normalized.Province_ID || normalized.ProvinceId || normalized.province || normalized.provinceId || normalized.province_id || null
+        if (provId) {
+          setSelectedProvinceId(String(provId))
+        } else {
+          const prov = provinces.find((p) => (p.name || p.Province_Name) === (normalized.Province_Name || normalized.ProvinceName))
+          if (prov) setSelectedProvinceId(String(prov._id || prov.id))
+        }
+        // prefer an explicit Province_Name from the fetched district when present
+        if (normalized.Province_Name) {
+          setResolvedProvinceName(String(normalized.Province_Name))
+        }
+        setSelectedDistrictId(String(normalized.District_ID || normalized._id || normalized.id || id))
+      } catch (e) {
+        // ignore
+      }
+    })()
+  }, [userDistrictId, districts, provinces, isSysAdmin, getAllDistricts])
 
   return (
     <Modal
