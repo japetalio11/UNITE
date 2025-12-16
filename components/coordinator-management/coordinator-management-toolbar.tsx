@@ -17,6 +17,7 @@ interface CoordinatorToolbarProps {
   onAdvancedFilter: () => void;
   onAddCoordinator: () => void;
   onSearch?: (query: string) => void;
+  isMobile?: boolean;
 }
 
 export default function CoordinatorToolbar({
@@ -25,16 +26,18 @@ export default function CoordinatorToolbar({
   onAdvancedFilter,
   onAddCoordinator,
   onSearch,
+  isMobile = false,
 }: CoordinatorToolbarProps) {
   return (
     <div className="w-full bg-white">
       <div className="flex items-center justify-between px-6 py-3">
         {/* Left side - Search input */}
+        {/* Keep search visible on mobile (fills available width) */}
         <Input
-          className="max-w-xs"
+          className="max-w-[160px] flex-1 sm:max-w-xs"
           classNames={{
             input: "text-sm",
-            inputWrapper: "border-gray-200 hover:border-gray-300",
+            inputWrapper: "border-gray-200 hover:border-gray-300 h-9",
           }}
           placeholder="Search user..."
           radius="md"
@@ -47,45 +50,47 @@ export default function CoordinatorToolbar({
 
         {/* Right side - Action buttons */}
         <div className="flex items-center gap-2">
-          {/* Export Button */}
-          <Button
-            className="border-gray-200"
-            radius="md"
-            size="sm"
-            startContent={<Download className="w-4 h-4" />}
-            variant="bordered"
-            onPress={onExport}
-          >
-            Export
-          </Button>
+          {/* On mobile hide Export / QuickFilter / AdvancedFilter - keep only Add button */}
+          {/* Export and Advanced Filter hidden on mobile; Quick Filter shown on all sizes (compact on mobile) */}
+          {!isMobile && (
+            <Button
+              className="border-gray-200"
+              radius="md"
+              size="sm"
+              startContent={<Download className="w-4 h-4" />}
+              variant="bordered"
+              onPress={onExport}
+            >
+              Export
+            </Button>
+          )}
 
-          {/* Quick Filter Button */}
           <Button
             className="border-gray-200"
-            endContent={<ChevronDown className="w-4 h-4" />}
+            endContent={!isMobile ? <ChevronDown className="w-4 h-4" /> : undefined}
             radius="md"
             size="sm"
             startContent={<Filter className="w-4 h-4" />}
             variant="bordered"
             onPress={onQuickFilter}
           >
-            Quick Filter
+            {isMobile ? <span className="text-xs">Filter</span> : <span>Quick Filter</span>}
           </Button>
 
-          {/* Advanced Filter Button */}
-          <Button
-            className="border-gray-200"
-            endContent={<ChevronDown className="w-4 h-4" />}
-            radius="md"
-            size="sm"
-            startContent={<SlidersHorizontal className="w-4 h-4" />}
-            variant="bordered"
-            onPress={onAdvancedFilter}
-          >
-            Advanced Filter
-          </Button>
+          {!isMobile && (
+            <Button
+              className="border-gray-200"
+              endContent={<ChevronDown className="w-4 h-4" />}
+              radius="md"
+              size="sm"
+              startContent={<SlidersHorizontal className="w-4 h-4" />}
+              variant="bordered"
+              onPress={onAdvancedFilter}
+            >
+              Advanced Filter
+            </Button>
+          )}
 
-          {/* Add Coordinator Button */}
           <Button
             className="bg-black text-white"
             color="default"
@@ -94,7 +99,8 @@ export default function CoordinatorToolbar({
             startContent={<Plus className="w-4 h-4" />}
             onPress={onAddCoordinator}
           >
-            Add a coordinator
+            <span className="hidden sm:inline">Add a coordinator</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>

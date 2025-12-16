@@ -30,6 +30,8 @@ interface CoordinatorFormData {
 
 export default function CoordinatorManagement() {
   const router = useRouter();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCoordinators, setSelectedCoordinators] = useState<string[]>(
     [],
@@ -101,6 +103,16 @@ export default function CoordinatorManagement() {
       setDisplayEmail(info?.email || "bmc@gmail.com");
     } catch (e) {
       /* ignore */
+    }
+  }, []);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkViewport = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768);
+    if (typeof window !== 'undefined') {
+      checkViewport();
+      window.addEventListener('resize', checkViewport);
+      return () => window.removeEventListener('resize', checkViewport);
     }
   }, []);
 
@@ -615,11 +627,44 @@ export default function CoordinatorManagement() {
   return (
     <div className="min-h-screen bg-white">
       {/* Page Header */}
-      <div className="px-6 pt-6 pb-4">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Coordinator Management
-        </h1>
+      <div className="px-4 sm:px-6 pt-6 pb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Coordinator Management</h1>
+        {/* Mobile hamburger at top-right */}
+        <button
+          aria-label="Open navigation"
+          className="inline-flex items-center justify-center p-2 rounded-md md:hidden hover:bg-gray-100 transition-colors"
+          onClick={() => setMobileNavOpen(true)}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 15H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
+
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-black opacity-30" onClick={() => setMobileNavOpen(false)} />
+          <div className="absolute top-0 right-0 w-72 h-full bg-white shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold">{displayName}</div>
+                <div className="text-xs text-default-500">{displayEmail || ""}</div>
+              </div>
+              <button aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} className="p-2 text-xl hover:bg-gray-100 rounded transition-colors">✕</button>
+            </div>
+
+            <nav className="flex flex-col gap-3 mt-4">
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/campaign">Campaign</a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/calendar">Calendar</a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/chat">Chat</a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors bg-gray-50 font-semibold" href="/dashboard/coordinator-management">Coordinator Management</a>
+              <a className="flex items-center gap-3 text-sm hover:bg-gray-100 p-2 rounded transition-colors" href="/dashboard/settings">Settings</a>
+            </nav>
+          </div>
+        </div>
+      )}
 
       {/* Topbar Component */}
       <Topbar
@@ -635,6 +680,7 @@ export default function CoordinatorManagement() {
         onExport={handleExport}
         onQuickFilter={handleQuickFilter}
         onSearch={handleSearch}
+        isMobile={isMobile}
       />
 
       {/* Active Filters Display */}
