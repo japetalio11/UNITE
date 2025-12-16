@@ -33,7 +33,7 @@ import {
   ChevronDown,
   Persons,
 } from "@gravity-ui/icons";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { ScrollShadow } from "@heroui/scroll-shadow";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -48,6 +48,20 @@ interface NotificationModalProps {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Hook to detect mobile screen for animation adjustments
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
 export default function NotificationModal({
   isOpen,
   onClose,
@@ -56,6 +70,8 @@ export default function NotificationModal({
   const [loading, setLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
+
+  const isMobile = useIsMobile();
 
   // Filter states
   const [query, setQuery] = useState("");
@@ -66,35 +82,20 @@ export default function NotificationModal({
   const [qDateRange, setQDateRange] = useState<RangeValue<DateValue> | null>(
     null,
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [dateFilterLabel, setDateFilterLabel] = useState("Today");
 
-  const handleDateAction = (key: React.Key) => {
-    const tz = getLocalTimeZone();
-    let start = today(tz);
-    const end = today(tz);
-
-    switch (key) {
-      case "today":
-        setDateFilterLabel("Today");
-        break;
-      case "last7":
-        start = start.subtract({ days: 6 });
-        setDateFilterLabel("Last 7 days");
-        break;
-      case "last30":
-        start = start.subtract({ days: 29 });
-        setDateFilterLabel("Last 30 days");
-        break;
-      // 'custom' will be handled by a separate popover, so we just clear here
-      case "clear":
-      default:
-        setQDateRange(null);
-        setDateFilterLabel("Today");
-        return;
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
     }
-
-    setQDateRange({ start, end });
-  };
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
 
   // View Modal state
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -155,7 +156,6 @@ export default function NotificationModal({
     const recipientId = getRecipientId();
 
     if (!recipientId) {
-      // If no user context, show empty state
       setNotifications([]);
       return;
     }
@@ -176,7 +176,6 @@ export default function NotificationModal({
       if (response.success && response.data) {
         const items = response.data;
 
-        // Sort by date desc (should already be sorted by backend, but ensure)
         items.sort(
           (a: any, b: any) => {
             const aDate = a.createdAt?.$date || a.createdAt || a.CreatedAt;
@@ -218,12 +217,10 @@ export default function NotificationModal({
         body: JSON.stringify({ recipientId, recipientType: rType }),
       });
 
-      // Update local state
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, IsRead: true, is_read: true })),
       );
 
-      // Notify other components
       window.dispatchEvent(
         new CustomEvent("unite:notifications-read", { detail: { unread: 0 } }),
       );
@@ -246,7 +243,6 @@ export default function NotificationModal({
         body: JSON.stringify({ isRead: true, recipientId }),
       });
 
-      // Update local state
       setNotifications((prev) =>
         prev.map((item) => {
           const itemId = item.Notification_ID || item._id;
@@ -259,7 +255,6 @@ export default function NotificationModal({
         }),
       );
 
-      // Recalculate unread count for event dispatch
       const unreadCount = notifications.filter(
         (x) => (x.Notification_ID || x._id) !== nid && !(x.IsRead || x.is_read),
       ).length;
@@ -277,7 +272,6 @@ export default function NotificationModal({
   const handleNotificationClick = async (n: any) => {
     await markAsRead(n);
 
-    // If related to a request, open view modal
     const rid =
       n.Request_ID ||
       n.RelatedEntityID ||
@@ -305,7 +299,6 @@ export default function NotificationModal({
   const filteredNotifications = useMemo(() => {
     let base = notifications;
 
-    // Search
     if (query.trim()) {
       const q = query.toLowerCase();
 
@@ -314,25 +307,21 @@ export default function NotificationModal({
       );
     }
 
-    // Tabs
     if (selectedTab === "unread") {
-      // Show all notifications, no filter by read status
+      base = base.filter((n) => !(n.IsRead || n.is_read));
     } else if (selectedTab === "system") {
-      // System notifications might include signup requests, cancellations, etc.
       base = base.filter((n) => {
         const nType = (n.NotificationType || "").toLowerCase();
         return nType.includes("signup") || nType.includes("cancel") || nType.includes("delete");
       });
     }
 
-    // Quick Filters
     if (qEventType && qEventType !== "all") {
       base = base.filter(
         (n) => {
           const nType = (n.NotificationType || "").toLowerCase();
           const filterType = qEventType.toLowerCase();
           
-          // Map filter types to backend types
           if (filterType === "request") {
             return nType.includes("request") || nType.includes("newrequest") || nType.includes("newsignuprequest");
           }
@@ -356,7 +345,6 @@ export default function NotificationModal({
     if (qDateRange?.start && qDateRange?.end) {
       const start = qDateRange.start.toDate("UTC");
       const end = qDateRange.end.toDate("UTC");
-      // Adjust end date to include the entire day
       end.setHours(23, 59, 59, 999);
 
       base = base.filter((n) => {
@@ -386,7 +374,6 @@ export default function NotificationModal({
       groups[key].push(n);
     });
 
-    // Order keys: Today, Yesterday, others sorted desc
     const keys = Object.keys(groups).sort((a, b) => {
       if (a === "Today") return -1;
       if (b === "Today") return 1;
@@ -399,7 +386,6 @@ export default function NotificationModal({
     return keys.map((k) => ({ title: k, items: groups[k] }));
   }, [filteredNotifications]);
 
-  // --- Counts ---
   const counts = useMemo(() => {
     const all = notifications.length;
     const unread = notifications.filter((n) => !(n.IsRead || n.is_read)).length;
@@ -428,15 +414,15 @@ export default function NotificationModal({
     if (t.includes("reschedule") || t.includes("adminrescheduled")) {
       return {
         icon: <Clock className="w-[18px] h-[18px]" />,
-        bg: "bg-[#FFF8E1]", // Light yellow
-        text: "text-[#F59E0B]", // Orange/Yellow
+        bg: "bg-[#FFF8E1]",
+        text: "text-[#F59E0B]",
       };
     }
     if (t.includes("delete") || t.includes("cancel") || t.includes("reject") || t.includes("requestrejected") || t.includes("requestcancelled") || t.includes("requestdeleted")) {
       return {
         icon: <TrashBin className="w-[18px] h-[18px]" />,
-        bg: "bg-[#FFEAEA]", // Light red
-        text: "text-[#D92D20]", // Red
+        bg: "bg-[#FFEAEA]",
+        text: "text-[#D92D20]",
       };
     }
     if (
@@ -450,35 +436,40 @@ export default function NotificationModal({
     ) {
       return {
         icon: <CircleCheck className="w-[18px] h-[18px]" />,
-        bg: "bg-[#E6F4EA]", // Light green
-        text: "text-[#1E8E3E]", // Green
+        bg: "bg-[#E6F4EA]",
+        text: "text-[#1E8E3E]",
       };
     }
     if (t.includes("assign") || t.includes("coordinator")) {
       return {
-        icon: <Persons className="w-[18px] h-[18px]" />, // or Person
-        bg: "bg-[#F3F4F6]", // Gray
-        text: "text-[#4B5563]", // Gray text
+        icon: <Persons className="w-[18px] h-[18px]" />,
+        bg: "bg-[#F3F4F6]",
+        text: "text-[#4B5563]",
       };
     }
     if (t.includes("request") || t.includes("newrequest") || t.includes("newsignuprequest")) {
       return {
-        // Using a gradient-like style for request reception
         icon: (
           <div className="w-full h-full rounded-full bg-gradient-to-br from-[#FCD34D] to-[#F87171]" />
         ),
-        bg: "p-0 overflow-hidden", // Remove padding for gradient div
+        bg: "p-0 overflow-hidden",
         text: "",
         isGradient: true,
       };
     }
 
-    // Default
     return {
       icon: <Person className="w-[18px] h-[18px]" />,
       bg: "bg-default-100",
       text: "text-default-500",
     };
+  };
+
+  // Animation Variants
+  const modalVariants: Variants = {
+    initial: isMobile ? { y: "100%", opacity: 0 } : { x: -20, opacity: 0 },
+    animate: isMobile ? { y: 0, opacity: 1 } : { x: 0, opacity: 1 },
+    exit: isMobile ? { y: "100%", opacity: 0 } : { x: -20, opacity: 0 },
   };
 
   return (
@@ -489,7 +480,7 @@ export default function NotificationModal({
             {/* Backdrop */}
             <motion.div
               animate={{ opacity: 1 }}
-              className="fixed inset-0 z-40 bg-transparent"
+              className="fixed inset-0 z-[99999] bg-black/20 backdrop-blur-sm"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={onClose}
@@ -497,18 +488,27 @@ export default function NotificationModal({
 
             {/* Modal Panel */}
             <motion.div
-              animate={{ x: 0, opacity: 1 }}
-              className="fixed left-[72px] top-4 bottom-4 w-[800px] bg-white rounded-2xl shadow-2xl z-50 border border-gray-200 overflow-hidden flex flex-col font-sans"
-              exit={{ x: -20, opacity: 0 }}
-              initial={{ x: -20, opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              variants={modalVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className={`
+                fixed z-[100000] bg-white overflow-hidden flex flex-col font-sans shadow-2xl
+                
+                /* Mobile: Full screen/Bottom sheet style */
+                inset-0 w-full h-full rounded-none
+                
+                /* Desktop: Floating Modal (Preserved original styling) */
+                md:left-[72px] md:top-4 md:bottom-4 md:w-[800px] md:rounded-2xl md:inset-auto md:border md:border-gray-200
+              `}
             >
               {/* Header Section */}
-              <div className="p-6 pb-2 border-b border-gray-100">
+              <div className="p-4 md:p-6 pb-2 border-b border-gray-100 flex-shrink-0">
                 <div className="flex justify-between items-start mb-1">
                   <div>
-                    <h2 className="text-2xl font-bold ">Notifications</h2>
-                    <p className="text-xs mt-1">
+                    <h2 className="text-xl md:text-2xl font-bold">Notifications</h2>
+                    <p className="text-xs mt-1 text-gray-500">
                       Stay updated with your latest notifications.
                     </p>
                   </div>
@@ -524,9 +524,9 @@ export default function NotificationModal({
                 </div>
 
                 {/* Search & Toolbar Row 1: Search + Filters */}
-                <div className="flex gap-3 mt-6">
+                <div className="flex flex-col md:flex-row gap-3 mt-4 md:mt-6">
                   <Input
-                    className="flex-1"
+                    className="flex-1 w-full"
                     isClearable
                     classNames={{
                       inputWrapper:
@@ -546,10 +546,10 @@ export default function NotificationModal({
                   />
 
                   <div className="flex gap-3 shrink-0">
-                    <Popover offset={10} placement="bottom" showArrow>
+                    <Popover offset={10} placement={isMobile ? "bottom" : "bottom-end"} showArrow>
                       <PopoverTrigger>
                         <Button
-                          className="text-gray-700 border-default-200 bg-white font-medium text-xs"
+                          className="text-gray-700 border-default-200 bg-white font-medium text-xs w-full md:w-auto"
                           endContent={
                             <ChevronDown className="w-3 h-3 text-gray-500" />
                           }
@@ -563,8 +563,8 @@ export default function NotificationModal({
                           Quick Filter
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-72 p-4">
-                        <div className="space-y-4">
+                      <PopoverContent className="w-[calc(100vw-32px)] md:w-72 p-4">
+                        <div className="space-y-4 w-full">
                           <div className="space-y-1">
                             <label className="text-xs font-medium">
                               Event Type
@@ -622,28 +622,30 @@ export default function NotificationModal({
                 </div>
 
                 {/* Toolbar Row 2: Tabs + Secondary Actions */}
-                <div className="flex items-center justify-between mt-6 mb-2">
-                  <Tabs
-                    classNames={{
-                      tabList: "bg-gray-100 p-1",
-                      cursor: "bg-white shadow-sm",
-                      tabContent:
-                        "group-data-[selected=true]: text-xs font-medium",
-                    }}
-                    radius="md"
-                    selectedKey={selectedTab}
-                    size="sm"
-                    variant="solid"
-                    onSelectionChange={(k) => setSelectedTab(k as string)}
-                  >
-                    <Tab key="all" title={`All (${counts.all})`} />
-                    <Tab key="unread" title={`Unread (${counts.unread})`} />
-                    <Tab key="system" title={`System (${counts.system})`} />
-                  </Tabs>
+                <div className="flex flex-col md:flex-row md:items-center justify-between mt-4 md:mt-6 mb-2 gap-3 md:gap-0">
+                  <div className="w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+                    <Tabs
+                      classNames={{
+                        tabList: "bg-gray-100 p-1 w-full md:w-auto",
+                        cursor: "bg-white shadow-sm",
+                        tabContent:
+                          "group-data-[selected=true]: text-xs font-medium whitespace-nowrap",
+                      }}
+                      radius="md"
+                      selectedKey={selectedTab}
+                      size="sm"
+                      variant="solid"
+                      onSelectionChange={(k) => setSelectedTab(k as string)}
+                    >
+                      <Tab key="all" title={`All (${counts.all})`} />
+                      <Tab key="unread" title={`Unread (${counts.unread})`} />
+                      <Tab key="system" title={`System (${counts.system})`} />
+                    </Tabs>
+                  </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
                     <Button
-                      className="border-default-200  text-xs font-medium"
+                      className="border-default-200 text-xs font-medium flex-1 md:flex-none"
                       endContent={<ChevronDown className="w-3 h-3" />}
                       radius="md"
                       size="sm"
@@ -653,14 +655,14 @@ export default function NotificationModal({
                       Today
                     </Button>
                     <Button
-                      className="text-xs font-medium  border-default-200"
+                      className="text-xs font-medium border-default-200 flex-1 md:flex-none"
                       radius="md"
                       size="sm"
                       startContent={<Check className="w-3 h-3" />}
                       variant="bordered"
                       onPress={markAllRead}
                     >
-                      Mark all as read
+                      Mark all read
                     </Button>
                   </div>
                 </div>
@@ -680,16 +682,16 @@ export default function NotificationModal({
                     <p className="text-xs">No notifications found</p>
                   </div>
                 ) : (
-                  <div className="pb-6">
+                  <div className="pb-20 md:pb-6">
                     {groupedNotifications.map((group) => (
                       <div key={group.title}>
-                        <div className="px-6 py-3 bg-white sticky top-0 z-10">
-                          <span className="text-xs font-medium">
+                        <div className="px-4 md:px-6 py-3 bg-white sticky top-0 z-10 border-b border-gray-50 md:border-none">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {group.title}
                           </span>
                         </div>
 
-                        <div className="space-y-1 px-4">
+                        <div className="space-y-1 px-3 md:px-4">
                           {group.items.map((n) => {
                             const isRead = n.IsRead || n.is_read;
                             const { icon, bg, text } = getIconAndStyle(
@@ -699,7 +701,7 @@ export default function NotificationModal({
                             return (
                               <div
                                 key={n.Notification_ID || n._id}
-                                className="group relative p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer flex items-start gap-4"
+                                className="group relative p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer flex items-start gap-3 md:gap-4 active:bg-gray-100"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => handleNotificationClick(n)}
@@ -718,7 +720,7 @@ export default function NotificationModal({
 
                                 {/* Content */}
                                 <div className="flex-1 min-w-0 pt-0.5">
-                                  <p className={`text-xs leading-snug ${isRead ? 'text-gray-500' : 'text-gray-900'}`}>
+                                  <p className={`text-sm md:text-xs leading-snug ${isRead ? 'text-gray-500' : 'text-gray-900'}`}>
                                     {n.Message || n.message}
                                   </p>
                                   <div className="mt-2 flex items-center">
@@ -736,7 +738,7 @@ export default function NotificationModal({
                                 {/* Actions / Status */}
                                 <div className="flex flex-col items-end gap-2 pt-2">
                                   {!isRead && (
-                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                    <div className="w-2.5 h-2.5 md:w-2 md:h-2 bg-red-500 rounded-full ring-2 ring-white" />
                                   )}
                                 </div>
                               </div>
