@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-// use native inputs here for tighter visual control
 import { Button } from "@heroui/button";
 import { Link } from "@heroui/link";
 import { Eye, EyeSlash, Check } from "@gravity-ui/icons";
@@ -47,7 +46,7 @@ export default function SignUp() {
     Field: "",
     Email: "",
     Verification_Code: "",
-    accountType: "",
+    Account_Type: "", 
   });
 
   const update = (patch: Partial<typeof formData>) =>
@@ -72,11 +71,12 @@ export default function SignUp() {
         formData.First_Name.trim() &&
         formData.Last_Name.trim() &&
         formData.Phone_Number.trim() &&
-        formData.Email.trim()
+        formData.Email.trim() &&
+        formData.Account_Type.trim() 
       );
     }
     if (step === 1) {
-      return !!(formData.accountType && formData.Province && formData.District && formData.Municipality);
+      return !!(formData.Account_Type && formData.Province && formData.District && formData.Municipality);
     }
     if (step === 2) {
       return (
@@ -168,7 +168,7 @@ export default function SignUp() {
         province: formData.Province,
         district: formData.District,
         municipality: formData.Municipality,
-        accountType: formData.accountType,
+        accountType: formData.Account_Type, // Added account type to payload
       };
       const res = await fetch(`${API_URL}/api/signup-requests`, {
         method: "POST",
@@ -239,15 +239,16 @@ export default function SignUp() {
           </p>
         </div>
       )}
-      <form className="space-y-4" onSubmit={handleFormSubmit}>
-        <div className="relative min-h-[380px] pb-40">
+      <form onSubmit={handleFormSubmit}>
+        {/* Form Content Area - This contains only the form fields */}
+        <div className="relative min-h-[380px]">
           {/* Step boxes are absolutely positioned and animated via translate + opacity */}
 
           {/* Step 1 - Identity */}
           <div
             className={`absolute inset-0 ${step === 0 ? "block" : "hidden"}`}
           >
-            <div className="space-y-3 pb-20">
+            <div className="space-y-3">
               <div>
                 <label
                   className="text-sm font-medium block mb-1"
@@ -261,6 +262,7 @@ export default function SignUp() {
                   id="first-name"
                   value={formData.First_Name}
                   onChange={(e) => update({ First_Name: e.target.value })}
+                  placeholder="Enter your first name"
                 />
               </div>
               <div>
@@ -275,6 +277,7 @@ export default function SignUp() {
                   id="middle-name"
                   value={formData.Middle_Name}
                   onChange={(e) => update({ Middle_Name: e.target.value })}
+                  placeholder="Enter your middle name"
                 />
               </div>
               <div>
@@ -289,6 +292,7 @@ export default function SignUp() {
                   id="last-name"
                   value={formData.Last_Name}
                   onChange={(e) => update({ Last_Name: e.target.value })}
+                  placeholder="Enter your last name"
                 />
               </div>
               <div>
@@ -298,12 +302,18 @@ export default function SignUp() {
                 >
                   Phone number <span className="text-danger-500">*</span>
                 </label>
-                <input
-                  className={`${inputClass} w-full`}
-                  id="phone-number"
-                  value={formData.Phone_Number}
-                  onChange={(e) => update({ Phone_Number: e.target.value })}
-                />
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 w-16 h-10 bg-gray-50 border border-gray-200 border-r-0 rounded-l-lg flex items-center justify-center text-sm text-gray-600">
+                    +63
+                  </div>
+                  <input
+                    className={`${inputClass} flex-grow rounded-l-none`}
+                    id="phone-number"
+                    value={formData.Phone_Number}
+                    onChange={(e) => update({ Phone_Number: e.target.value })}
+                    placeholder="Enter your phone number"
+                  />
+                </div>
               </div>
               <div>
                 <label
@@ -318,7 +328,30 @@ export default function SignUp() {
                   type="email"
                   value={formData.Email}
                   onChange={(e) => update({ Email: e.target.value })}
+                  placeholder="Enter your email address"
                 />
+              </div>
+              {/* Added Account Type dropdown */}
+              <div>
+                <label
+                  className="text-sm font-medium block mb-1"
+                  htmlFor="account-type"
+                >
+                  Account Type <span className="text-danger-500">*</span>
+                </label>
+                <Select
+                  id="account-type"
+                  className="h-10 text-gray-600"
+                  placeholder="Select Account Type"
+                  selectedKeys={formData.Account_Type ? [formData.Account_Type] : []}
+                  radius="md"
+                  size="md"
+                  variant="bordered"
+                  onChange={(e) => update({ Account_Type: e.target.value })}
+                >
+                  <SelectItem key="LGU">LGU</SelectItem>
+                  <SelectItem key="Others">Others</SelectItem>
+                </Select>
               </div>
             </div>
           </div>
@@ -327,20 +360,20 @@ export default function SignUp() {
           <div
             className={`absolute inset-0 ${step === 1 ? "block" : "hidden"}`}
           >
-            <div className="space-y-3 pb-20">
+            <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium block mb-1" htmlFor="accountType">Account Type <span className="text-danger-500">*</span></label>
                 <Select
                   id="accountType"
                   className="h-10"
                   placeholder="Select Account Type"
-                  selectedKeys={formData.accountType ? [formData.accountType] : []}
+                  selectedKeys={formData.Account_Type ? [formData.Account_Type] : []}
                   radius="md"
                   size="sm"
                   variant="bordered"
                   onChange={(e) => {
                     const val = e.target.value;
-                    update({ accountType: val, Province: "", District: "", Municipality: "" });
+                    update({ Account_Type: val, Province: "", District: "", Municipality: "" });
                     setDistricts([]);
                     setMunicipalities([]);
                   }}
@@ -359,7 +392,7 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.accountType}
+                  isDisabled={!formData.Account_Type}
                   onChange={(e) => {
                     const val = e.target.value;
                     update({ Province: val, District: "", Municipality: "" });
@@ -380,7 +413,7 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.Province || !formData.accountType}
+                  isDisabled={!formData.Province || !formData.Account_Type}
                   onChange={(e) => {
                     const val = e.target.value;
                     update({ District: val, Municipality: "" });
@@ -401,7 +434,7 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.District || !formData.accountType}
+                  isDisabled={!formData.District || !formData.Account_Type}
                   onChange={(e) => update({ Municipality: e.target.value })}
                 >
                   {municipalities.map((mun) => (
@@ -433,7 +466,7 @@ export default function SignUp() {
           <div
             className={`absolute inset-0 ${step === 2 ? "block" : "hidden"}`}
           >
-            <div className="space-y-3 pb-20">
+            <div className="space-y-3">
               <div>
                 <label
                   className="text-sm font-medium block mb-1"
@@ -506,7 +539,7 @@ export default function SignUp() {
 
           {/* Step 4 - Email Verification */}
           <div className={`absolute inset-0 ${step === 3 ? "block" : "hidden"}`}>
-            <div className="pb-20">
+            <div>
               <div className="space-y-4">
                 <h2 className="text-3xl font-semibold text-danger-600">Enter your code</h2>
                 <p className="text-sm text-gray-500">Enter the code sent to your email {formData.Email ? formData.Email.replace(/(.{1})(.*)(@.*)/, (m,p1,p2,p3)=> p1 + '*'.repeat(Math.max(0,p2.length)) + p3) : ''}</p>
@@ -633,41 +666,46 @@ export default function SignUp() {
           </div>
         </div>
 
-        {error && <div className="text-sm text-red-600">{error}</div>}
+        <div className="mt-20">
+          {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
 
-        {/* Hide bottom navigation when on verification step (step 3) or final step (step 4) */}
-        {step !== 3 && step !== 4 && (
-          <div className="flex items-center gap-3">
-            {step > 0 ? (
-              <button
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm"
-                type="button"
-                onClick={() => {
-                  setDirection("prev");
-                  setStep((s) => Math.max(0, s - 1));
-                }}
-              >
-                Back
-              </button>
-            ) : (
-              <div />
-            )}
-            <div className="flex-1">
-              <Button
-                className="w-full bg-danger-600 hover:bg-danger-700 text-white"
-                color="primary"
-                isLoading={isLoading}
-                size="md"
-                type="submit"
-              >
-                {step < 4 ? "Next" : "Complete Registration"}
-              </Button>
+          {/* Hide bottom navigation when on verification step (step 3) or final step (step 4) */}
+          {step !== 3 && step !== 4 && (
+            <div className="flex justify-center">
+              <div className="w-full max-w-[400px] flex items-center gap-3">
+                {step > 0 ? (
+                  <button
+                    className="px-4 h-10 border border-gray-200 rounded-lg text-sm flex items-center justify-center"
+                    type="button"
+                    onClick={() => {
+                      setDirection("prev");
+                      setStep((s) => Math.max(0, s - 1));
+                    }}
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex-1">
+                  <Button
+                    className="w-full bg-danger-600 hover:bg-danger-700 text-white h-10 min-h-10 py-0 rounded-lg"
+                    color="primary"
+                    isLoading={isLoading}
+                    size="md"
+                    type="submit"
+                  >
+                    {step < 4 ? "Next" : "Complete Registration"}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </form>
 
-      <div className="mt-6 text-center text-sm text-gray-600">
+      {/* Already have an account section - completely separate */}
+      <div className="mt-4 text-center text-sm text-gray-600">
         Already have an account?{" "}
         <Link
           className="text-danger-600 hover:underline font-medium"
