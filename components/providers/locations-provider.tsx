@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { fetchJsonWithAuth } from "@/utils/fetchWithAuth";
 
 type Province = {
@@ -73,10 +73,28 @@ function writeStorage(cache: CachedLocations) {
 export function LocationsProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocations] = useState<LocationData>({ provinces: {}, districts: {}, municipalities: {} });
   const [loading, setLoading] = useState(false);
+  const initializedRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef<number>(0);
+  const MIN_FETCH_INTERVAL = 1000; // Minimum 1 second between fetches
 
   const isFresh = (ts: number) => Date.now() - ts < TTL;
 
   const fetchAllLocations = useCallback(async (force = false) => {
+    // Prevent concurrent fetches
+    if (fetchingRef.current) {
+      console.log("[LocationsProvider] Fetch already in progress, skipping");
+      return null;
+    }
+
+    // Prevent too frequent fetches (debounce)
+    const now = Date.now();
+    if (!force && now - lastFetchTimeRef.current < MIN_FETCH_INTERVAL) {
+      console.log("[LocationsProvider] Fetch too soon after last fetch, skipping");
+      return null;
+    }
+
     try {
       const stored = readStorage();
       if (!force && stored && isFresh(stored.ts)) {
@@ -84,6 +102,8 @@ export function LocationsProvider({ children }: { children: React.ReactNode }) {
         return stored.data;
       }
 
+      fetchingRef.current = true;
+      lastFetchTimeRef.current = now;
       setLoading(true);
 
       // Fetch all provinces
@@ -123,7 +143,7 @@ export function LocationsProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      // Fetch all districts (assume API supports fetching all, e.g., with high limit)
+      // Fetch all districts (endpoint is /api/districts, not /api/locations/districts)
       const districtsData = await fetchJsonWithAuth("/api/districts?limit=10000");
       const districts = Array.isArray(districtsData) ? districtsData : districtsData.data || districtsData.districts || [];
       const districtsMap: Record<string, District> = {};
@@ -162,6 +182,7 @@ export function LocationsProvider({ children }: { children: React.ReactNode }) {
       return null;
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, []);
 
@@ -170,32 +191,48 @@ export function LocationsProvider({ children }: { children: React.ReactNode }) {
   }, [fetchAllLocations]);
 
   useEffect(() => {
-    const stored = readStorage();
-    if (stored && isFresh(stored.ts)) {
-      setLocations(stored.data);
-    } else {
-      fetchAllLocations();
+    // Only initialize once
+    if (initializedRef.current) {
+      return;
     }
+    initializedRef.current = true;
 
-    // Periodic refresh
-    const id = setInterval(() => {
-      fetchAllLocations(true);
-    }, TTL);
+    const initializeLocations = async () => {
+      const stored = readStorage();
+      if (stored && isFresh(stored.ts)) {
+        setLocations(stored.data);
+      } else {
+        await fetchAllLocations();
+      }
 
-    return () => clearInterval(id);
-  }, [fetchAllLocations]);
+      // Set up periodic refresh (every 30 minutes)
+      intervalRef.current = setInterval(() => {
+        fetchAllLocations(true);
+      }, TTL);
+    };
+
+    initializeLocations();
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   const getProvinceName = useCallback((id: string) => {
     return locations.provinces[id]?.name || "Unknown Province";
-  }, [locations]);
+  }, [locations.provinces]);
 
   const getDistrictName = useCallback((id: string) => {
     return locations.districts[id]?.name || "Unknown District";
-  }, [locations]);
+  }, [locations.districts]);
 
   const getMunicipalityName = useCallback((id: string) => {
     return locations.municipalities[id]?.name || "Unknown Municipality";
-  }, [locations]);
+  }, [locations.municipalities]);
 
   const getFullLocation = useCallback((provinceId?: string, districtId?: string, municipalityId?: string) => {
     const parts = [];

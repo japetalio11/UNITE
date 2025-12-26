@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Ticket, Calendar as CalIcon, PersonPlanetEarth, Persons, Bell, Gear } from "@gravity-ui/icons";
 import { Modal } from "@heroui/modal";
 
@@ -92,23 +92,24 @@ export default function CampaignPage() {
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [municipalities, setMunicipalities] = useState<any[]>([]);
+  const hasRefreshedRef = useRef(false);
 
   // Update provinces when locations data changes
+  // Only depend on the actual data, not the callbacks (which are stable but change reference)
   useEffect(() => {
-    const provincesList = getAllProvinces();
+    const provincesList = Object.values(locations.provinces || {});
     if (provincesList.length > 0) {
       setProvinces(provincesList);
-    } else if (!locationsLoading && Object.keys(locations.provinces || {}).length === 0) {
-      // If no provinces and not loading, try to refresh
-      console.warn("[Campaign Page] No provinces found, attempting to refresh locations");
-      refreshLocations();
+      hasRefreshedRef.current = false; // Reset when we have data
     }
-  }, [getAllProvinces, locations.provinces, locationsLoading, refreshLocations]);
+    // Remove auto-refresh logic - trust LocationsProvider to handle loading
+    // The provider will fetch on mount and refresh every 30 minutes
+  }, [locations.provinces]);
 
   useEffect(() => {
-    const municipalitiesList = getAllMunicipalities();
+    const municipalitiesList = Object.values(locations.municipalities || {});
     setMunicipalities(municipalitiesList);
-  }, [getAllMunicipalities, locations.municipalities]);
+  }, [locations.municipalities]);
 
   const fetchDistricts = async (provinceId: number | string) => {
     const districtsForProvince = getDistrictsForProvince(provinceId.toString());
