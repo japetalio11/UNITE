@@ -509,34 +509,62 @@ export default function CampaignToolbar({
         const isAdmin = !!(info && info.isAdmin) || (user && (user.authority >= 80 || user.isSystemAdmin));
         
         if (user && (isAdmin || hasReviewPermission)) {
-          const res = await fetch(`${API_URL}/api/coordinators`, {
-            headers,
-            credentials: "include",
-          });
-          const body = await res.json();
-
-          if (res.ok) {
-            const list = body.data || body.coordinators || body;
-            const opts = (Array.isArray(list) ? list : []).map((c: any) => {
-              const staff = c.Staff || c.staff || null;
-              const district = c.District || c.district || null;
-              const fullName = staff
-                ? [staff.First_Name, staff.Middle_Name, staff.Last_Name]
-                    .filter(Boolean)
-                    .join(" ")
-                    .trim()
-                : c.StaffName || c.label || "";
-              const districtLabel = district?.District_Number
-                ? `District ${district.District_Number}`
-                : district?.District_Name || "";
+          // Use new API endpoint for coordinators
+          // Coordinators should have request.create capability AND authority >= 60 and < 80
+          try {
+            const res = await fetch(`${API_URL}/api/users/by-capability?capability=request.create`, {
+              headers,
+              credentials: "include",
+            });
+            
+            if (!res.ok) {
+              const errorBody = await res.json().catch(() => ({}));
+              console.error("[Campaign Toolbar] Failed to fetch coordinators:", res.status, res.statusText, errorBody);
+              setAdvCoordinatorOptions([]);
+              return;
+            }
+            
+            const body = await res.json();
+            // API returns { success: true, data: [array of users] }
+            const list = Array.isArray(body.data) ? body.data : (body.data?.users || body.users || []);
+            
+            // Additional client-side filtering to ensure only coordinators (authority >= 60 and < 80)
+            // This is a safety measure in case backend filtering isn't perfect
+            const coordinatorList = list.filter((c: any) => {
+              const authority = c.authority || 20;
+              return authority >= 60 && authority < 80;
+            });
+            
+            if (coordinatorList.length === 0) {
+              console.warn("[Campaign Toolbar] No coordinators found after filtering (authority >= 60 and < 80). Total users from API:", list.length);
+            }
+            
+            const opts = (Array.isArray(coordinatorList) ? coordinatorList : []).map((c: any) => {
+              const fullName = `${c.firstName || c.First_Name || ""} ${c.lastName || c.Last_Name || ""}`.trim();
+              const userId = c._id || c.id;
+              
+              // Get district info from coverage areas if available
+              let districtLabel = "";
+              if (c.coverageAreas && c.coverageAreas.length > 0) {
+                const firstCoverage = c.coverageAreas[0];
+                if (firstCoverage.districtIds && firstCoverage.districtIds.length > 0) {
+                  districtLabel = ` - District ${firstCoverage.districtIds[0]}`;
+                } else if (firstCoverage.districtName) {
+                  districtLabel = ` - ${firstCoverage.districtName}`;
+                }
+              }
 
               return {
-                key: c.Coordinator_ID || (staff && staff.ID) || c.id,
-                label: `${fullName}${districtLabel ? " - " + districtLabel : ""}`,
+                key: userId,
+                label: `${fullName || "Unknown"}${districtLabel}`,
               };
             });
 
             setAdvCoordinatorOptions(opts);
+            console.log(`[Campaign Toolbar] Loaded ${opts.length} coordinators`);
+          } catch (err) {
+            console.error("[Campaign Toolbar] Error fetching coordinators:", err);
+            setAdvCoordinatorOptions([]);
           }
         }
 
@@ -630,7 +658,7 @@ export default function CampaignToolbar({
     }
   }, [isAdvancedModalOpen]);
 
-  // Load stakeholders for selected coordinator's district when coordinator changes
+  // Load stakeholders for selected coordinator when coordinator changes
   useEffect(() => {
     const fetchStakeholdersForCoordinator = async () => {
       try {
@@ -646,52 +674,39 @@ export default function CampaignToolbar({
 
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        // Fetch coordinator details to get district id
-        let districtId: any = null;
-
-        try {
-          const coordRes = await fetch(
-            `${API_URL}/api/coordinators/${encodeURIComponent(advCoordinator)}`,
-            { headers, credentials: "include" },
-          );
-          const coordBody = await coordRes.json();
-
-          const coordData = coordBody?.data || coordBody;
-
-          districtId =
-            coordData?.District_ID ||
-            coordData?.District?.District_ID ||
-            coordData?.District_Id ||
-            coordData?.district_id ||
-            coordData?.district ||
-            null;
-        } catch (e) {
-          // ignore
-        }
-
-        if (!districtId) {
-          setAdvStakeholderOptions([]);
-          return;
-        }
-
+        // Fetch stakeholders using new API
+        // Pass coordinatorId to use coordinator's full jurisdiction (all municipalities from all coverage areas)
+        // Backend will use jurisdiction service to filter stakeholders properly
         const stRes = await fetch(
-          `${API_URL}/api/stakeholders?district_id=${encodeURIComponent(String(districtId))}`,
+          `${API_URL}/api/users/by-capability?capability=request.review&coordinatorId=${encodeURIComponent(String(advCoordinator))}`,
           { headers, credentials: "include" },
         );
+        
         const stBody = await stRes.json();
 
-        if (stRes.ok && Array.isArray(stBody.data)) {
-          const opts = (stBody.data || []).map((s: any) => ({
-            key: s.Stakeholder_ID || s.StakeholderId || s.id,
-            label:
-              `${s.firstName || s.First_Name || ""} ${s.lastName || s.Last_Name || ""}`.trim(),
+        if (stRes.ok) {
+          // API returns { success: true, data: [array of users] }
+          const list = Array.isArray(stBody.data) ? stBody.data : (stBody.data?.users || stBody.users || []);
+          
+          // Filter to only stakeholders: authority < 60
+          // This ensures we only show stakeholders, not coordinators or admins
+          const stakeholderList = (Array.isArray(list) ? list : []).filter((s: any) => {
+            const authority = s.authority || 20;
+            return authority < 60;
+          });
+          
+          const opts = stakeholderList.map((s: any) => ({
+            key: s._id || s.id,
+            label: `${s.firstName || s.First_Name || ""} ${s.lastName || s.Last_Name || ""}`.trim() || "Unknown",
           }));
 
           setAdvStakeholderOptions(opts);
           if (advStakeholder && !opts.find((o: any) => o.key === advStakeholder)) {
             setAdvStakeholder("");
           }
+          console.log(`[CampaignToolbar] Loaded ${opts.length} stakeholders (filtered from ${list.length} total users)`);
         } else {
+          console.warn("Failed to load stakeholders:", stBody.message || "Unknown error");
           setAdvStakeholderOptions([]);
         }
       } catch (err) {
@@ -1377,11 +1392,12 @@ export default function CampaignToolbar({
                   <Select
                     className="h-9"
                     classNames={{ trigger: "h-9 border-default-200" }}
-                    placeholder="Pick a stakeholder"
+                    placeholder={advCoordinator ? "Pick a stakeholder" : "Select a coordinator first"}
                     radius="md"
                     selectedKeys={advStakeholder ? [advStakeholder] : []}
                     size="sm"
                     variant="bordered"
+                    isDisabled={!advCoordinator}
                     onChange={(e) => setAdvStakeholder(e.target.value)}
                   >
                     {advStakeholderOptions.map((s) => (
@@ -1436,8 +1452,8 @@ export default function CampaignToolbar({
                   title: advTitle || undefined,
                   coordinator: advCoordinator || undefined,
                   stakeholder: advStakeholder || undefined,
-                  startDate: advDateRange?.start?.toString(),
-                  endDate: advDateRange?.end?.toString(),
+                  start: advDateRange?.start?.toString(),
+                  end: advDateRange?.end?.toString(),
                 });
                 setIsAdvancedModalOpen(false);
               }}

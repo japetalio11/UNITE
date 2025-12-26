@@ -31,7 +31,7 @@ export default function CampaignPage() {
 
   const { setIsLoading } = useLoading();
 
-  const { locations, getDistrictsForProvince, getMunicipalitiesForDistrict, getAllProvinces, getAllMunicipalities } = useLocations();
+  const { locations, loading: locationsLoading, getDistrictsForProvince, getMunicipalitiesForDistrict, getAllProvinces, getAllMunicipalities, refreshAll: refreshLocations } = useLocations();
 
   useEffect(() => {
     if (!selectedDate) setSelectedDate(new Date());
@@ -93,13 +93,22 @@ export default function CampaignPage() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [municipalities, setMunicipalities] = useState<any[]>([]);
 
+  // Update provinces when locations data changes
   useEffect(() => {
-    setProvinces(getAllProvinces());
-  }, [getAllProvinces]);
+    const provincesList = getAllProvinces();
+    if (provincesList.length > 0) {
+      setProvinces(provincesList);
+    } else if (!locationsLoading && Object.keys(locations.provinces || {}).length === 0) {
+      // If no provinces and not loading, try to refresh
+      console.warn("[Campaign Page] No provinces found, attempting to refresh locations");
+      refreshLocations();
+    }
+  }, [getAllProvinces, locations.provinces, locationsLoading, refreshLocations]);
 
   useEffect(() => {
-    setMunicipalities(getAllMunicipalities());
-  }, [getAllMunicipalities]);
+    const municipalitiesList = getAllMunicipalities();
+    setMunicipalities(municipalitiesList);
+  }, [getAllMunicipalities, locations.municipalities]);
 
   const fetchDistricts = async (provinceId: number | string) => {
     const districtsForProvince = getDistrictsForProvince(provinceId.toString());
@@ -193,18 +202,18 @@ export default function CampaignPage() {
       if (quickFilter?.district)
         params.set("district", String(quickFilter.district));
       if (quickFilter?.municipality)
-        params.set("municipality", String(quickFilter.municipality));
+        params.set("municipalityId", String(quickFilter.municipality));
 
       if (advancedFilter.title)
         params.set("title", String(advancedFilter.title));
-      if (advancedFilter.requester)
-        params.set("requester", String(advancedFilter.requester));
       if (advancedFilter.coordinator)
         params.set("coordinator", String(advancedFilter.coordinator));
       if (advancedFilter.stakeholder)
         params.set("stakeholder", String(advancedFilter.stakeholder));
       if (advancedFilter.start)
-        params.set("start", String(advancedFilter.start));
+        params.set("date_from", String(advancedFilter.start));
+      if (advancedFilter.end)
+        params.set("date_to", String(advancedFilter.end));
 
       // Use new unified endpoint
       const url = `${API_URL}/api/event-requests?${params.toString()}`;
@@ -505,12 +514,13 @@ export default function CampaignPage() {
     setQuickFilter(filter);
   };
 
-  // Handler for advanced filter (expects { start?, title?, requester? })
+  // Handler for advanced filter (expects { start?, end?, title?, coordinator?, stakeholder? })
   const handleAdvancedFilter = (filter?: {
     start?: string;
     end?: string;
     title?: string;
-    requester?: string;
+    coordinator?: string;
+    stakeholder?: string;
   }) => {
     if (filter) setAdvancedFilter(filter);
     else setAdvancedFilter({});

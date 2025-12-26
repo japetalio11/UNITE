@@ -128,6 +128,7 @@ export function useEventUserData(
       console.log(`[fetchCoordinators] User authority: ${userAuthority}`);
 
       // System Admin (authority >= 80): Query all coordinators
+      // Coordinators must have: authority >= 60 and < 80 AND request.create capability
       if (userAuthority !== null && userAuthority >= 80) {
         const res = await fetch(
           `${API_URL}/api/users/by-capability?capability=request.create`,
@@ -143,19 +144,30 @@ export function useEventUserData(
 
         const body = await res.json();
 
-        if (body.success && Array.isArray(body.data)) {
-          const opts = body.data.map((u: any) => ({
-            key: u._id,
+        // Extract users from response (handle different response formats)
+        // API returns { success: true, data: [array of users] }
+        const usersList = Array.isArray(body.data) ? body.data : (body.data?.users || body.users || []);
+        
+        // Filter to only coordinators: authority >= 60 and < 80
+        // This ensures we only show coordinator-level users, not all staff
+        const coordinatorUsers = usersList.filter((u: any) => {
+          const authority = u.authority || 20;
+          return authority >= 60 && authority < 80;
+        });
+
+        if (coordinatorUsers.length > 0) {
+          const opts = coordinatorUsers.map((u: any) => ({
+            key: u._id || u.id,
             label: formatUserName(u) || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
           }));
 
           setCoordinatorOptions(opts);
           setIsSysAdmin(true);
           setStakeholderLocked(false); // System admins can select stakeholders
-          console.log(`[fetchCoordinators] Loaded ${opts.length} coordinators for System Admin`);
+          console.log(`[fetchCoordinators] Loaded ${opts.length} coordinators for System Admin (filtered from ${usersList.length} total users)`);
         } else {
           setCoordinatorOptions([]);
-          console.warn('[fetchCoordinators] Unexpected response format:', body);
+          console.warn(`[fetchCoordinators] No coordinators found after filtering (authority >= 60 and < 80). Total users: ${usersList.length}`);
         }
         setLoadingCoordinators(false);
         return;
@@ -318,7 +330,7 @@ export function useEventUserData(
         setIsSysAdmin(true);
         // Try unified endpoint as fallback
         const res = await fetch(
-          `${API_URL}/api/users/by-capability?capability=request.create`,
+          `${API_URL}/api/users/by-capability?capability=request.review`,
           {
             headers,
             credentials: 'include',
@@ -326,9 +338,17 @@ export function useEventUserData(
         );
         if (res.ok) {
           const body = await res.json();
-          if (body.success && Array.isArray(body.data)) {
-            const opts = body.data.map((u: any) => ({
-              key: u._id,
+          const usersList = body.data?.users || body.data || body.users || [];
+          
+          // Filter to only coordinators: authority >= 60 and < 80
+          const coordinatorUsers = usersList.filter((u: any) => {
+            const authority = u.authority || 20;
+            return authority >= 60 && authority < 80;
+          });
+          
+          if (coordinatorUsers.length > 0) {
+            const opts = coordinatorUsers.map((u: any) => ({
+              key: u._id || u.id,
               label: formatUserName(u) || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
             }));
             setCoordinatorOptions(opts);
@@ -404,28 +424,12 @@ export function useEventUserData(
         // For Coordinator: backend will filter by org+coverage automatically
         let locationId: string | undefined = undefined;
 
-        if (userAuthority !== null && userAuthority >= 80) {
-          // System Admin: get coordinator's coverage areas to filter stakeholders
-          try {
-            const coordRes = await fetch(`${API_URL}/api/users/${selectedCoordinatorId}`, {
-              headers,
-              credentials: 'include',
-            });
-            if (coordRes.ok) {
-              const coordData = await coordRes.json();
-              const municipalityIds = extractMunicipalityIds(coordData.data || coordData);
-              if (municipalityIds.length > 0) {
-                locationId = municipalityIds[0]; // Use first municipality for filtering
-              }
-            }
-          } catch (e) {
-            console.warn('[fetchStakeholders] Failed to fetch coordinator coverage:', e);
-          }
-        }
-
         // Query stakeholders using unified endpoint
-        const url = locationId
-          ? `${API_URL}/api/users/by-capability?capability=request.review&locationId=${locationId}`
+        // For System Admin with coordinator selected: pass coordinatorId to use coordinator's full jurisdiction
+        // For Coordinator: backend automatically filters by their jurisdiction
+        // For Stakeholder: backend returns only self
+        const url = selectedCoordinatorId && userAuthority !== null && userAuthority >= 80
+          ? `${API_URL}/api/users/by-capability?capability=request.review&coordinatorId=${encodeURIComponent(selectedCoordinatorId)}`
           : `${API_URL}/api/users/by-capability?capability=request.review`;
 
         const stRes = await fetch(url, {
@@ -439,9 +443,20 @@ export function useEventUserData(
 
         const stBody = await stRes.json();
 
-        if (stBody.success && Array.isArray(stBody.data)) {
-          const opts = (stBody.data || []).map((u: any) => ({
-            key: u._id,
+        // Extract users from response (handle different response formats)
+        // API returns { success: true, data: [array of users] }
+        const usersList = Array.isArray(stBody.data) ? stBody.data : (stBody.data?.users || stBody.users || []);
+        
+        // Filter to only stakeholders: authority < 60
+        // This ensures we only show stakeholders, not coordinators or admins
+        const stakeholderUsers = usersList.filter((u: any) => {
+          const authority = u.authority || 20;
+          return authority < 60;
+        });
+
+        if (stakeholderUsers.length > 0) {
+          const opts = stakeholderUsers.map((u: any) => ({
+            key: u._id || u.id,
             label: formatUserName(u) || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
           }));
 
@@ -449,10 +464,10 @@ export function useEventUserData(
           if (stakeholder && !opts.find((o: any) => o.key === stakeholder)) {
             setStakeholder('');
           }
-          console.log(`[fetchStakeholders] Loaded ${opts.length} stakeholders`);
+          console.log(`[fetchStakeholders] Loaded ${opts.length} stakeholders (filtered from ${usersList.length} total users)`);
         } else {
           setStakeholderOptions([]);
-          console.warn('[fetchStakeholders] Unexpected response format:', stBody);
+          console.warn(`[fetchStakeholders] No stakeholders found after filtering (authority < 60). Total users: ${usersList.length}`);
         }
       } catch (err) {
         console.error('[fetchStakeholders] Failed to load stakeholders:', err);

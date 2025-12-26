@@ -87,8 +87,33 @@ export function LocationsProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
 
       // Fetch all provinces
-      const provincesData = await fetchJsonWithAuth("/api/locations/provinces");
-      const provinces = Array.isArray(provincesData) ? provincesData : provincesData.data || provincesData.provinces || [];
+      let provinces: any[] = [];
+      try {
+        const provincesData = await fetchJsonWithAuth("/api/locations/provinces");
+        provinces = Array.isArray(provincesData) ? provincesData : provincesData.data || provincesData.provinces || [];
+        console.log(`[LocationsProvider] Fetched ${provinces.length} provinces`);
+        if (provinces.length === 0) {
+          console.warn("[LocationsProvider] No provinces returned from API, trying fallback endpoint");
+          // Try fallback endpoint
+          try {
+            const fallbackData = await fetchJsonWithAuth("/api/utility/provinces");
+            provinces = Array.isArray(fallbackData) ? fallbackData : fallbackData.data || fallbackData.provinces || [];
+            console.log(`[LocationsProvider] Fallback fetched ${provinces.length} provinces`);
+          } catch (e2) {
+            console.error("[LocationsProvider] Fallback provinces fetch also failed:", e2);
+          }
+        }
+      } catch (e: any) {
+        console.error("[LocationsProvider] Error fetching provinces:", e?.message || e);
+        // Try fallback endpoint
+        try {
+          const fallbackData = await fetchJsonWithAuth("/api/utility/provinces");
+          provinces = Array.isArray(fallbackData) ? fallbackData : fallbackData.data || fallbackData.provinces || [];
+          console.log(`[LocationsProvider] Fallback fetched ${provinces.length} provinces`);
+        } catch (e2: any) {
+          console.error("[LocationsProvider] Fallback provinces fetch also failed:", e2?.message || e2);
+        }
+      }
       const provincesMap: Record<string, Province> = {};
       provinces.forEach((p: any) => {
         // Normalize ID to string for consistent matching
