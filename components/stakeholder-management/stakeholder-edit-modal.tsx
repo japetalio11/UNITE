@@ -546,24 +546,51 @@ export default function EditStakeholderModal({
         || stakeholderData?._id || stakeholderData?.id
       if (!stakeholderId) throw new Error("Stakeholder id not available")
 
-      const payload: any = {
-        firstName: firstName || undefined,
-        middleName: middleName || undefined,
-        lastName: lastName || undefined,
-        email: email || undefined,
-        phoneNumber: phoneNumber || undefined,
+      // Get original values for comparison
+      const originalFirstName = stakeholderData?.firstName || ""
+      const originalMiddleName = stakeholderData?.middleName || ""
+      const originalLastName = stakeholderData?.lastName || ""
+      const originalEmail = stakeholderData?.email || ""
+      const originalPhoneNumber = stakeholderData?.phoneNumber || ""
+      const originalOrganizationId = stakeholderData?.organization?._id || stakeholderData?.organizationId || ""
+      const originalMunicipalityId = stakeholderData?.location?.municipality?._id || stakeholderData?.locations?.municipalityId || ""
+      const originalBarangayId = stakeholderData?.location?.barangay?._id || stakeholderData?.locations?.barangayId || ""
+      const originalRoleId = stakeholderData?.role?._id || ""
+
+      const payload: any = {}
+
+      // Only include fields that have changed or have values
+      if (firstName && firstName.trim() !== originalFirstName.trim()) {
+        payload.firstName = firstName.trim()
+      }
+      
+      // middleName can be empty string, so check if it changed
+      if (middleName !== originalMiddleName) {
+        payload.middleName = middleName || null
+      }
+      
+      if (lastName && lastName.trim() !== originalLastName.trim()) {
+        payload.lastName = lastName.trim()
+      }
+      
+      if (email && email.trim() !== originalEmail.trim()) {
+        payload.email = email.trim().toLowerCase()
+      }
+      
+      if (phoneNumber && phoneNumber.trim() !== originalPhoneNumber.trim()) {
+        payload.phoneNumber = phoneNumber.trim()
       }
 
       // Organization: Only admins (authority ≥ 80) or coordinators (60-79) with multiple orgs can change
       const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
       if (isAdmin) {
         // Admin can change organization
-        if (canChooseOrganization && organizationId) {
+        if (canChooseOrganization && organizationId && String(organizationId) !== String(originalOrganizationId)) {
           payload.organizationId = organizationId
         }
       } else if (currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80) {
         // Coordinator can only change if they have multiple organizations
-        if (organizationOptions.length > 1 && organizationId) {
+        if (organizationOptions.length > 1 && organizationId && String(organizationId) !== String(originalOrganizationId)) {
           // Validate that organizationId is in coordinator's allowed organizations
           const isAllowed = organizationOptions.some(org => String(org._id) === String(organizationId))
           if (isAllowed) {
@@ -574,23 +601,36 @@ export default function EditStakeholderModal({
       
       // Update municipality/barangay if changed
       // For coordinators, municipality must be within their scope (already filtered by hook)
-      if (canChooseMunicipality && selectedMunicipality) {
-        payload.municipalityId = selectedMunicipality
-        if (selectedBarangay) {
-          payload.barangayId = selectedBarangay
+      if (canChooseMunicipality) {
+        if (selectedMunicipality && String(selectedMunicipality) !== String(originalMunicipalityId)) {
+          payload.municipalityId = selectedMunicipality
+        }
+        
+        // Barangay can be cleared (empty string or null)
+        if (selectedBarangay !== originalBarangayId) {
+          if (selectedBarangay) {
+            payload.barangayId = selectedBarangay
+          } else {
+            payload.barangayId = null
+          }
         }
       }
       
       // Note: Province and District are not sent in payload as they're derived from municipality
 
       // Update role if changed (only if creator has authority to assign it)
-      if (selectedRole) {
+      if (selectedRole && String(selectedRole) !== String(originalRoleId)) {
         payload.roles = [selectedRole] // Send role ID
       }
 
-      // Password is optional
+      // Password is optional - only include if provided
       if (newPassword && String(newPassword).trim().length > 0) {
-        payload.password = newPassword
+        payload.password = newPassword.trim()
+      }
+
+      // Ensure at least one field is being updated
+      if (Object.keys(payload).length === 0) {
+        throw new Error("No changes to save")
       }
 
       const response = await updateStakeholder(String(stakeholderId), payload)

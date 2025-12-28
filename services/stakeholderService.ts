@@ -28,11 +28,13 @@ export interface UpdateStakeholderData {
   email?: string;
   phoneNumber?: string;
   password?: string;
-  roleCode?: string;
+  roles?: string[]; // Array of role IDs
   organizationId?: string;
   organizationType?: string;
   organizationInstitution?: string;
   coverageAreaId?: string;
+  municipalityId?: string;
+  barangayId?: string | null;
   field?: string;
 }
 
@@ -148,21 +150,32 @@ export async function updateStakeholder(
   try {
     const payload: any = {};
 
+    // Basic user fields
     if (data.firstName !== undefined) payload.firstName = data.firstName;
     if (data.middleName !== undefined) payload.middleName = data.middleName;
     if (data.lastName !== undefined) payload.lastName = data.lastName;
     if (data.email !== undefined) payload.email = data.email;
     if (data.phoneNumber !== undefined) payload.phoneNumber = data.phoneNumber;
     if (data.password !== undefined) payload.password = data.password;
+    
+    // Organization fields
     if (data.organizationId !== undefined) payload.organizationId = data.organizationId;
     if (data.organizationType !== undefined) payload.organizationType = data.organizationType;
     if (data.organizationInstitution !== undefined) payload.organizationInstitution = data.organizationInstitution;
+    
+    // Location fields (for stakeholders)
+    if (data.municipalityId !== undefined) payload.municipalityId = data.municipalityId;
+    if (data.barangayId !== undefined) payload.barangayId = data.barangayId;
+    
+    // Coverage area (for coordinators)
     if (data.coverageAreaId !== undefined) payload.coverageAreaId = data.coverageAreaId;
+    
+    // Other fields
     if (data.field !== undefined) payload.field = data.field;
 
-    // If role is being updated, include it
-    if (data.roleCode) {
-      payload.roles = [data.roleCode];
+    // Roles - handle as array of role IDs
+    if (data.roles !== undefined && Array.isArray(data.roles) && data.roles.length > 0) {
+      payload.roles = data.roles;
     }
 
     const response = await fetchJsonWithAuth(`/api/users/${userId}`, {
@@ -361,10 +374,17 @@ export async function deleteStakeholder(userId: string): Promise<{ success: bool
       method: 'DELETE',
     });
 
-    return {
-      success: response.success || true,
-      message: response.message,
-    };
+    if (response.success !== false) {
+      return {
+        success: true,
+        message: response.message || 'Stakeholder deleted successfully',
+      };
+    } else {
+      return {
+        success: false,
+        message: response.message || 'Failed to delete stakeholder',
+      };
+    }
   } catch (error: any) {
     console.error('Failed to delete stakeholder:', error);
     return {
