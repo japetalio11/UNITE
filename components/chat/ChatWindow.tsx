@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, Phone, MoreVertical, Sidebar, Paperclip, Send, ArrowLeft } from "lucide-react";
 import fetchWithAuth from '@/utils/fetchWithAuth';
 import { useChat } from "@/contexts/ChatContext";
+import { canSendMessage } from "@/services/chatService";
 
 interface ChatWindowProps {
   selected?: string | null;
@@ -457,7 +458,7 @@ export default function ChatWindow({ selected, onBack, showBackButton = false }:
               />
               <button
                 onClick={handleSendMessage}
-                disabled={(!text.trim() && pendingAttachments.length === 0) || !isConnected}
+                disabled={(!text.trim() && pendingAttachments.length === 0) || !isConnected || !canSendMessage(currentUser?.authority)}
                 className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-800 active:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
                 <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

@@ -2,46 +2,23 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { fetchWithAuth } from '@/utils/fetchWithAuth';
+import {
+  getCurrentUser,
+  fetchRecipients,
+  fetchConversations,
+  fetchMessages,
+  type ChatUser,
+  type ChatMessage,
+  type ChatConversation,
+  type ChatRecipient
+} from '@/services/chatService';
 
-interface User {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  type: 'staff' | 'stakeholder';
-}
+// Use types from chatService
+type User = ChatUser;
+type Message = ChatMessage;
+type Conversation = ChatConversation;
 
-interface Message {
-  messageId: string;
-  senderId: string;
-  receiverId: string;
-  conversationId: string;
-  content: string;
-    messageType: 'text' | 'image' | 'file';
-    attachments?: Array<{ filename: string; url: string; key?: string; mime?: string; size?: number }>;
-  timestamp: string;
-  status: 'sent' | 'delivered' | 'read';
-  senderDetails?: User;
-  receiverDetails?: User;
-}
-
-interface Conversation {
-  conversationId: string;
-  participants: Array<{
-    userId: string;
-    joinedAt: string;
-    details?: User;
-  }>;
-  lastMessage?: {
-    messageId: string;
-    content: string;
-    senderId: string;
-    timestamp: string;
-  };
-  unreadCount: { [userId: string]: number };
-  updatedAt: string;
-}
+// Types are imported from chatService
 
 interface ChatContextType {
   // Data
@@ -207,37 +184,49 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Load current user info
+  // Load current user info using service layer
   const loadCurrentUser = useCallback(async () => {
     try {
-      const response = await fetchWithAuth('/api/auth/me');
-      if (response.ok) {
-        const userData = await response.json();
-
-        const processedUser: User = {
-          id: userData.data.ID || userData.data.id,
-          name: `${userData.data.First_Name || ''} ${userData.data.Last_Name || ''}`.trim(),
-          role: userData.data.StaffType || userData.data.role || 'Unknown',
-          email: userData.data.Email || userData.data.email,
-          type: userData.data.StaffType ? 'staff' : 'stakeholder'
-        };
-
-        setCurrentUser(processedUser);
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        // Fallback: try to fetch from API
+        try {
+          const response = await fetchWithAuth('/api/auth/me');
+          if (response.ok) {
+            const userData = await response.json();
+            const data = userData.data || userData.user || userData;
+            
+            // Extract from new structure
+            const activeRoles = (data.roles || []).filter((r: any) => r.isActive !== false);
+            const primaryRole = activeRoles.length > 0 ? activeRoles[0].code : 'user';
+            const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.name || 'Unknown';
+            
+            setCurrentUser({
+              id: data._id?.toString() || data.id?.toString() || '',
+              name: name,
+              role: primaryRole,
+              email: data.email || '',
+              authority: data.authority,
+              type: primaryRole === 'stakeholder' ? 'stakeholder' : 'staff'
+            });
+          }
+        } catch (apiError) {
+          // Silently fail
+        }
       }
     } catch (error) {
       // Silently fail user loading
     }
   }, []);
 
-  // Load recipients
+  // Load recipients using service layer
   const refreshRecipients = useCallback(async () => {
     setLoadingRecipients(true);
     try {
-      const response = await fetchWithAuth('/api/chat/recipients');
-      if (response.ok) {
-        const data = await response.json();
-        setRecipients(data.data || []);
-      }
+      const recipientsData = await fetchRecipients();
+      setRecipients(recipientsData);
     } catch (error) {
       // Silently fail recipient loading
     } finally {
@@ -245,15 +234,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load conversations
+  // Load conversations using service layer
   const refreshConversations = useCallback(async () => {
     setLoadingConversations(true);
     try {
-      const response = await fetchWithAuth('/api/chat/conversations');
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data.data || []);
-      }
+      const conversationsData = await fetchConversations();
+      setConversations(conversationsData);
     } catch (error) {
       // Silently fail conversation loading
     } finally {
@@ -261,15 +247,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load messages for selected conversation
+  // Load messages for selected conversation using service layer
   const loadMessages = useCallback(async (conversationId: string) => {
     setLoadingMessages(true);
     try {
-      const response = await fetchWithAuth(`/api/chat/messages/${conversationId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.data || []);
-      }
+      const messagesData = await fetchMessages(conversationId);
+      setMessages(messagesData);
     } catch (error) {
       // Silently fail message loading
     } finally {
