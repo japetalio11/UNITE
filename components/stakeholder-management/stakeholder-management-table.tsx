@@ -163,7 +163,7 @@ export default function StakeholderTable({
                   Phone Number
                 </th>
                 <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Entity
+                  Organization
                 </th>
                 <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Province
@@ -244,7 +244,7 @@ export default function StakeholderTable({
               Phone Number
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Entity
+              Organization
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Province
@@ -253,7 +253,7 @@ export default function StakeholderTable({
               District
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Coverage Area
+              Municipality
               </th>
               <th className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Action
@@ -297,13 +297,11 @@ export default function StakeholderTable({
                   {displayValue(coordinator.district)}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {coordinator.coverageArea 
-                    ? coordinator.coverageArea
-                    : displayValue(
-                        (municipalityCache &&
-                          municipalityCache[String(coordinator.municipality)]) ||
-                          coordinator.municipality,
-                      )}
+                  {displayValue(
+                    (municipalityCache &&
+                      municipalityCache[String(coordinator.municipality)]) ||
+                      coordinator.municipality,
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   <Dropdown>

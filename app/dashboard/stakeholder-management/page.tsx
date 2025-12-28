@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { getUserInfo } from "../../../utils/getUserInfo";
@@ -60,6 +60,8 @@ export default function StakeholderManagement() {
   const [filters, setFilters] = useState<{
     province?: string;
     districtId?: string;
+    organizationType?: string;
+    [key: string]: any;
   }>({});
   const [openQuickFilter, setOpenQuickFilter] = useState(false);
   const [openAdvancedFilter, setOpenAdvancedFilter] = useState(false);
@@ -81,11 +83,17 @@ export default function StakeholderManagement() {
   const [municipalityCache, setMunicipalityCache] = useState<
     Record<string, string>
   >({});
+  const [municipalitiesMap, setMunicipalitiesMap] = useState<
+    Record<string, any>
+  >({});
   const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [pendingAcceptId, setPendingAcceptId] = useState<string | null>(null);
   const [pendingRejectId, setPendingRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  // Use a ref to track if initial fetch has been done to avoid double-fetch
+  const initialFetchDone = useRef(false);
 
   // Do not call getUserInfo() synchronously — read it on mount so server and client
   // produce the same initial HTML; update user-derived state after hydration.
@@ -393,6 +401,50 @@ export default function StakeholderManagement() {
     loadProvinces();
   }, []);
 
+  // Load municipalities with district and province relationships
+  useEffect(() => {
+    const loadMunicipalities = async () => {
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const url = base
+          ? `${base}/api/locations/type/municipality?limit=1000`
+          : `/api/locations/type/municipality?limit=1000`;
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_token") ||
+              sessionStorage.getItem("unite_token")
+            : null;
+        const headers: any = {};
+
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(url, { headers });
+
+        if (!res.ok) return;
+        const text = await res.text();
+        const json = text ? JSON.parse(text) : null;
+        const items = json?.data || [];
+
+        const map: Record<string, any> = {};
+        const cache: Record<string, string> = {};
+
+        for (const m of items) {
+          // Index by _id
+          if (m._id) {
+            map[String(m._id)] = m;
+            cache[String(m._id)] = m.name || m.Name || "";
+          }
+        }
+
+        setMunicipalitiesMap(map);
+        setMunicipalityCache(cache);
+      } catch (e) {
+        // ignore municipality load errors
+      }
+    };
+
+    loadMunicipalities();
+  }, []);
+
   // Update stakeholder names when provinces are loaded
   useEffect(() => {
     if (provincesMap) {
@@ -545,7 +597,7 @@ export default function StakeholderManagement() {
         }
       }
 
-      setUserDistrictId(uid || null);
+      // Note: userDistrictId is no longer needed - removed setUserDistrictId call
       // Include both centralized getUserInfo and raw parsed object for diagnostics
       let infoForDebug = null;
 
@@ -663,6 +715,8 @@ export default function StakeholderManagement() {
   const fetchStakeholders = async (appliedFilters?: {
     province?: string;
     districtId?: string;
+    organizationType?: string;
+    [key: string]: any;
   }) => {
     setLoading(true);
     setError(null);
@@ -682,7 +736,7 @@ export default function StakeholderManagement() {
       const response = await listStakeholders(apiFilters);
 
       if (!response.success || !response.data) {
-        throw new Error(response.message || "Failed to fetch stakeholders");
+        throw new Error((response as any).message || "Failed to fetch stakeholders");
       }
 
       // Transform response data to match expected format
@@ -702,6 +756,52 @@ export default function StakeholderManagement() {
         return true;
       });
       
+      // First, collect all unique municipality IDs and fetch their ancestors in parallel
+      const uniqueMunicipalityIds = new Set<string>();
+      items.forEach((s: any) => {
+        const municipalityId = s.locations?.municipalityId || 
+                               s.locations?.municipality?._id || 
+                               s.locations?.municipality?.id ||
+                               s.municipality?._id ||
+                               s.municipality?.id ||
+                               null;
+        if (municipalityId) {
+          uniqueMunicipalityIds.add(String(municipalityId));
+        }
+      });
+
+      // Fetch ancestors for all unique municipalities in parallel
+      const municipalityAncestorsMap: Record<string, any[]> = {};
+      if (uniqueMunicipalityIds.size > 0) {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_token") ||
+              sessionStorage.getItem("unite_token")
+            : null;
+        const headers: any = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        await Promise.all(
+          Array.from(uniqueMunicipalityIds).map(async (municipalityId) => {
+            try {
+              const url = base
+                ? `${base}/api/locations/${municipalityId}/ancestors`
+                : `/api/locations/${municipalityId}/ancestors`;
+              const res = await fetch(url, { headers });
+              if (res.ok) {
+                const text = await res.text();
+                const json = text ? JSON.parse(text) : null;
+                const ancestors = json?.data || [];
+                municipalityAncestorsMap[municipalityId] = ancestors;
+              }
+            } catch (e) {
+              // Ignore errors for individual municipalities
+            }
+          })
+        );
+      }
+
       // Map users to stakeholder format
       const mapped = items.map((s: any) => {
         // Build full name supporting both legacy (First_Name) and normalized (firstName) keys
@@ -713,25 +813,84 @@ export default function StakeholderManagement() {
           .filter(Boolean)
           .join(" ");
         
-        // Format coverage area: "Municipality → Barangay" or just "Municipality"
-        const formatCoverageArea = (): string => {
+        // Resolve municipality name (just the name, not "Municipality → Barangay")
+        const resolveMunicipality = (): string => {
           // Use new user model structure first
           if (s.locations) {
             const muniName = s.locations.municipalityName || s.locations.municipality?.name || "";
-            const brgyName = s.locations.barangayName || s.locations.barangay?.name || "";
-            if (muniName) {
-              return brgyName ? `${muniName} → ${brgyName}` : muniName;
-            }
+            if (muniName) return muniName;
           }
           
           // Fallback to legacy structure
           const muniName = s.municipality?.name || s.City_Municipality || s.Municipality || s.City || s.cityMunicipality || "";
-          const brgyName = s.barangay?.name || "";
-          if (muniName) {
-            return brgyName ? `${muniName} → ${brgyName}` : muniName;
-          }
+          if (muniName) return muniName;
           
           return "";
+        };
+        
+        // Resolve province and district from municipality ancestors
+        const resolveProvinceAndDistrict = (): { province: string; district: string } => {
+          let resolvedProvince = "";
+          let resolvedDistrict = "";
+          
+          // Try to get municipalityId from locations
+          const municipalityId = s.locations?.municipalityId || 
+                                 s.locations?.municipality?._id || 
+                                 s.locations?.municipality?.id ||
+                                 s.municipality?._id ||
+                                 s.municipality?.id ||
+                                 null;
+          
+          if (municipalityId && municipalityAncestorsMap[String(municipalityId)]) {
+            const ancestors = municipalityAncestorsMap[String(municipalityId)];
+            
+            // Ancestors are returned from root (province) to immediate parent (district)
+            // Find district (type === 'district' or type === 'city' with isCity metadata)
+            const district = ancestors.find((a: any) => 
+              a.type === 'district' || 
+              (a.type === 'city' && a.metadata?.isCity)
+            );
+            
+            // Find province (type === 'province')
+            const province = ancestors.find((a: any) => a.type === 'province');
+            
+            if (district) {
+              // Look up district in districtsMap to get formatted name
+              const districtId = district._id || district.id;
+              if (districtId && districtsMap && districtsMap[String(districtId)]) {
+                resolvedDistrict = formatDistrict(districtsMap[String(districtId)]);
+              } else {
+                resolvedDistrict = district.name || district.Name || district.District_Name || "";
+              }
+            }
+            
+            if (province) {
+              // Look up province in provincesMap
+              const provinceId = province._id || province.id;
+              if (provinceId && provincesMap[String(provinceId)]) {
+                resolvedProvince = provincesMap[String(provinceId)];
+              } else {
+                resolvedProvince = province.name || province.Name || province.Province_Name || "";
+              }
+            }
+          }
+          
+          // Fallback: try direct province/district fields from user object
+          if (!resolvedProvince) {
+            resolvedProvince = s.Province_Name || 
+                              s.province?.name || 
+                              s.province?.Province_Name ||
+                              "";
+          }
+          
+          if (!resolvedDistrict) {
+            resolvedDistrict = s.District_Name || 
+                              s.district?.name || 
+                              s.district?.District_Name ||
+                              "";
+          }
+          
+          return { province: resolvedProvince, district: resolvedDistrict };
         };
         
         // Format organization from new user model structure
@@ -763,17 +922,19 @@ export default function StakeholderManagement() {
           return "";
         };
 
+        const { province, district } = resolveProvinceAndDistrict();
+        const municipalityName = resolveMunicipality();
+
         return {
           id: s._id || s.Stakeholder_ID || s.id || "",
           _id: s._id || s.id || "",
           name: fullName,
           email: s.Email || s.email || "",
           phone: s.Phone_Number || s.phoneNumber || s.phone || "",
-          province: s.Province_Name || s.province?.name || "",
-          municipality: formatCoverageArea().split(" → ")[0] || "",
-          coverageArea: formatCoverageArea(), // Full coverage area display
+          province: province,
+          municipality: municipalityName,
           organization: formatOrganization(),
-          district: s.District_Name || s.district?.name || "",
+          district: district,
           // Include raw data for edit modal
           locations: s.locations,
           organizations: s.organizations,
@@ -871,6 +1032,25 @@ export default function StakeholderManagement() {
       updateStakeholderNames();
     }
   }, [districtsMap]);
+
+  // Re-fetch stakeholders when municipalities/districts/provinces are loaded so province/district can be resolved
+  useEffect(() => {
+    if (
+      municipalitiesMap && 
+      districtsMap && 
+      provincesMap &&
+      Object.keys(municipalitiesMap).length > 0 && 
+      Object.keys(districtsMap as Record<string, any>).length > 0 && 
+      Object.keys(provincesMap).length > 0
+    ) {
+      // Only re-fetch if initial fetch has been done (to avoid double-fetch on initial load)
+      if (initialFetchDone.current) {
+        fetchStakeholders();
+      } else {
+        initialFetchDone.current = true;
+      }
+    }
+  }, [municipalitiesMap, districtsMap, provincesMap]);
 
   // Integrate top-level search bar with current filters. Whenever searchQuery changes
   // re-run fetch with combined filters so search and quick/advanced filters combine.

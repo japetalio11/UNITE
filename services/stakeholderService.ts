@@ -187,16 +187,107 @@ export async function updateStakeholder(
  * Get a stakeholder by ID
  * @param userId - User ID
  * @returns Stakeholder data
+ * @note This endpoint requires user.read permission. If permission is denied,
+ *       the calling code should fallback to using stakeholder prop data.
  */
 export async function getStakeholder(userId: string): Promise<any> {
   try {
+    console.log('[stakeholderService] Fetching stakeholder:', {
+      userId,
+      endpoint: `/api/users/${userId}`
+    })
+    
     const response = await fetchJsonWithAuth(`/api/users/${userId}`);
+    
+    console.log('[stakeholderService] API response:', {
+      success: response.success,
+      hasData: !!response.data,
+      message: response.message
+    })
+    
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.message || 'Failed to get stakeholder');
+    
+    const errorMessage = response.message || 'Failed to get stakeholder';
+    console.warn('[stakeholderService] API call failed:', {
+      userId,
+      message: errorMessage,
+      response
+    })
+    throw new Error(errorMessage);
   } catch (error: any) {
-    console.error('Failed to get stakeholder:', error);
+    console.error('[stakeholderService] Error fetching stakeholder:', {
+      userId,
+      error: error.message || error,
+      endpoint: `/api/users/${userId}`
+    });
+    throw error;
+  }
+}
+
+/**
+ * Get stakeholder edit context
+ * Returns complete, consistent stakeholder data ready for editing
+ * @param userId - User ID
+ * @returns Edit context data with all relationships resolved
+ */
+export async function getStakeholderEditContext(userId: string): Promise<{
+  _id: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  email: string;
+  phoneNumber?: string;
+  role: {
+    _id: string;
+    code: string;
+    name: string;
+    authority: number;
+  } | null;
+  organization: {
+    _id: string;
+    name: string;
+    type: string;
+  } | null;
+  location: {
+    municipality: {
+      _id: string;
+      name: string;
+    };
+    barangay?: {
+      _id: string;
+      name: string;
+    } | null;
+    district: {
+      _id: string;
+      name: string;
+    } | null;
+    province: {
+      _id: string;
+      name: string;
+    } | null;
+  } | null;
+  editPermissions: {
+    canEditRole: boolean;
+    canEditOrganization: boolean;
+    canEditLocation: boolean;
+    canEditProvinceDistrict: boolean;
+  };
+}> {
+  try {
+    const response = await fetchJsonWithAuth(`/api/users/${userId}/edit-context`);
+    
+    if (response.success && response.data) {
+      return response.data;
+    }
+    
+    throw new Error(response.message || 'Failed to get stakeholder edit context');
+  } catch (error: any) {
+    console.error('[stakeholderService] Error fetching edit context:', {
+      userId,
+      error: error.message || error
+    });
     throw error;
   }
 }
@@ -251,11 +342,11 @@ export async function listStakeholders(filters?: {
     throw new Error(response.message || 'Failed to list stakeholders');
   } catch (error: any) {
     console.error('Failed to list stakeholders:', error);
+    const errorMessage = error.message || error.body?.message || 'Failed to list stakeholders';
     return {
       success: false,
       data: [],
-      message: error.message || error.body?.message || 'Failed to list stakeholders',
-    };
+    } as ListStakeholdersResponse & { message?: string };
   }
 }
 

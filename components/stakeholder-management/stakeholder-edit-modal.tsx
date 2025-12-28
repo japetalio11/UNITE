@@ -1,13 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Eye, EyeSlash as EyeOff } from "@gravity-ui/icons"
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal"
 import { Button } from "@heroui/button"
 import { Input } from "@heroui/input"
 import { Select, SelectItem } from "@heroui/select"
 import { useStakeholderManagement } from "@/hooks/useStakeholderManagement"
-import { updateStakeholder, getStakeholder } from "@/services/stakeholderService"
+import { updateStakeholder, getStakeholder, getStakeholderEditContext } from "@/services/stakeholderService"
+import { getUserAuthority } from "@/utils/getUserAuthority"
+import { getUserInfo } from "@/utils/getUserInfo"
 
 interface EditStakeholderModalProps {
   isOpen: boolean
@@ -52,106 +54,486 @@ export default function EditStakeholderModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [stakeholderData, setStakeholderData] = useState<any>(null)
-  // Fetch stakeholder data when modal opens
+  const [province, setProvince] = useState<string>("")
+  const [district, setDistrict] = useState<string>("")
+  const [currentUserAuthority, setCurrentUserAuthority] = useState<number | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [selectedProvince, setSelectedProvince] = useState<string>("")
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("")
+  const [provinceOptions, setProvinceOptions] = useState<any[]>([])
+  const [districtOptions, setDistrictOptions] = useState<any[]>([])
+  const [filteredMunicipalityOptions, setFilteredMunicipalityOptions] = useState<any[]>([])
+  
+  // Deduplication helper function
+  const deduplicateById = <T extends { _id?: any; id?: any }>(items: T[]): T[] => {
+    const seen = new Set<string>()
+    return items.filter((item) => {
+      const id = String(item._id || item.id)
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+  }
+  
+  // Deduplicated option arrays
+  const uniqueProvinceOptions = useMemo(() => deduplicateById(provinceOptions), [provinceOptions])
+  const uniqueDistrictOptions = useMemo(() => deduplicateById(districtOptions), [districtOptions])
+  const uniqueMunicipalityOptions = useMemo(() => deduplicateById(municipalityOptions), [municipalityOptions])
+  const uniqueOrganizationOptions = useMemo(() => deduplicateById(organizationOptions), [organizationOptions])
+  const uniqueFilteredMunicipalityOptions = useMemo(() => deduplicateById(filteredMunicipalityOptions), [filteredMunicipalityOptions])
+  // Fetch current user's authority when modal opens
   useEffect(() => {
-    if (isOpen && stakeholder) {
-      const fetchStakeholderData = async () => {
+    if (isOpen) {
+      const fetchCurrentUserData = async () => {
         try {
-          const stakeholderId = stakeholder._id || stakeholder.id || stakeholder.Stakeholder_ID || stakeholder.StakeholderId
-          if (stakeholderId) {
-            const data = await getStakeholder(String(stakeholderId))
-            setStakeholderData(data)
+          // Get current user ID from getUserInfo
+          const userInfo = getUserInfo()
+          const userId = userInfo.raw?._id || 
+                        userInfo.raw?.id || 
+                        userInfo.raw?.user?._id ||
+                        userInfo.raw?.user?.id ||
+                        null
+          
+          if (userId) {
+            setCurrentUserId(String(userId))
             
-            // Populate form fields
-            setFirstName(data.firstName || data.First_Name || "")
-            setMiddleName(data.middleName || data.Middle_Name || "")
-            setLastName(data.lastName || data.Last_Name || "")
-            setEmail(data.email || data.Email || "")
-            setPhoneNumber(data.phoneNumber || data.Phone_Number || "")
-            setOrganization(data.organizationInstitution || data.Organization_Institution || "")
-            
-            // Set organization ID if available
-            if (data.organizationId) {
-              const orgId = typeof data.organizationId === 'object' ? data.organizationId._id : data.organizationId
-              setOrganizationId(String(orgId))
-            } else if (data.organization) {
-              // Fallback: try to get org ID from organization object
-              const orgId = typeof data.organization === 'object' ? data.organization._id : data.organization
-              if (orgId) {
-                setOrganizationId(String(orgId))
-              }
-            }
-            
-            // Ensure organizationId is set even if not in data (for coordinators viewing their own org)
-            // This will be used to display the organization name
-            if (!organizationId && !canChooseOrganization && organizationOptions.length > 0) {
-              const orgId = organizationOptions[0]._id
-              if (orgId) {
-                setOrganizationId(String(orgId))
-              }
-            }
-            
-            // Set coverage area ID if available
-            if (data.coverageAreas && data.coverageAreas.length > 0) {
-              const ca = data.coverageAreas[0]
-              const caId = typeof ca === 'object' && ca.coverageAreaId
-                ? (typeof ca.coverageAreaId === 'object' ? ca.coverageAreaId._id : ca.coverageAreaId)
-                : (typeof ca === 'object' ? ca._id : ca)
-              if (caId) {
-                setCoverageAreaId(String(caId))
-              }
-            }
-            
-            // Set role if available (use role ID from embedded roles array)
-            if (data.roles && Array.isArray(data.roles) && data.roles.length > 0) {
-              const role = data.roles[0]
-              // Support both embedded role object and role ID
-              const roleId = typeof role === 'object' 
-                ? (role.roleId || role._id || role.id)
-                : role
-              if (roleId) {
-                setSelectedRole(String(roleId))
-              } else if (typeof role === 'object' && role.roleCode) {
-                // Fallback: try to find role by code
-                const matchingRole = roleOptions.find(r => r.code === role.roleCode)
-                if (matchingRole) {
-                  setSelectedRole(String(matchingRole._id || matchingRole.id))
-                }
-              }
-            }
-            
-            // Set municipality and barangay from locations
-            if (data.locations) {
-              if (data.locations.municipalityId) {
-                setSelectedMunicipality(String(data.locations.municipalityId))
-                // Fetch barangays for the municipality
-                fetchBarangays(String(data.locations.municipalityId))
-              }
-              if (data.locations.barangayId) {
-                setSelectedBarangay(String(data.locations.barangayId))
-              }
-            }
-          } else {
-            // Fallback: use stakeholder prop directly
-            setStakeholderData(stakeholder)
-            setFirstName(stakeholder.firstName || stakeholder.First_Name || "")
-            setMiddleName(stakeholder.middleName || stakeholder.Middle_Name || "")
-            setLastName(stakeholder.lastName || stakeholder.Last_Name || "")
-            setEmail(stakeholder.email || stakeholder.Email || "")
-            setPhoneNumber(stakeholder.phoneNumber || stakeholder.Phone_Number || "")
-            setOrganization(stakeholder.organizationInstitution || stakeholder.Organization_Institution || "")
+            // Fetch current user's authority
+            const authority = await getUserAuthority(String(userId))
+            setCurrentUserAuthority(authority)
           }
         } catch (error) {
-          console.error('Failed to fetch stakeholder data:', error)
-          // Fallback: use stakeholder prop directly
-          setStakeholderData(stakeholder)
+          console.error('Failed to fetch current user data:', error)
         }
       }
       
-      fetchStakeholderData()
+      fetchCurrentUserData()
+    }
+  }, [isOpen])
+
+  // Fetch stakeholder edit context when modal opens (simplified approach)
+  useEffect(() => {
+    if (isOpen && stakeholder) {
+      const loadEditData = async () => {
+        try {
+          const stakeholderId = stakeholder._id || stakeholder.id || stakeholder.Stakeholder_ID || stakeholder.StakeholderId
+          if (!stakeholderId) {
+            console.error('[EditStakeholderModal] No stakeholder ID available')
+            return
+          }
+
+          console.log('[EditStakeholderModal] Loading edit context for stakeholder:', stakeholderId)
+          
+          // Fetch complete edit context from dedicated endpoint
+          const editContext = await getStakeholderEditContext(String(stakeholderId))
+          
+          console.log('[EditStakeholderModal] Edit context loaded:', {
+            hasRole: !!editContext.role,
+            hasOrganization: !!editContext.organization,
+            hasLocation: !!editContext.location,
+            editPermissions: editContext.editPermissions,
+            hookLoading: hookLoading,
+            municipalityOptionsCount: municipalityOptions.length,
+            organizationOptionsCount: organizationOptions.length,
+            isSystemAdmin: isSystemAdmin
+          })
+          
+          // Set all form fields directly from edit context - no complex extraction needed
+          setFirstName(editContext.firstName || "")
+          setMiddleName(editContext.middleName || "")
+          setLastName(editContext.lastName || "")
+          setEmail(editContext.email || "")
+          setPhoneNumber(editContext.phoneNumber || "")
+          
+          // Set role
+          if (editContext.role) {
+            setSelectedRole(editContext.role._id)
+          }
+          
+          // Set organization
+          if (editContext.organization) {
+            setOrganizationId(editContext.organization._id)
+            setOrganization(editContext.organization.name)
+          }
+          
+          // Set location data
+          if (editContext.location) {
+            // For admins, set province and district IDs FIRST so municipality filtering works correctly
+            if (editContext.editPermissions.canEditProvinceDistrict) {
+              if (editContext.location.province) {
+                setSelectedProvince(editContext.location.province._id)
+                setProvince(editContext.location.province.name)
+              }
+              if (editContext.location.district) {
+                setSelectedDistrict(editContext.location.district._id)
+                setDistrict(editContext.location.district.name)
+              }
+            } else {
+              // For coordinators, just set display names
+              if (editContext.location.province) {
+                setProvince(editContext.location.province.name)
+              }
+              if (editContext.location.district) {
+                setDistrict(editContext.location.district.name)
+              }
+            }
+            
+            // Municipality - set immediately (filtering logic will ensure it's included)
+            if (editContext.location.municipality) {
+              setSelectedMunicipality(editContext.location.municipality._id)
+              fetchBarangays(editContext.location.municipality._id)
+            }
+            
+            // Barangay
+            if (editContext.location.barangay) {
+              setSelectedBarangay(editContext.location.barangay._id)
+            }
+          }
+          
+          // Store edit context for reference
+          setStakeholderData(editContext)
+          
+        } catch (error: any) {
+          console.error('[EditStakeholderModal] Failed to load edit context:', error)
+          // Fallback: try to use stakeholder prop data
+          console.log('[EditStakeholderModal] Falling back to stakeholder prop data')
+          setStakeholderData(stakeholder)
+          
+          // Try to extract basic fields from prop as fallback
+          setFirstName(stakeholder.name?.split(' ')[0] || stakeholder.firstName || stakeholder.First_Name || "")
+          setLastName(stakeholder.name?.split(' ').slice(-1)[0] || stakeholder.lastName || stakeholder.Last_Name || "")
+          setEmail(stakeholder.email || stakeholder.Email || "")
+          setPhoneNumber(stakeholder.phone || stakeholder.phoneNumber || stakeholder.Phone_Number || "")
+        }
+      }
+      
+      loadEditData()
+    } else if (!isOpen) {
+      // Reset all form fields when modal closes
+      setFirstName("")
+      setMiddleName("")
+      setLastName("")
+      setEmail("")
+      setPhoneNumber("")
+      setOrganization("")
+      setOrganizationId("")
+      setSelectedMunicipality("")
+      setSelectedBarangay("")
+      setSelectedRole("")
+      setNewPassword("")
+      setProvince("")
+      setDistrict("")
+      setSelectedProvince("")
+      setSelectedDistrict("")
+      setProvinceOptions([])
+      setDistrictOptions([])
+      setFilteredMunicipalityOptions([])
+      setStakeholderData(null)
+      setValidationErrors([])
+      setCurrentUserAuthority(null)
     }
   }, [isOpen, stakeholder])
 
+
+  // Fetch provinces for admins - deduplicated
+  useEffect(() => {
+    if (isOpen) {
+      const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+      
+      if (isAdmin && provinceOptions.length === 0) {
+        const fetchProvincesForAdmin = async () => {
+          try {
+            const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+            const url = base
+              ? `${base}/api/locations/provinces`
+              : `/api/locations/provinces`
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("unite_token") ||
+                  sessionStorage.getItem("unite_token")
+                : null
+            const headers: any = {}
+            if (token) headers["Authorization"] = `Bearer ${token}`
+            
+            const res = await fetch(url, { headers })
+            if (res.ok) {
+              const text = await res.text()
+              const json = text ? JSON.parse(text) : null
+              const provinces = json?.data || json?.provinces || []
+              
+              // Deduplicate provinces before setting
+              const uniqueProvinces = deduplicateById(provinces)
+              console.log('[EditStakeholderModal] Loaded provinces:', {
+                count: uniqueProvinces.length,
+                selectedProvince: selectedProvince
+              })
+              setProvinceOptions(uniqueProvinces)
+            } else {
+              console.error('[EditStakeholderModal] Failed to fetch provinces:', res.status, res.statusText)
+            }
+          } catch (e) {
+            console.error('[EditStakeholderModal] Error fetching provinces:', e)
+          }
+        }
+        
+        fetchProvincesForAdmin()
+      }
+    }
+  }, [isOpen, currentUserAuthority, isSystemAdmin])
+  
+  // Note: Name-based matching removed - edit-context endpoint provides IDs directly
+
+  // Fetch districts when province is selected (for admins) - deduplicated
+  useEffect(() => {
+    const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+    if (isOpen && isAdmin && selectedProvince) {
+      console.log('[EditStakeholderModal] Fetching districts for province:', selectedProvince)
+      const fetchDistricts = async () => {
+        try {
+          const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+          const url = base
+            ? `${base}/api/locations/provinces/${selectedProvince}/districts`
+            : `/api/locations/provinces/${selectedProvince}/districts`
+          const token =
+            typeof window !== "undefined"
+              ? localStorage.getItem("unite_token") ||
+                sessionStorage.getItem("unite_token")
+              : null
+          const headers: any = {}
+          if (token) headers["Authorization"] = `Bearer ${token}`
+          
+          const res = await fetch(url, { headers })
+          if (res.ok) {
+            const text = await res.text()
+            const json = text ? JSON.parse(text) : null
+            const districts = json?.data || json?.districts || []
+            
+            // Deduplicate districts before setting
+            const uniqueDistricts = deduplicateById(districts)
+            console.log('[EditStakeholderModal] Loaded districts:', {
+              count: uniqueDistricts.length,
+              selectedDistrict: selectedDistrict
+            })
+            
+            setDistrictOptions(uniqueDistricts)
+          } else {
+            console.error('[EditStakeholderModal] Failed to fetch districts:', res.status, res.statusText)
+          }
+        } catch (e) {
+          console.error('[EditStakeholderModal] Error fetching districts:', e)
+        }
+      }
+      fetchDistricts()
+    } else if (isOpen && isAdmin && !selectedProvince) {
+      setDistrictOptions([])
+    }
+  }, [isOpen, currentUserAuthority, isSystemAdmin, selectedProvince])
+
+  // Filter municipalities based on selected district (for admins) - simplified and deduplicated
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+    const isCoordinator = currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80
+    
+    if (isAdmin) {
+      if (selectedDistrict) {
+        // Filter municipalities by district
+        const filtered = uniqueMunicipalityOptions.filter((muni: any) => {
+          const parentId = muni.parent?._id || muni.parent?.id || muni.parent
+          return parentId && String(parentId) === String(selectedDistrict)
+        })
+        
+        // ALWAYS ensure current municipality is in the list, even if it doesn't match the district filter
+        // This handles the case where municipality is set before district filtering happens
+        if (selectedMunicipality) {
+          const currentMuni = uniqueMunicipalityOptions.find((m: any) => {
+            const muniId = m._id || m.id
+            return String(muniId) === String(selectedMunicipality)
+          })
+          
+          if (currentMuni) {
+            const alreadyInList = filtered.some((m: any) => {
+              const muniId = m._id || m.id
+              return String(muniId) === String(selectedMunicipality)
+            })
+            if (!alreadyInList) {
+              const parentId = typeof currentMuni.parent === 'object' 
+                ? (currentMuni.parent?._id || (currentMuni.parent as any)?.id)
+                : currentMuni.parent
+              console.log('[EditStakeholderModal] Adding current municipality to filtered list (district mismatch):', {
+                municipalityId: selectedMunicipality,
+                municipalityName: currentMuni.name,
+                municipalityParent: parentId,
+                selectedDistrict: selectedDistrict
+              })
+              filtered.push(currentMuni)
+            }
+          } else {
+            console.warn('[EditStakeholderModal] Current municipality not found in options:', selectedMunicipality)
+          }
+        }
+        
+        console.log('[EditStakeholderModal] Filtered municipalities for district:', {
+          districtId: selectedDistrict,
+          filteredCount: filtered.length,
+          selectedMunicipality: selectedMunicipality,
+          municipalityInList: selectedMunicipality ? filtered.some((m: any) => String(m._id || m.id) === String(selectedMunicipality)) : false
+        })
+        
+        setFilteredMunicipalityOptions(filtered)
+      } else if (selectedMunicipality) {
+        // No district selected yet, but municipality is set - keep it in the list
+        const currentMuni = uniqueMunicipalityOptions.find((m: any) => {
+          const muniId = m._id || m.id
+          return String(muniId) === String(selectedMunicipality)
+        })
+        if (currentMuni) {
+          console.log('[EditStakeholderModal] No district selected, showing current municipality only:', currentMuni.name)
+          setFilteredMunicipalityOptions([currentMuni])
+        } else {
+          // Municipality not found in options yet, show all (will update when options load)
+          console.log('[EditStakeholderModal] Municipality not found in options yet, showing all')
+          setFilteredMunicipalityOptions(uniqueMunicipalityOptions)
+        }
+      } else {
+        // No district or municipality selected - show all municipalities
+        setFilteredMunicipalityOptions(uniqueMunicipalityOptions)
+      }
+    } else if (isCoordinator) {
+      // For coordinators, use all municipality options from hook (already filtered by coverage)
+      setFilteredMunicipalityOptions(uniqueMunicipalityOptions)
+    } else {
+      // Authority not loaded yet - use all options temporarily
+      setFilteredMunicipalityOptions(uniqueMunicipalityOptions)
+    }
+  }, [isOpen, currentUserAuthority, isSystemAdmin, selectedDistrict, uniqueMunicipalityOptions, selectedMunicipality])
+
+  // Fetch barangays when municipality is selected
+  useEffect(() => {
+    if (selectedMunicipality) {
+      fetchBarangays(selectedMunicipality)
+    }
+  }, [selectedMunicipality, fetchBarangays])
+
+  // Verify organizationId exists in options when they load and set it if missing
+  useEffect(() => {
+    if (isOpen && uniqueOrganizationOptions.length > 0 && stakeholderData) {
+      // If organizationId is not set but we have edit context data, set it
+      if (!organizationId && stakeholderData.organization && stakeholderData.organization._id) {
+        const orgId = stakeholderData.organization._id
+        const orgExists = uniqueOrganizationOptions.some(o => String(o._id) === String(orgId))
+        if (orgExists) {
+          console.log('[EditStakeholderModal] Setting organizationId from edit context:', {
+            orgId: orgId,
+            orgName: stakeholderData.organization.name
+          })
+          setOrganizationId(orgId)
+          if (stakeholderData.organization.name) {
+            setOrganization(stakeholderData.organization.name)
+          }
+        } else {
+          console.warn('[EditStakeholderModal] Organization from edit context not found in options:', {
+            orgId: orgId,
+            orgName: stakeholderData.organization.name,
+            availableOptions: uniqueOrganizationOptions.map(o => ({ id: o._id, name: o.name }))
+          })
+          // For admins, if org not in options, this is unexpected - log it
+          // For coordinators, try to use first available
+          if (!canChooseOrganization && uniqueOrganizationOptions.length > 0) {
+            const firstOrg = uniqueOrganizationOptions[0]
+            if (firstOrg._id) {
+              console.log('[EditStakeholderModal] Using first available organization:', firstOrg._id)
+              setOrganizationId(String(firstOrg._id))
+              if (firstOrg.name) {
+                setOrganization(firstOrg.name)
+              }
+            }
+          }
+        }
+      } else if (organizationId) {
+        // Verify existing organizationId exists in options
+        const orgExists = uniqueOrganizationOptions.some(o => String(o._id) === String(organizationId))
+        if (!orgExists) {
+          console.warn('[EditStakeholderModal] Organization ID not found in options:', {
+            orgId: organizationId,
+            availableOptions: uniqueOrganizationOptions.map(o => ({ id: o._id, name: o.name }))
+          })
+          // For coordinators, if org not in options, try to use first available
+          if (!canChooseOrganization && uniqueOrganizationOptions.length > 0) {
+            const firstOrg = uniqueOrganizationOptions[0]
+            if (firstOrg._id) {
+              console.log('[EditStakeholderModal] Using first available organization:', firstOrg._id)
+              setOrganizationId(String(firstOrg._id))
+              if (firstOrg.name) {
+                setOrganization(firstOrg.name)
+              }
+            }
+          }
+        } else {
+          // Update organization name if available
+          const foundOrg = uniqueOrganizationOptions.find(o => String(o._id) === String(organizationId))
+          if (foundOrg && foundOrg.name && foundOrg.name !== organization) {
+            setOrganization(foundOrg.name)
+          }
+        }
+      }
+    }
+  }, [isOpen, organizationId, uniqueOrganizationOptions, canChooseOrganization, organization, stakeholderData])
+
+  // Filter roles for admins (only show authority >= 59)
+  const filteredRoleOptions = useMemo(() => {
+    const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+    if (isAdmin) {
+      // For admins, only show roles with authority >= 59
+      return roleOptions.filter(role => (role.authority || 0) >= 59)
+    }
+    return roleOptions
+  }, [roleOptions, currentUserAuthority, isSystemAdmin])
+
+  // Get filtered municipality options based on admin selections (deduplicated)
+  const availableMunicipalityOptions = useMemo(() => {
+    const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+    if (isAdmin) {
+      return uniqueFilteredMunicipalityOptions.length > 0 ? uniqueFilteredMunicipalityOptions : uniqueMunicipalityOptions
+    }
+    return uniqueMunicipalityOptions
+  }, [currentUserAuthority, isSystemAdmin, uniqueFilteredMunicipalityOptions, uniqueMunicipalityOptions])
+
+  // Diagnostic logging for field states
+  useEffect(() => {
+    if (isOpen) {
+      const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+      console.log('[EditStakeholderModal] Field States Summary:', {
+        authority: currentUserAuthority,
+        isAdmin: isAdmin,
+        isCoordinator: currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80,
+        canChooseMunicipality,
+        canChooseOrganization,
+        isSystemAdmin,
+        hookLoading,
+        province: province || 'not set',
+        district: district || 'not set',
+        selectedProvince: selectedProvince || 'not set',
+        selectedDistrict: selectedDistrict || 'not set',
+        selectedMunicipality: selectedMunicipality || 'not set',
+        organizationId: organizationId || 'not set',
+        organization: organization || 'not set',
+        roleOptionsCount: roleOptions.length,
+        municipalityOptionsCount: municipalityOptions.length,
+        filteredMunicipalityOptionsCount: filteredMunicipalityOptions.length,
+        barangayOptionsCount: barangayOptions.length,
+        organizationOptionsCount: organizationOptions.length,
+        provinceOptionsCount: provinceOptions.length,
+        districtOptionsCount: districtOptions.length,
+        selectedRole: selectedRole || 'none',
+        stakeholderData: stakeholderData ? {
+          hasOrganization: !!(stakeholderData.organization || stakeholderData.organizationId || stakeholderData.organizations),
+          hasLocations: !!stakeholderData.locations,
+          hasRoles: !!(stakeholderData.roles && Array.isArray(stakeholderData.roles))
+        } : null
+      } as any);
+    }
+  }, [isOpen, hookLoading, canChooseMunicipality, canChooseOrganization, isSystemAdmin, currentUserAuthority, province, district, selectedProvince, selectedDistrict, roleOptions.length, municipalityOptions.length, filteredMunicipalityOptions.length, barangayOptions.length, organizationOptions.length, provinceOptions.length, districtOptions.length, selectedRole, selectedMunicipality, selectedBarangay, organizationId, organization, stakeholderData]);
 
   const handleSave = async () => {
     if (!stakeholder && !stakeholderData) return
@@ -170,21 +552,36 @@ export default function EditStakeholderModal({
         lastName: lastName || undefined,
         email: email || undefined,
         phoneNumber: phoneNumber || undefined,
-        organizationInstitution: organization || undefined,
       }
 
-      // Only system admin can change organization and location
-      if (canChooseOrganization && organizationId) {
-        payload.organizationId = organizationId
+      // Organization: Only admins (authority ≥ 80) or coordinators (60-79) with multiple orgs can change
+      const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+      if (isAdmin) {
+        // Admin can change organization
+        if (canChooseOrganization && organizationId) {
+          payload.organizationId = organizationId
+        }
+      } else if (currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80) {
+        // Coordinator can only change if they have multiple organizations
+        if (organizationOptions.length > 1 && organizationId) {
+          // Validate that organizationId is in coordinator's allowed organizations
+          const isAllowed = organizationOptions.some(org => String(org._id) === String(organizationId))
+          if (isAllowed) {
+            payload.organizationId = organizationId
+          }
+        }
       }
       
       // Update municipality/barangay if changed
+      // For coordinators, municipality must be within their scope (already filtered by hook)
       if (canChooseMunicipality && selectedMunicipality) {
         payload.municipalityId = selectedMunicipality
         if (selectedBarangay) {
           payload.barangayId = selectedBarangay
         }
       }
+      
+      // Note: Province and District are not sent in payload as they're derived from municipality
 
       // Update role if changed (only if creator has authority to assign it)
       if (selectedRole) {
@@ -219,38 +616,6 @@ export default function EditStakeholderModal({
   }
 
   if (!stakeholder && !stakeholderData) return null
-
-  // Fetch barangays when municipality is selected
-  useEffect(() => {
-    if (selectedMunicipality) {
-      fetchBarangays(selectedMunicipality)
-    }
-  }, [selectedMunicipality, fetchBarangays])
-
-  // Diagnostic logging for field states
-  useEffect(() => {
-    if (isOpen) {
-      console.log('[DIAG] Edit Modal Field States:', {
-        canChooseMunicipality,
-        canChooseOrganization,
-        isSystemAdmin,
-        roleOptionsCount: roleOptions.length,
-        municipalityOptionsCount: municipalityOptions.length,
-        barangayOptionsCount: barangayOptions.length,
-        organizationOptionsCount: organizationOptions.length,
-        selectedRole: selectedRole || 'none',
-        selectedMunicipality: selectedMunicipality || 'none',
-        selectedBarangay: selectedBarangay || 'none',
-        stakeholderOrganizationId: organizationId,
-        stakeholderData: stakeholderData ? {
-          hasOrganization: !!(stakeholderData.organization || stakeholderData.organizationId),
-          organization: stakeholderData.organization,
-          organizationId: stakeholderData.organizationId,
-          locations: stakeholderData.locations
-        } : null
-      });
-    }
-  }, [isOpen, hookLoading, canChooseMunicipality, canChooseOrganization, isSystemAdmin, roleOptions.length, municipalityOptions.length, barangayOptions.length, organizationOptions.length, selectedRole, selectedMunicipality, selectedBarangay, organizationId, stakeholderData]);
 
   return (
     <Modal isOpen={isOpen} placement="center" scrollBehavior="inside" size="xl" onClose={onClose}>
@@ -378,7 +743,7 @@ export default function EditStakeholderModal({
             </div>
 
             {/* Role Selection */}
-            {roleOptions.length > 1 ? (
+            {filteredRoleOptions.length > 1 ? (
               <div>
                 <label className="text-sm font-semibold text-gray-900 mb-2 block">
                   Role
@@ -386,13 +751,13 @@ export default function EditStakeholderModal({
                 <Select
                   placeholder="Select Role"
                   selectedKeys={selectedRole ? new Set([selectedRole]) : new Set()}
-                  isDisabled={hookLoading}
+                  isDisabled={hookLoading || !((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin)}
                   onSelectionChange={(keys: any) => {
                     const roleId = Array.from(keys)[0] as string
                     setSelectedRole(roleId)
                   }}
                 >
-                  {roleOptions.map((role) => {
+                  {filteredRoleOptions.map((role) => {
                     const roleId = role._id || role.id
                     const roleName = role.name || role.code || String(roleId)
                     return (
@@ -403,7 +768,7 @@ export default function EditStakeholderModal({
                   })}
                 </Select>
               </div>
-            ) : roleOptions.length === 1 ? (
+            ) : filteredRoleOptions.length === 1 ? (
               <div>
                 <label className="text-sm font-semibold text-gray-900 mb-2 block">
                   Role
@@ -412,32 +777,213 @@ export default function EditStakeholderModal({
                   disabled
                   classNames={{ inputWrapper: "h-10 bg-gray-100" }}
                   type="text"
-                  value={roleOptions[0].name || roleOptions[0].code || "Stakeholder"}
+                  value={filteredRoleOptions[0].name || filteredRoleOptions[0].code || "Stakeholder"}
                   variant="bordered"
                   description="Role is set to your only available option"
                 />
               </div>
             ) : null}
 
+            {/* Province Field */}
+            <div>
+              <label className="text-sm font-semibold text-gray-900 mb-2 block">
+                Province
+              </label>
+              {((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) ? (
+                <Select
+                  placeholder="Select Province"
+                  selectedKeys={selectedProvince ? new Set([selectedProvince]) : new Set()}
+                  isDisabled={hookLoading}
+                  onSelectionChange={(keys: any) => {
+                    const provinceId = Array.from(keys)[0] as string
+                    setSelectedProvince(provinceId)
+                    // Reset district and municipality when province changes
+                    setSelectedDistrict("")
+                    setSelectedMunicipality("")
+                    setSelectedBarangay("")
+                    // Districts will be fetched automatically via useEffect when selectedProvince changes
+                  }}
+                >
+                  {uniqueProvinceOptions.map((prov) => {
+                    const provId = prov._id || prov.id
+                    const provName = prov.name || prov.Name || prov.Province_Name || String(provId)
+                    return (
+                      <SelectItem key={String(provId)} textValue={provName}>
+                        {provName}
+                      </SelectItem>
+                    )
+                  })}
+                </Select>
+              ) : (
+                <Input
+                  disabled
+                  classNames={{ inputWrapper: "h-10 bg-gray-100" }}
+                  type="text"
+                  value={province || "Not set"}
+                  variant="bordered"
+                  description={
+                    currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80
+                      ? "Province is fixed to stakeholder's location"
+                      : "Province is determined by municipality"
+                  }
+                />
+              )}
+            </div>
+
+            {/* District Field */}
+            <div>
+              <label className="text-sm font-semibold text-gray-900 mb-2 block">
+                District
+              </label>
+              {((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) ? (
+                <Select
+                  placeholder={selectedProvince ? "Select District" : "Select Province first"}
+                  selectedKeys={selectedDistrict ? new Set([selectedDistrict]) : new Set()}
+                  isDisabled={hookLoading || !selectedProvince}
+                  onSelectionChange={(keys: any) => {
+                    const districtId = Array.from(keys)[0] as string
+                    const prevDistrict = selectedDistrict
+                    setSelectedDistrict(districtId)
+                    
+                    // Only reset municipality if it doesn't belong to the new district
+                    // Check if current municipality's parent matches the new district
+                    if (selectedMunicipality) {
+                      const currentMuni = uniqueMunicipalityOptions.find((m: any) => {
+                        const muniId = m._id || m.id
+                        return String(muniId) === String(selectedMunicipality)
+                      })
+                      
+                      if (currentMuni) {
+                        const muniParentId = typeof currentMuni.parent === 'object'
+                          ? (currentMuni.parent?._id || (currentMuni.parent as any)?.id)
+                          : currentMuni.parent
+                        // If municipality's parent doesn't match new district, reset it
+                        if (muniParentId && String(muniParentId) !== String(districtId)) {
+                          setSelectedMunicipality("")
+                          setSelectedBarangay("")
+                        }
+                        // Otherwise keep the municipality (it belongs to the new district)
+                      } else {
+                        // Municipality not found in options, reset it
+                        setSelectedMunicipality("")
+                        setSelectedBarangay("")
+                      }
+                    }
+                    // Municipalities will be filtered automatically via useEffect when selectedDistrict changes
+                  }}
+                >
+                  {uniqueDistrictOptions.map((dist) => {
+                    const distId = dist._id || dist.id
+                    const distName = dist.name || dist.Name || dist.District_Name || String(distId)
+                    return (
+                      <SelectItem key={String(distId)} textValue={distName}>
+                        {distName}
+                      </SelectItem>
+                    )
+                  })}
+                </Select>
+              ) : (
+                <Input
+                  disabled
+                  classNames={{ inputWrapper: "h-10 bg-gray-100" }}
+                  type="text"
+                  value={district || "Not set"}
+                  variant="bordered"
+                  description={
+                    currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80
+                      ? "District is fixed to stakeholder's location"
+                      : "District is determined by municipality"
+                  }
+                />
+              )}
+            </div>
+
             {/* Municipality Selection */}
-            {canChooseMunicipality ? (
+            {canChooseMunicipality || ((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) ? (
               <div>
                 <label className="text-sm font-semibold text-gray-900 mb-2 block">
                   Municipality <span className="text-red-500">*</span>
                 </label>
                 <Select
                   isRequired
-                  placeholder="Select Municipality"
+                  placeholder={
+                    (((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) && selectedDistrict)
+                      ? "Select Municipality"
+                      : (((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) && !selectedDistrict && !selectedMunicipality)
+                      ? "Select District first"
+                      : "Select Municipality"
+                  }
                   selectedKeys={selectedMunicipality ? new Set([selectedMunicipality]) : new Set()}
-                  isDisabled={hookLoading}
+                  isDisabled={
+                    hookLoading || 
+                    (((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) && !selectedDistrict && !selectedMunicipality)
+                  }
                   onSelectionChange={(keys: any) => {
                     const muniId = Array.from(keys)[0] as string
                     setSelectedMunicipality(muniId)
                     fetchBarangays(muniId)
                     setSelectedBarangay("") // Reset barangay when municipality changes
+                    
+                    // For admins, fetch ancestors to update province/district when municipality changes
+                    const isAdmin = (currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin
+                    if (isAdmin) {
+                      const updateLocationFromMunicipality = async () => {
+                        try {
+                          const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
+                          const url = base
+                            ? `${base}/api/locations/${muniId}/ancestors`
+                            : `/api/locations/${muniId}/ancestors`
+                          const token =
+                            typeof window !== "undefined"
+                              ? localStorage.getItem("unite_token") ||
+                                sessionStorage.getItem("unite_token")
+                              : null
+                          const headers: any = {}
+                          if (token) headers["Authorization"] = `Bearer ${token}`
+                          
+                          const res = await fetch(url, { headers })
+                          if (res.ok) {
+                            const text = await res.text()
+                            const json = text ? JSON.parse(text) : null
+                            const ancestors = json?.data || []
+                            
+                            const districtObj = ancestors.find((a: any) => 
+                              a.type === 'district' || 
+                              (a.type === 'city' && a.metadata?.isCity)
+                            )
+                            const provinceObj = ancestors.find((a: any) => a.type === 'province')
+                            
+                            if (districtObj) {
+                              const districtId = districtObj._id || districtObj.id
+                              const districtName = districtObj.name || districtObj.Name || districtObj.District_Name || ""
+                              if (districtId && String(selectedDistrict) !== String(districtId)) {
+                                setSelectedDistrict(String(districtId))
+                              }
+                              if (districtName) {
+                                setDistrict(districtName)
+                              }
+                            }
+                            
+                            if (provinceObj) {
+                              const provinceId = provinceObj._id || provinceObj.id
+                              const provinceName = provinceObj.name || provinceObj.Name || provinceObj.Province_Name || ""
+                              if (provinceId && String(selectedProvince) !== String(provinceId)) {
+                                setSelectedProvince(String(provinceId))
+                              }
+                              if (provinceName) {
+                                setProvince(provinceName)
+                              }
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Failed to update location from municipality:', e)
+                        }
+                      }
+                      updateLocationFromMunicipality()
+                    }
                   }}
                 >
-                  {municipalityOptions.map((muni) => {
+                  {availableMunicipalityOptions.map((muni) => {
                     const muniId = muni._id || muni.id
                     const muniName = muni.name || String(muniId)
                     return (
@@ -457,7 +1003,29 @@ export default function EditStakeholderModal({
                   disabled
                   classNames={{ inputWrapper: "h-10 bg-gray-100" }}
                   type="text"
-                  value={stakeholderData?.locations?.municipalityName || selectedMunicipality || "Not set"}
+                  value={(() => {
+                    // Try to get municipality name from various sources
+                    if (stakeholderData?.locations?.municipalityName) {
+                      return stakeholderData.locations.municipalityName
+                    }
+                    if (stakeholderData?.locations?.municipality?.name) {
+                      return stakeholderData.locations.municipality.name
+                    }
+                    if (stakeholderData?.locations?.municipality && (stakeholderData.locations.municipality as any).Name) {
+                      return (stakeholderData.locations.municipality as any).Name
+                    }
+                    // Try to find in municipalityOptions by ID
+                    if (selectedMunicipality && municipalityOptions.length > 0) {
+                      const muni = municipalityOptions.find((m: any) => {
+                        const muniId = m._id || m.id
+                        return String(muniId) === String(selectedMunicipality)
+                      })
+                      if (muni) {
+                        return (muni as any).name || (muni as any).Name || ""
+                      }
+                    }
+                    return selectedMunicipality || "Not set"
+                  })()}
                   variant="bordered"
                   description="Municipality cannot be changed"
                 />
@@ -479,8 +1047,8 @@ export default function EditStakeholderModal({
                     setSelectedBarangay(barangayId || "")
                   }}
                 >
-                  {barangayOptions.map((brgy) => {
-                    const brgyId = brgy._id || brgy.id
+                  {barangayOptions.map((brgy: any) => {
+                    const brgyId = brgy._id || (brgy as any).id
                     const brgyName = brgy.name || String(brgyId)
                     return (
                       <SelectItem key={String(brgyId)} textValue={brgyName}>
@@ -497,7 +1065,7 @@ export default function EditStakeholderModal({
               <label className="text-sm font-semibold text-gray-900 mb-2 block">
                 Organization
               </label>
-              {canChooseOrganization ? (
+              {canChooseOrganization || (currentUserAuthority !== null && currentUserAuthority >= 60 && currentUserAuthority < 80 && organizationOptions.length > 1) || ((currentUserAuthority !== null && currentUserAuthority >= 80) || isSystemAdmin) ? (
                 <Select
                   placeholder="Select Organization"
                   selectedKeys={organizationId ? new Set([organizationId]) : new Set()}
@@ -507,7 +1075,7 @@ export default function EditStakeholderModal({
                     setOrganizationId(orgId)
                   }}
                 >
-                  {organizationOptions.map((org) => {
+                  {uniqueOrganizationOptions.map((org) => {
                     const orgId = org._id
                     const orgName = org.name || String(orgId)
                     return (
@@ -523,7 +1091,20 @@ export default function EditStakeholderModal({
                   classNames={{ inputWrapper: "h-10 bg-gray-100" }}
                   type="text"
                   value={(() => {
-                    // First try to get from stakeholder data (the stakeholder's own organization)
+                    // First try to get from new organizations[] array structure
+                    if (stakeholderData?.organizations && Array.isArray(stakeholderData.organizations) && stakeholderData.organizations.length > 0) {
+                      const org = stakeholderData.organizations[0]
+                      if (org.organizationName) {
+                        return org.organizationName
+                      }
+                      // If no name, try to find it in organizationOptions
+                      const orgId = org.organizationId?._id || org.organizationId || org._id
+                      if (orgId) {
+                        const foundOrg = organizationOptions.find(o => String(o._id) === String(orgId))
+                        if (foundOrg) return foundOrg.name
+                      }
+                    }
+                    // Fallback: try legacy organization field
                     if (stakeholderData?.organization) {
                       const org = stakeholderData.organization
                       if (typeof org === 'object' && org.name) {
@@ -533,6 +1114,7 @@ export default function EditStakeholderModal({
                         return org
                       }
                     }
+                    // Fallback: try organizationId field
                     if (stakeholderData?.organizationId) {
                       const org = stakeholderData.organizationId
                       if (typeof org === 'object' && org.name) {
@@ -549,14 +1131,6 @@ export default function EditStakeholderModal({
                     if (organizationId) {
                       const foundOrg = organizationOptions.find(o => String(o._id) === String(organizationId))
                       if (foundOrg) return foundOrg.name
-                      // If not found, might be a different org - try stakeholder data
-                      if (stakeholderData) {
-                        // Check if stakeholder has organization in a different field
-                        const org = (stakeholderData as any).organization || (stakeholderData as any).Organization
-                        if (org) {
-                          return typeof org === 'object' ? org.name : String(org)
-                        }
-                      }
                     }
                     // Last resort: if coordinator and no stakeholder org found, show coordinator's org as fallback
                     // (This should rarely happen - stakeholder should always have an org)
@@ -569,19 +1143,6 @@ export default function EditStakeholderModal({
                   description="Only system administrators can change organization"
                 />
               )}
-              <div className="mt-2">
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Organization / Institution Details
-                </label>
-                <Input
-                  placeholder="Enter Organization / Institution"
-                  classNames={{ inputWrapper: "h-10" }}
-                  type="text"
-                  value={organization}
-                  variant="bordered"
-                  onChange={(e) => setOrganization(e.target.value)}
-                />
-              </div>
             </div>
 
             
