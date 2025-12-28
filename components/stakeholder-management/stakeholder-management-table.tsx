@@ -57,6 +57,7 @@ interface StakeholderTableProps {
   onAcceptRequest?: (id: string) => void;
   onRejectRequest?: (id: string) => void;
   loading?: boolean;
+  canApproveReject?: boolean;
   // Optional current user context to enable role-aware filtering
   currentUser?: {
     role?: string;
@@ -80,9 +81,21 @@ export default function StakeholderTable({
   onAcceptRequest,
   onRejectRequest,
   loading = false,
+  canApproveReject = false,
   currentUser,
 }: StakeholderTableProps) {
   const [, /*unused*/ setUnused] = useState(false);
+  
+  // Debug log for permission check
+  if (isRequests || (coordinators.length > 0 && (coordinators[0] as any)?._isRequest)) {
+    console.log('[StakeholderTable] Permission check:', {
+      canApproveReject,
+      hasOnAcceptRequest: !!onAcceptRequest,
+      hasOnRejectRequest: !!onRejectRequest,
+      isRequests,
+      coordinatorsCount: coordinators.length
+    });
+  }
 
   const displayValue = (v: any, fallback = "—") => {
     if (v === null || v === undefined) return fallback;
@@ -321,32 +334,42 @@ export default function StakeholderTable({
                       variant="faded"
                     >
                       {isRequests || (coordinator as any)._isRequest ? (
-                        <DropdownSection title="Actions">
-                          <DropdownItem
-                            key="accept"
-                            description="Approve this signup request"
-                            startContent={<Check className="text-green-600" />}
-                            onPress={() => {
-                              if (onAcceptRequest)
-                                onAcceptRequest(coordinator.id);
-                            }}
-                          >
-                            Accept Request
-                          </DropdownItem>
-                          <DropdownItem
-                            key="reject"
-                            className="text-danger"
-                            color="danger"
-                            description="Reject this signup request"
-                            startContent={<X className="text-red-600" />}
-                            onPress={() => {
-                              if (onRejectRequest)
-                                onRejectRequest(coordinator.id);
-                            }}
-                          >
-                            Reject Request
-                          </DropdownItem>
-                        </DropdownSection>
+                        canApproveReject && (onAcceptRequest || onRejectRequest) ? (
+                          <DropdownSection title="Actions">
+                            {onAcceptRequest && (
+                              <DropdownItem
+                                key="accept"
+                                description="Approve this signup request"
+                                startContent={<Check className="text-green-600" />}
+                                onPress={() => {
+                                  onAcceptRequest(coordinator.id);
+                                }}
+                              >
+                                Accept Request
+                              </DropdownItem>
+                            )}
+                            {onRejectRequest && (
+                              <DropdownItem
+                                key="reject"
+                                className="text-danger"
+                                color="danger"
+                                description="Reject this signup request"
+                                startContent={<X className="text-red-600" />}
+                                onPress={() => {
+                                  onRejectRequest(coordinator.id);
+                                }}
+                              >
+                                Reject Request
+                              </DropdownItem>
+                            )}
+                          </DropdownSection>
+                        ) : (
+                          <DropdownSection title="Actions">
+                            <DropdownItem key="no-permission" isDisabled>
+                              No permission to approve/reject
+                            </DropdownItem>
+                          </DropdownSection>
+                        )
                       ) : (
                         <>
                           <DropdownSection title="Actions">

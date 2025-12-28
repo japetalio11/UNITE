@@ -7,6 +7,8 @@ import { getUserInfo } from "../../../utils/getUserInfo";
 import { debug, warn } from "../../../utils/devLogger";
 import { listStakeholders, deleteStakeholder } from "@/services/stakeholderService";
 import { useStakeholderManagement } from "@/hooks/useStakeholderManagement";
+import { getUserAuthority } from "@/utils/getUserAuthority";
+import { decodeJwt } from "@/utils/decodeJwt";
 
 import Topbar from "@/components/layout/topbar";
 import StakeholderToolbar from "@/components/stakeholder-management/stakeholder-management-toolbar";
@@ -102,6 +104,7 @@ export default function StakeholderManagement() {
   const [displayEmail, setDisplayEmail] = useState("bmc@gmail.com");
   const [canManageStakeholders, setCanManageStakeholders] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
+  const [canApproveReject, setCanApproveReject] = useState(false);
   
   // Use stakeholder management hook for business logic
   const { isSystemAdmin } = useStakeholderManagement();
@@ -291,10 +294,193 @@ export default function StakeholderManagement() {
           setDisplayName(info?.displayName || info?.raw?.First_Name || "Bicol Medical Center");
           setDisplayEmail(info?.email || info?.raw?.Email || "bmc@gmail.com");
           
+          // Check if user can approve/reject signup requests
+          // Requirements: authority >= 60 AND staff.create permission (or admin)
+          // Try multiple paths to get userId - including JWT token fallback
+          let userId = info?.raw?.id || 
+                       info?.raw?._id || 
+                       info?.id || 
+                       info?.raw?.User_ID || 
+                       info?.raw?.userId ||
+                       null;
+          
+          // Fallback: try to get userId from JWT token
+          if (!userId && token) {
+            try {
+              const decoded = decodeJwt(token);
+              userId = decoded?.id || decoded?.userId || decoded?._id || null;
+              console.log('[StakeholderManagement] Extracted userId from JWT token:', userId);
+            } catch (e) {
+              console.warn('[StakeholderManagement] Failed to decode JWT token:', e);
+            }
+          }
+          
+          // Check isAdmin from multiple locations - handle both boolean and string values
+          // Use info.isAdmin first (this is computed by getUserInfo() and checks StaffType)
+          const rawIsAdmin = info?.raw?.isAdmin;
+          const isAdminFromInfo = Boolean(info?.isAdmin) ||  // This checks StaffType === 'admin'
+                                 Boolean(rawIsAdmin === true || rawIsAdmin === 'true' || rawIsAdmin === 1) ||
+                                 Boolean(info?.raw?.isSystemAdmin) || 
+                                 false;
+          
+          // Also check StaffType for admin (redundant but safe)
+          const staffType = info?.raw?.StaffType || info?.raw?.staff_type || '';
+          const isAdminByStaffType = staffType && String(staffType).toLowerCase() === 'admin';
+          
+          // Check if user has wildcard permissions (*.*) which indicates admin
+          // Try to get permissions from localStorage directly
+          let permissions: any[] = [];
+          try {
+            const rawUser = localStorage.getItem('unite_user');
+            if (rawUser) {
+              const parsedUser = JSON.parse(rawUser);
+              permissions = parsedUser?.permissions || 
+                           parsedUser?.Permissions || 
+                           parsedUser?.user?.permissions ||
+                           parsedUser?.data?.permissions ||
+                           info?.raw?.permissions || 
+                           info?.permissions || 
+                           [];
+            }
+          } catch (e) {
+            console.warn('[StakeholderManagement] Failed to parse user from localStorage:', e);
+            permissions = info?.raw?.permissions || info?.permissions || [];
+          }
+          
+          const hasWildcardPermissions = Array.isArray(permissions) && 
+                                       permissions.some((p: any) => {
+                                         if (typeof p === 'string') {
+                                           return p === '*.*' || p === '*';
+                                         }
+                                         if (typeof p === 'object' && p !== null) {
+                                           return (p.resource === '*' && (p.actions === '*' || (Array.isArray(p.actions) && p.actions.includes('*'))));
+                                         }
+                                         return false;
+                                       });
+          
+          const isAdmin = isAdminFromInfo || isAdminByStaffType || hasWildcardPermissions;
+          
+          console.log('[StakeholderManagement] Checking approve/reject permissions:', {
+            userId,
+            rawId: info?.raw?.id,
+            rawIdType: typeof info?.raw?.id,
+            isAdminFromInfo,
+            rawIsAdmin,
+            rawIsAdminType: typeof rawIsAdmin,
+            isAdminByStaffType,
+            hasWildcardPermissions,
+            permissions,
+            isAdmin,
+            staffType,
+            infoKeys: info ? Object.keys(info).slice(0, 10) : [],
+            rawKeys: info?.raw ? Object.keys(info.raw).slice(0, 10) : [],
+            infoIsAdmin: info?.isAdmin,
+            rawIsSystemAdmin: info?.raw?.isSystemAdmin
+          });
+          
+          // Quick check: if user is admin from info, grant permissions immediately
+          if (isAdmin) {
+            console.log('[StakeholderManagement] Admin detected from user info, granting approve/reject permissions', {
+              isAdminFromInfo,
+              isAdminByStaffType,
+              hasWildcardPermissions,
+              staffType,
+              rawIsAdmin,
+              permissions
+            });
+            setCanApproveReject(true);
+            // Don't return early - continue to check userId for authority if available
+          }
+          
+          if (userId) {
+            try {
+              const authority = await getUserAuthority(userId);
+              // System admins (authority >= 100) and operational admins (authority >= 80) get approve/reject permissions
+              const isSystemAdminByAuthority = authority !== null && authority >= 100;
+              const isOperationalAdmin = authority !== null && authority >= 80;
+              const isAdmin = isAdminFromInfo || isSystemAdminByAuthority || isOperationalAdmin;
+              
+              console.log('[StakeholderManagement] Authority check result:', {
+                authority,
+                isSystemAdminByAuthority,
+                isOperationalAdmin,
+                isAdminFromInfo,
+                isAdmin,
+                userId
+              });
+              
+              // Admins (authority >= 80 or isAdmin flag) automatically get approve/reject permissions
+              if (isAdmin) {
+                console.log('[StakeholderManagement] Admin detected, granting approve/reject permissions', {
+                  authority,
+                  isAdminFromInfo,
+                  userId
+                });
+                setCanApproveReject(true);
+              } else {
+                // For non-admins, check staff.create permission via API
+                const permissionUrl = base
+                  ? `${base}/api/permissions/check`
+                  : `/api/permissions/check`;
+                
+                let hasStaffCreate = false;
+                try {
+                  const permissionResponse = await fetch(permissionUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      resource: 'staff',
+                      action: 'create',
+                    }),
+                  });
+                  
+                  if (permissionResponse.ok) {
+                    const permissionData = await permissionResponse.json();
+                    hasStaffCreate = permissionData.success && permissionData.hasPermission;
+                    console.log('[StakeholderManagement] Permission check result:', {
+                      hasStaffCreate,
+                      authority,
+                      permissionData
+                    });
+                  } else {
+                    console.warn('[StakeholderManagement] Permission check failed:', permissionResponse.status);
+                  }
+                } catch (permErr) {
+                  console.warn('Failed to check staff.create permission:', permErr);
+                  // Default to false for security
+                  hasStaffCreate = false;
+                }
+                
+                // User can approve/reject if: authority >= 60 AND has staff.create
+                const canApprove = authority !== null && authority >= 60 && hasStaffCreate;
+                console.log('[StakeholderManagement] Approve/reject permission:', {
+                  canApprove,
+                  authority,
+                  hasStaffCreate,
+                  meetsAuthorityRequirement: authority !== null && authority >= 60,
+                  userId
+                });
+                setCanApproveReject(canApprove);
+              }
+            } catch (permError) {
+              console.error('[StakeholderManagement] Error checking approve/reject permissions:', permError);
+              // Default to false for security
+              setCanApproveReject(false);
+            }
+          } else {
+            console.warn('[StakeholderManagement] No userId found for permission check');
+            setCanApproveReject(false);
+          }
+          
           // Access is now permission-based, no need for account type logic
+          setCheckingAccess(false);
         } else {
           // Access denied - redirect to error page
           setCanManageStakeholders(false);
+          setCheckingAccess(false);
           try {
             router.replace('/error');
           } catch (e) {
@@ -305,13 +491,12 @@ export default function StakeholderManagement() {
         console.error('Error checking page access:', e);
         // On error, deny access for security
         setCanManageStakeholders(false);
+        setCheckingAccess(false);
         try {
           router.replace('/error');
         } catch (err) {
           /* ignore navigation errors */
         }
-      } finally {
-        setCheckingAccess(false);
       }
     };
 
@@ -1237,26 +1422,6 @@ export default function StakeholderManagement() {
                   ? "No approved stakeholders found"
                   : "No stakeholders found"}
             </p>
-            <p className="text-xs text-yellow-700 mt-2">
-              {selectedTab === "pending" 
-                ? "There are currently no pending signup requests to review."
-                : !canManageStakeholders
-                  ? "You may not have stakeholders assigned to your jurisdiction. Check if you have assigned organizations and coverage areas."
-                  : searchQuery
-                    ? `No stakeholders match your search query "${searchQuery}". Try adjusting your search terms.`
-                    : "If you're a coordinator, ensure you have assigned organizations and coverage areas. Stakeholders must be in the same organizations and municipalities as your coverage areas."}
-            </p>
-            {selectedTab !== "pending" && !searchQuery && (
-              <div className="mt-3 text-xs text-yellow-700">
-                <p className="font-medium">Troubleshooting:</p>
-                <ul className="list-disc list-inside mt-1 space-y-1">
-                  <li>Verify stakeholders exist in the database with authority &lt; 60</li>
-                  <li>Check that stakeholders have assigned organizations matching yours</li>
-                  <li>Ensure stakeholders' municipalities are within your coverage areas</li>
-                  <li>Contact an administrator if you believe stakeholders should be visible</li>
-                </ul>
-              </div>
-            )}
           </div>
         )}
         <StakeholderTable
@@ -1276,8 +1441,9 @@ export default function StakeholderManagement() {
           loading={loading}
           isAdmin={canManageStakeholders}
           isRequests={selectedTab === "pending"}
-          onAcceptRequest={handleAcceptRequest}
-          onRejectRequest={handleRejectRequest}
+          onAcceptRequest={canApproveReject ? handleAcceptRequest : undefined}
+          onRejectRequest={canApproveReject ? handleRejectRequest : undefined}
+          canApproveReject={canApproveReject}
         />
       </div>
 

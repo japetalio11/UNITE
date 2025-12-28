@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 // use native inputs here for tighter visual control
 import { Button } from "@heroui/button";
 import { Link } from "@heroui/link";
-import { Eye, EyeSlash, Check } from "@gravity-ui/icons";
+import { Check } from "@gravity-ui/icons";
 import { Select, SelectItem } from "@heroui/select";
 
 export default function SignUp() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"next" | "prev">("next");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [validatingCode, setValidatingCode] = useState(false);
   const [showSuccessAnim, setShowSuccessAnim] = useState(false);
@@ -30,6 +28,8 @@ export default function SignUp() {
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [municipalities, setMunicipalities] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
+  const [organizations, setOrganizations] = useState<any[]>([]);
   const [emailSent, setEmailSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
 
@@ -38,16 +38,14 @@ export default function SignUp() {
     Middle_Name: "",
     Last_Name: "",
     Phone_Number: "",
-    Password: "",
-    ConfirmPassword: "",
     Province: "",
     District: "",
     Municipality: "",
     Organization_Institution: "",
-    Field: "",
     Email: "",
     Verification_Code: "",
-    accountType: "",
+    roleId: "",
+    organizationId: "",
   });
 
   const update = (patch: Partial<typeof formData>) =>
@@ -76,13 +74,10 @@ export default function SignUp() {
       );
     }
     if (step === 1) {
-      return !!(formData.accountType && formData.Province && formData.District && formData.Municipality);
+      return !!(formData.roleId && formData.organizationId);
     }
     if (step === 2) {
-      return (
-        formData.Password.length >= 8 &&
-        formData.Password === formData.ConfirmPassword
-      );
+      return !!(formData.Province && formData.District && formData.Municipality);
     }
     if (step === 3) {
       return !!formData.Email.trim() && emailVerified;
@@ -90,7 +85,7 @@ export default function SignUp() {
     return true;
   };
 
-  // Fetch provinces on mount
+  // Fetch provinces, roles, and organizations on mount
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
@@ -101,7 +96,30 @@ export default function SignUp() {
         console.error("Failed to fetch provinces", err);
       }
     };
+    
+    const fetchRoles = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/public/roles/stakeholder`);
+        const data = await res.json();
+        if (data.success) setRoles(data.data);
+      } catch (err) {
+        console.error("Failed to fetch roles", err);
+      }
+    };
+    
+    const fetchOrganizations = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/public/organizations`);
+        const data = await res.json();
+        if (data.success) setOrganizations(data.data);
+      } catch (err) {
+        console.error("Failed to fetch organizations", err);
+      }
+    };
+    
     fetchProvinces();
+    fetchRoles();
+    fetchOrganizations();
   }, [API_URL]);
 
   // Fetch districts when province changes
@@ -163,12 +181,12 @@ export default function SignUp() {
         lastName: formData.Last_Name,
         email: formData.Email,
         phoneNumber: formData.Phone_Number,
-        password: formData.Password,
+        roleId: formData.roleId,
+        organizationId: formData.organizationId,
         organization: formData.Organization_Institution || null,
         province: formData.Province,
         district: formData.District,
         municipality: formData.Municipality,
-        accountType: formData.accountType,
       };
       const res = await fetch(`${API_URL}/api/signup-requests`, {
         method: "POST",
@@ -231,7 +249,7 @@ export default function SignUp() {
 
   return (
     <div className="w-full max-w-[400px] mx-auto">
-      {step < 3 && (
+      {step < 4 && (
         <div className="space-y-1 mb-8">
           <h1 className="text-2xl font-semibold text-danger-600">Sign Up</h1>
           <p className="text-sm text-gray-600">
@@ -323,32 +341,59 @@ export default function SignUp() {
             </div>
           </div>
 
-          {/* Step 2 - Location */}
+          {/* Step 2 - Role & Organization */}
           <div
             className={`absolute inset-0 ${step === 1 ? "block" : "hidden"}`}
           >
             <div className="space-y-3 pb-20">
               <div>
-                <label className="text-sm font-medium block mb-1" htmlFor="accountType">Account Type <span className="text-danger-500">*</span></label>
+                <label className="text-sm font-medium block mb-1" htmlFor="role">Role <span className="text-danger-500">*</span></label>
                 <Select
-                  id="accountType"
+                  id="role"
                   className="h-10"
-                  placeholder="Select Account Type"
-                  selectedKeys={formData.accountType ? [formData.accountType] : []}
+                  placeholder="Select Role"
+                  selectedKeys={formData.roleId ? [formData.roleId] : []}
                   radius="md"
                   size="sm"
                   variant="bordered"
                   onChange={(e) => {
                     const val = e.target.value;
-                    update({ accountType: val, Province: "", District: "", Municipality: "" });
-                    setDistricts([]);
-                    setMunicipalities([]);
+                    update({ roleId: val });
                   }}
                 >
-                  <SelectItem key="LGU">LGU</SelectItem>
-                  <SelectItem key="Others">Others</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role._id}>{role.name}</SelectItem>
+                  ))}
                 </Select>
               </div>
+              <div>
+                <label className="text-sm font-medium block mb-1" htmlFor="organization">Organization <span className="text-danger-500">*</span></label>
+                <Select
+                  id="organization"
+                  className="h-10"
+                  placeholder="Select Organization"
+                  selectedKeys={formData.organizationId ? [formData.organizationId] : []}
+                  radius="md"
+                  size="sm"
+                  variant="bordered"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    update({ organizationId: val });
+                  }}
+                >
+                  {organizations.map((org) => (
+                    <SelectItem key={org._id}>{org.name}</SelectItem>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3 - Location */}
+          <div
+            className={`absolute inset-0 ${step === 2 ? "block" : "hidden"}`}
+          >
+            <div className="space-y-3 pb-20">
               <div>
                 <label className="text-sm font-medium block mb-1" htmlFor="province">Province <span className="text-danger-500">*</span></label>
                 <Select
@@ -359,7 +404,6 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.accountType}
                   onChange={(e) => {
                     const val = e.target.value;
                     update({ Province: val, District: "", Municipality: "" });
@@ -380,7 +424,7 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.Province || !formData.accountType}
+                  isDisabled={!formData.Province}
                   onChange={(e) => {
                     const val = e.target.value;
                     update({ District: val, Municipality: "" });
@@ -401,7 +445,7 @@ export default function SignUp() {
                   radius="md"
                   size="sm"
                   variant="bordered"
-                  isDisabled={!formData.District || !formData.accountType}
+                  isDisabled={!formData.District}
                   onChange={(e) => update({ Municipality: e.target.value })}
                 >
                   {municipalities.map((mun) => (
@@ -429,81 +473,6 @@ export default function SignUp() {
             </div>
           </div>
 
-          {/* Step 3 - Credentials */}
-          <div
-            className={`absolute inset-0 ${step === 2 ? "block" : "hidden"}`}
-          >
-            <div className="space-y-3 pb-20">
-              <div>
-                <label
-                  className="text-sm font-medium block mb-1"
-                  htmlFor="password"
-                >
-                  Password <span className="text-danger-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    className={`${inputClass} w-full pr-10`}
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.Password}
-                    onChange={(e) => update({ Password: e.target.value })}
-                  />
-                  <button
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeSlash className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-default-500 mt-1">
-                  Must be at least 8 characters
-                </p>
-              </div>
-              <div>
-                <label
-                  className="text-sm font-medium block mb-1"
-                  htmlFor="confirm-password"
-                >
-                  Confirm password <span className="text-danger-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    className={`${inputClass} w-full pr-10`}
-                    id="confirm-password"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={formData.ConfirmPassword}
-                    onChange={(e) =>
-                      update({ ConfirmPassword: e.target.value })
-                    }
-                  />
-                  <button
-                    aria-label={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeSlash className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Step 4 - Email Verification */}
           <div className={`absolute inset-0 ${step === 3 ? "block" : "hidden"}`}>
             <div className="pb-20">
@@ -512,8 +481,6 @@ export default function SignUp() {
                 <p className="text-sm text-gray-500">Enter the code sent to your email {formData.Email ? formData.Email.replace(/(.{1})(.*)(@.*)/, (m,p1,p2,p3)=> p1 + '*'.repeat(Math.max(0,p2.length)) + p3) : ''}</p>
 
                 <div className="mt-4 p-4 bg-white rounded-md">
-                  <h3 className="text-sm font-medium text-gray-900">Verify account</h3>
-                  <p className="text-xs text-gray-500 mt-1">We have sent a code to {formData.Email ? formData.Email.replace(/(.{1})(.*)(@.*)/, (m,p1,p2,p3)=> p1 + '*'.repeat(Math.max(0,p2.length)) + p3) : ''}</p>
 
                   <div className="mt-4 flex items-center justify-center gap-3">
                     {Array.from({ length: 6 }).map((_, i) => {
@@ -586,7 +553,7 @@ export default function SignUp() {
                     </button>
                   </div>
 
-                  <div className="mt-6">
+                  <div className="mt-6 space-y-3">
                     <button
                       className="w-full bg-danger-600 hover:bg-danger-700 text-white py-3 rounded-full"
                       type="button"
@@ -603,6 +570,18 @@ export default function SignUp() {
                         {validatingCode ? (emailSent ? "Verifying..." : "Sending...") : !emailSent ? "Send Verification Code" : emailVerified ? "Code Verified" : "Verify"}
                       </span>
                     </button>
+                    <button
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDirection("prev");
+                        setStep((s) => Math.max(0, s - 1));
+                      }}
+                    >
+                      Back
+                    </button>
                   </div>
                 </div>
               </div>
@@ -614,8 +593,9 @@ export default function SignUp() {
             <div className="flex items-center justify-center min-h-[380px]">
               <div className="max-w-md w-full text-center px-4">
                 <h2 className="text-3xl font-semibold text-danger-600 mb-4">Thank you</h2>
-                <p className="text-sm text-gray-600 mb-4">Thank you for submitting your documents.</p>
-                <p className="text-sm text-gray-500 mb-6">We are currently reviewing them and will notify you via email once your account has been confirmed and approved.</p>
+                <p className="text-sm text-gray-600 mb-4">Your signup request has been submitted and is pending approval.</p>
+                <p className="text-sm text-gray-500 mb-6">We are currently reviewing your request and will notify you via email once your account has been confirmed and approved.</p>
+                <p className="text-sm text-gray-500 mb-6">After approval, you will receive an email with a link to activate your account and set your password.</p>
                 <p className="text-sm text-gray-500 mb-6">We appreciate your interest in UNITE and look forward to working with you as part of our ecosystem.</p>
                 <div className="mb-6">
                   <Button
@@ -642,7 +622,9 @@ export default function SignUp() {
               <button
                 className="px-4 py-2 border border-gray-200 rounded-lg text-sm"
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setDirection("prev");
                   setStep((s) => Math.max(0, s - 1));
                 }}
@@ -688,7 +670,7 @@ export default function SignUp() {
                 Registration Successful!
               </h3>
               <p className="text-sm text-gray-600 mb-6">
-                Your sign-up request has been submitted successfully. It is now pending coordinator approval. You will be notified once it's approved.
+                Your sign-up request has been submitted successfully. It is now pending coordinator approval. You will be notified via email once it's approved, and you'll receive a link to activate your account and set your password.
               </p>
               <Button
                 className="w-full bg-danger-600 hover:bg-danger-700 text-white"

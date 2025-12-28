@@ -113,12 +113,22 @@ export default function CampaignToolbar({
           // Handle comma-separated permissions like "event.create,read,update"
           const perms = permString.split(',').map(p => p.trim());
           // Check for exact match, wildcard all (*.*), or resource wildcard (event.*, request.*)
-          return perms.includes(capability) || 
-                 perms.includes('*.*') || 
-                 perms.some(p => {
-                   const [res] = capability.split('.');
-                   return p === `${res}.*` || p === '*.*';
-                 });
+          const hasExactMatch = perms.includes(capability);
+          const hasWildcard = perms.includes('*.*');
+          const [res, action] = capability.split('.');
+          const hasResourceWildcard = perms.some(p => {
+            // Check for resource.* (e.g., 'event.*', 'request.*')
+            return p === `${res}.*` || p === '*.*';
+          });
+          const result = hasExactMatch || hasWildcard || hasResourceWildcard;
+          console.log(`[Campaign Toolbar] checkPermissionString: "${permString}" contains "${capability}"?`, {
+            perms,
+            hasExactMatch,
+            hasWildcard,
+            hasResourceWildcard,
+            result
+          });
+          return result;
         };
         
         // Helper to check permissions array (handles both formats)
