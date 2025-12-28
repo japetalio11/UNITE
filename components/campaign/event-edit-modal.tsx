@@ -43,10 +43,6 @@ export default function EditEventModal({
   const [audienceType, setAudienceType] = useState("");
   const [expectedAudienceSize, setExpectedAudienceSize] = useState("");
   const [description, setDescription] = useState("");
-  const [stakeholder, setStakeholder] = useState("");
-  const [stakeholderOptions, setStakeholderOptions] = useState<
-    { key: string; label: string }[]
-  >([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startTime, setStartTime] = useState("");
@@ -57,79 +53,144 @@ export default function EditEventModal({
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   useEffect(() => {
-    if (!request) return;
-    const event = request.event || {};
-    const category = request.category || {};
+    if (!request || !isOpen) return;
+    
+    let mounted = true;
 
-    setTitle(event.Event_Title || event.title || "");
-    setLocation(event.Location || event.location || "");
-    setEmail(event.Email || "");
-    setContactNumber(event.Phone_Number || event.contactNumber || "");
-    setDescription(event.Event_Description || event.Description || "");
+    (async () => {
+      try {
+        // Get event ID from request
+        const eventId = 
+          request.Event_ID || 
+          request.eventId || 
+          (request.event && request.event.Event_ID) ||
+          null;
 
-    // Prefill times from Start_Date/End_Date but keep date portion unchanged
-    try {
-      if (event.Start_Date) {
-        const s = new Date(event.Start_Date);
-        const sh = String(s.getHours()).padStart(2, "0");
-        const sm = String(s.getMinutes()).padStart(2, "0");
-        const st = `${sh}:${sm}`;
+        let eventData = request.event || {};
+        let categoryData = request.category || {};
 
-        setStartTime(st);
-        setInitialStartTime(st);
+        // Fetch full event details from separate endpoint if eventId is available
+        if (eventId) {
+          try {
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("unite_token") ||
+                  sessionStorage.getItem("unite_token")
+                : null;
+            const headers: any = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            const res = await fetch(
+              `${API_URL}/api/events/${encodeURIComponent(eventId)}`,
+              { headers, credentials: "include" }
+            );
+            const body = await res.json();
+
+            if (res.ok && body.data) {
+              // New API format: { success, data: { event, ... } }
+              const fetchedEvent = body.data.event || body.data || body;
+              eventData = { ...eventData, ...fetchedEvent };
+              
+              // Also check for category-specific data
+              if (body.data.categoryData) {
+                categoryData = { ...categoryData, ...body.data.categoryData };
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to fetch event details, using request data:", e);
+            // Continue with request data if fetch fails
+          }
+        }
+
+        if (!mounted) return;
+
+        // Extract fields from request-level or event-level (request fields take precedence)
+        const title = request.Event_Title || eventData.Event_Title || eventData.title || "";
+        const location = request.Location || eventData.Location || eventData.location || "";
+        const email = request.Email || eventData.Email || "";
+        const contactNumber = request.Phone_Number || eventData.Phone_Number || eventData.contactNumber || "";
+        const description = request.Event_Description || eventData.Event_Description || eventData.Description || "";
+
+        setTitle(title);
+        setLocation(location);
+        setEmail(email);
+        setContactNumber(contactNumber);
+        setDescription(description);
+
+        // Prefill times from Start_Date/End_Date but keep date portion unchanged
+        const startDate = request.Start_Date || request.Date || eventData.Start_Date || eventData.Date;
+        const endDate = request.End_Date || eventData.End_Date;
+
+        try {
+          if (startDate) {
+            const s = new Date(startDate);
+            if (!isNaN(s.getTime())) {
+              const sh = String(s.getHours()).padStart(2, "0");
+              const sm = String(s.getMinutes()).padStart(2, "0");
+              const st = `${sh}:${sm}`;
+              setStartTime(st);
+              setInitialStartTime(st);
+            }
+          }
+          if (endDate) {
+            const e = new Date(endDate);
+            if (!isNaN(e.getTime())) {
+              const eh = String(e.getHours()).padStart(2, "0");
+              const em = String(e.getMinutes()).padStart(2, "0");
+              const et = `${eh}:${em}`;
+              setEndTime(et);
+              setInitialEndTime(et);
+            }
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+
+        // Prefill category-specific fields (check both request and event/category data)
+        setTrainingType(
+          request.TrainingType || 
+          categoryData.TrainingType || 
+          eventData.TrainingType || 
+          ""
+        );
+        setMaxParticipants(
+          (request.MaxParticipants || 
+           categoryData.MaxParticipants || 
+           eventData.MaxParticipants || 
+           "")?.toString() || ""
+        );
+        setGoalCount(
+          (request.Target_Donation || 
+           categoryData.Target_Donation || 
+           eventData.Target_Donation || 
+           "")?.toString() || ""
+        );
+        setAudienceType(
+          request.TargetAudience || 
+          categoryData.TargetAudience || 
+          eventData.TargetAudience || 
+          ""
+        );
+        setExpectedAudienceSize(
+          (request.ExpectedAudienceSize ||
+           categoryData.ExpectedAudienceSize ||
+           eventData.ExpectedAudienceSize ||
+           "")?.toString() || ""
+        );
+
+        // Topic field for Advocacy
+        if (request.Topic || eventData.Topic) {
+          // Topic is handled in the save function, no state needed for display
+        }
+      } catch (e) {
+        console.error("Error loading event data:", e);
       }
-      if (event.End_Date) {
-        const e = new Date(event.End_Date);
-        const eh = String(e.getHours()).padStart(2, "0");
-        const em = String(e.getMinutes()).padStart(2, "0");
-        const et = `${eh}:${em}`;
+    })();
 
-        setEndTime(et);
-        setInitialEndTime(et);
-      }
-    } catch (e) {
-      // ignore parse errors
-    }
-
-    // Prefill category props when available
-    setTrainingType(category.TrainingType || event.TrainingType || "");
-    setMaxParticipants(
-      (category.MaxParticipants || event.MaxParticipants || "")?.toString() ||
-        "",
-    );
-    setGoalCount(
-      (category.Target_Donation || event.Target_Donation || "")?.toString() ||
-        "",
-    );
-    setAudienceType(category.TargetAudience || event.TargetAudience || "");
-    setExpectedAudienceSize(
-      (
-        category.ExpectedAudienceSize ||
-        event.ExpectedAudienceSize ||
-        ""
-      )?.toString() || "",
-    );
-
-    // Prefill stakeholder selection when editing
-    try {
-      const sid =
-        request.MadeByStakeholderID ||
-        request.madeByStakeholderID ||
-        (request.event &&
-          (request.event.MadeByStakeholderID ||
-            request.event.madeByStakeholderID)) ||
-        request.stakeholder ||
-        null;
-
-      if (sid) {
-        setStakeholder(String(sid));
-        setStakeholderOptions([{ key: String(sid), label: String(sid) }]);
-      } else {
-        setStakeholder("");
-        setStakeholderOptions([]);
-      }
-    } catch (e) {}
-  }, [request]);
+    return () => {
+      mounted = false;
+    };
+  }, [request, isOpen, API_URL]);
 
   if (!request) return null;
 
@@ -149,7 +210,35 @@ export default function EditEventModal({
     setIsSubmitting(true);
     setValidationErrors([]);
     try {
-      const requestId = request.Request_ID || request.RequestId || request._id;
+      // Extract Request_ID from various possible locations
+      // The backend _formatRequest returns 'requestId' (lowercase), but the model uses 'Request_ID'
+      const requestId = 
+        request.Request_ID || 
+        request.RequestId || 
+        request.requestId ||
+        request._id ||
+        (request.request && (request.request.Request_ID || request.request.RequestId || request.request.requestId || request.request._id)) ||
+        (request.data && (request.data.Request_ID || request.data.RequestId || request.data.requestId || request.data._id)) ||
+        null;
+
+      if (!requestId) {
+        console.error("EditEventModal: Request_ID not found in request object:", {
+          hasRequest: !!request,
+          requestKeys: request ? Object.keys(request) : [],
+          requestSample: request ? {
+            Request_ID: request.Request_ID,
+            RequestId: request.RequestId,
+            requestId: request.requestId,
+            _id: request._id
+          } : null
+        });
+        setValidationErrors(["Request ID not found. Cannot update event."]);
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log("[EditEventModal] Extracted requestId:", requestId);
+
       const token =
         localStorage.getItem("unite_token") ||
         sessionStorage.getItem("unite_token");
@@ -166,74 +255,91 @@ export default function EditEventModal({
         Event_Description: description,
       };
 
-      // If times were edited (or present), compute new ISO datetimes using the original date
+      // Combine Date + Start_Time into Start_Date, and Date + End_Time into End_Date
+      // The event has one Date, with Start_Time and End_Time on that same date
       try {
-        const originalStart = request.event?.Start_Date
-          ? new Date(request.event.Start_Date)
-          : null;
+        // Get the event date (from Date field, or Start_Date, or event.Start_Date)
+        const eventDateValue = request.Date || request.Start_Date || (request.event && (request.event.Date || request.event.Start_Date));
+        const eventDate = eventDateValue ? new Date(eventDateValue) : null;
 
-        // Only include Start_Date if the user actually changed the time
-        if (originalStart && startTime && startTime !== initialStartTime) {
-          const [sh, sm] = startTime
-            .split(":")
-            .map((v: string) => parseInt(v, 10));
-          const newStart = new Date(originalStart);
-
-          newStart.setHours(
-            isNaN(sh) ? originalStart.getHours() : sh,
-            isNaN(sm) ? originalStart.getMinutes() : sm,
-            0,
-            0,
-          );
-          updateData.Start_Date = newStart.toISOString();
-        }
-        const originalEnd = request.event?.End_Date
-          ? new Date(request.event.End_Date)
-          : null;
-
-        // Only include End_Date if the user actually changed the time
-        if (originalEnd && endTime && endTime !== initialEndTime) {
-          const [eh, em] = endTime
-            .split(":")
-            .map((v: string) => parseInt(v, 10));
-          const newEnd = new Date(originalEnd);
-
-          newEnd.setHours(
-            isNaN(eh) ? originalEnd.getHours() : eh,
-            isNaN(em) ? originalEnd.getMinutes() : em,
-            0,
-            0,
-          );
-          updateData.End_Date = newEnd.toISOString();
+        if (eventDate && !isNaN(eventDate.getTime())) {
+          // Extract just the date portion (no time) for the Date field
+          const dateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+          updateData.Date = dateOnly.toISOString();
+          
+          // Combine Date + Start_Time into Start_Date
+          if (startTime) {
+            const [sh, sm] = startTime
+              .split(":")
+              .map((v: string) => parseInt(v, 10));
+            const startDateTime = new Date(eventDate);
+            startDateTime.setHours(
+              isNaN(sh) ? 0 : sh,
+              isNaN(sm) ? 0 : sm,
+              0,
+              0,
+            );
+            updateData.Start_Date = startDateTime.toISOString();
+          } else if (request.Start_Date || (request.event && request.event.Start_Date)) {
+            // Keep existing Start_Date if time not provided
+            const existingStart = request.Start_Date || (request.event && request.event.Start_Date);
+            updateData.Start_Date = new Date(existingStart).toISOString();
+          }
+          
+          // Combine Date + End_Time into End_Date (same date, different time)
+          if (endTime) {
+            const [eh, em] = endTime
+              .split(":")
+              .map((v: string) => parseInt(v, 10));
+            const endDateTime = new Date(eventDate);
+            endDateTime.setHours(
+              isNaN(eh) ? 0 : eh,
+              isNaN(em) ? 0 : em,
+              0,
+              0,
+            );
+            updateData.End_Date = endDateTime.toISOString();
+          } else if (request.End_Date || (request.event && request.event.End_Date)) {
+            // Keep existing End_Date if time not provided
+            const existingEnd = request.End_Date || (request.event && request.event.End_Date);
+            updateData.End_Date = new Date(existingEnd).toISOString();
+          } else if (startTime) {
+            // If no end time but we have start time, default to 2 hours after start
+            const [sh, sm] = startTime
+              .split(":")
+              .map((v: string) => parseInt(v, 10));
+            const defaultEnd = new Date(eventDate);
+            defaultEnd.setHours(
+              (isNaN(sh) ? 0 : sh) + 2,
+              isNaN(sm) ? 0 : sm,
+              0,
+              0,
+            );
+            updateData.End_Date = defaultEnd.toISOString();
+          }
         }
       } catch (e) {
+        console.error("Error processing dates:", e);
         // ignore
       }
 
+      // Get category from request or event (new API structure)
       const categoryType =
-        (request.event &&
-          (request.event.categoryType || request.event.Category)) ||
-        (request.category && request.category.type) ||
+        request.Category ||
+        request.category ||
+        (request.event && (request.event.Category || request.event.category)) ||
         "";
 
-      if (
-        String(categoryType).toLowerCase().includes("training") ||
-        String(request.category?.type || "")
-          .toLowerCase()
-          .includes("training")
-      ) {
+      const categoryLower = String(categoryType || "").toLowerCase();
+
+      if (categoryLower.includes("training")) {
         updateData.TrainingType = trainingType;
         updateData.MaxParticipants = maxParticipants
           ? parseInt(maxParticipants, 10)
           : undefined;
       }
 
-      if (
-        String(categoryType).toLowerCase().includes("blood") ||
-        String(request.category?.type || "")
-          .toLowerCase()
-          .includes("blood")
-      ) {
+      if (categoryLower.includes("blood")) {
         if (isAdmin) {
           updateData.Target_Donation = goalCount
             ? parseInt(goalCount, 10)
@@ -241,16 +347,15 @@ export default function EditEventModal({
         }
       }
 
-      if (
-        String(categoryType).toLowerCase().includes("advocacy") ||
-        String(request.category?.type || "")
-          .toLowerCase()
-          .includes("advocacy")
-      ) {
+      if (categoryLower.includes("advocacy")) {
         updateData.TargetAudience = audienceType;
         updateData.ExpectedAudienceSize = expectedAudienceSize
           ? parseInt(expectedAudienceSize, 10)
           : undefined;
+        // Topic field if available
+        if (request.Topic || (request.event && request.event.Topic)) {
+          // Topic can be included if it was in the original data
+        }
       }
 
       // Determine if this is a major change that requires review
@@ -262,9 +367,11 @@ export default function EditEventModal({
           return true;
 
         // Check if target donation changed (for blood drives)
-        if (String(categoryType).toLowerCase().includes("blood")) {
+        const categoryLower = String(categoryType || "").toLowerCase();
+        if (categoryLower.includes("blood")) {
           const originalGoal =
             (
+              request.Target_Donation ||
               request.event?.Target_Donation ||
               request.event?.categoryData?.Target_Donation ||
               0
@@ -278,17 +385,16 @@ export default function EditEventModal({
 
       if (!hasMajorChanges) {
         // Direct update - no review needed
-        const body = {
-          ...updateData,
-          // include coordinatorId or adminId depending on role
-          ...(user.staff_type === "Admin"
-            ? { adminId: user.id }
-            : user.staff_type === "Coordinator"
-              ? { coordinatorId: user.id }
-              : { MadeByStakeholderID: user.Stakeholder_ID || user.id }),
-        };
+        // Backend derives user ID from token, no need to include in body
+        const body = { ...updateData };
 
-        const res = await fetch(`${API_URL}/api/event-requests/${requestId}`, {
+        // Ensure requestId is a string and properly encoded
+        const encodedRequestId = encodeURIComponent(String(requestId));
+        const url = `${API_URL}/api/event-requests/${encodedRequestId}`;
+        
+        console.log("[EditEventModal] Updating request:", { requestId, url, updateData: Object.keys(body) });
+
+        const res = await fetch(url, {
           method: "PUT",
           headers,
           body: JSON.stringify(body),
@@ -296,54 +402,57 @@ export default function EditEventModal({
         const resp = await res.json();
 
         if (!res.ok) {
+          console.error("[EditEventModal] Update failed:", { status: res.status, response: resp });
+          // New API format: errors array in response
           if (resp && resp.errors && Array.isArray(resp.errors)) {
             setValidationErrors(resp.errors);
-
             return;
           }
           throw new Error(resp.message || "Failed to update request");
         }
+
+        // New API format: { success, data: { request } }
         // refresh parent list
         if (onSaved) onSaved();
         onClose();
       } else {
-        // Major changes - create a change request that needs review
-        // Use existing coordinator if present
-        const coordinatorId =
-          request.coordinator?.Coordinator_ID ||
-          request.coordinator?.CoordinatorId ||
-          request.MadeByCoordinatorID ||
-          request.event?.MadeByCoordinatorID;
-        const stakeholderId =
-          user?.Stakeholder_ID || user?.StakeholderId || user?.id || null;
-
-        if (!coordinatorId) {
-          throw new Error(
-            "Coordinator is required to submit a change request.",
-          );
-        }
-
-        // Ensure Start_Date/End_Date are present in the payload. The server requires Start_Date for validation
-        // so when stakeholder does not change the date/time we must include the original event dates.
+        // Major changes - update request (backend handles review workflow)
+        // Ensure Start_Date/End_Date are present in the payload
         let payloadStartDate: string | undefined = undefined;
         let payloadEndDate: string | undefined = undefined;
 
         try {
-          if (updateData.Start_Date) payloadStartDate = updateData.Start_Date;
-          else if (request.event?.Start_Date)
-            payloadStartDate = new Date(request.event.Start_Date).toISOString();
+          if (updateData.Start_Date) {
+            payloadStartDate = updateData.Start_Date;
+          } else {
+            // Use original date from request or event
+            const originalStart = 
+              request.Start_Date || 
+              request.Date || 
+              (request.event && request.event.Start_Date);
+            if (originalStart) {
+              payloadStartDate = new Date(originalStart).toISOString();
+            }
+          }
         } catch (e) {
           // leave undefined if parsing fails
         }
         try {
-          if (updateData.End_Date) payloadEndDate = updateData.End_Date;
-          else if (request.event?.End_Date)
-            payloadEndDate = new Date(request.event.End_Date).toISOString();
+          if (updateData.End_Date) {
+            payloadEndDate = updateData.End_Date;
+          } else {
+            const originalEnd = 
+              request.End_Date || 
+              (request.event && request.event.End_Date);
+            if (originalEnd) {
+              payloadEndDate = new Date(originalEnd).toISOString();
+            }
+          }
         } catch (e) {
           // leave undefined if parsing fails
         }
 
-        // For change requests, update the existing request via PUT
+        // Build update payload - backend derives user from token
         const body: any = {
           ...updateData,
         };
@@ -352,43 +461,14 @@ export default function EditEventModal({
         if (payloadStartDate) body.Start_Date = payloadStartDate;
         if (payloadEndDate) body.End_Date = payloadEndDate;
 
-        // Include the requester id based on role
-        if (isAdminOrCoordinator) {
-          body.adminId = user.staff_type === "Admin" ? user.id : undefined;
-          body.coordinatorId =
-            user.staff_type === "Coordinator" ? user.id : undefined;
-        } else {
-          body.MadeByStakeholderID = stakeholderId;
-        }
-
-        // Determine if this edit requires review (only for stakeholders)
-        const requiresReview = (() => {
-          if (!isStakeholder) return false; // Admins/coordinators don't require review
-
-          // Check if dates changed
-          if (startTime !== initialStartTime || endTime !== initialEndTime)
-            return true;
-
-          // Check if target donation changed (for blood drives)
-          if (isBlood) {
-            const originalGoal =
-              (
-                request.event?.Target_Donation ||
-                request.event?.categoryData?.Target_Donation ||
-                0
-              )?.toString() || "";
-
-            if (goalCount !== originalGoal) return true;
-          }
-
-          return false;
-        })();
-
-        // Include the review requirement flag
-        body.requiresReview = requiresReview;
+        // Ensure requestId is a string and properly encoded
+        const encodedRequestId = encodeURIComponent(String(requestId));
+        const url = `${API_URL}/api/event-requests/${encodedRequestId}`;
+        
+        console.log("[EditEventModal] Updating request (major changes):", { requestId, url, updateData: Object.keys(body) });
 
         // PUT to update existing request
-        const res = await fetch(`${API_URL}/api/event-requests/${requestId}`, {
+        const res = await fetch(url, {
           method: "PUT",
           headers,
           body: JSON.stringify(body),
@@ -396,13 +476,16 @@ export default function EditEventModal({
         const resp = await res.json();
 
         if (!res.ok) {
+          console.error("[EditEventModal] Update failed (major changes):", { status: res.status, response: resp });
+          // New API format: errors array in response
           if (resp && resp.errors && Array.isArray(resp.errors)) {
             setValidationErrors(resp.errors);
-
             return;
           }
-          throw new Error(resp.message || "Failed to create change request");
+          throw new Error(resp.message || "Failed to update request");
         }
+
+        // New API format: { success, data: { request } }
         if (onSaved) onSaved();
         onClose();
       }
@@ -419,8 +502,9 @@ export default function EditEventModal({
 
   // render modal content with inputs; date fields intentionally shown but disabled
   const cat =
-    (request.category && (request.category.type || request.category.Type)) ||
-    (request.event && (request.event.categoryType || request.event.Category)) ||
+    request.Category ||
+    request.category ||
+    (request.event && (request.event.Category || request.event.category)) ||
     "";
   const isBlood = String(cat).toLowerCase().includes("blood");
 
@@ -436,6 +520,7 @@ export default function EditEventModal({
     if (isBlood) {
       const originalGoal =
         (
+          request.Target_Donation ||
           request.event?.Target_Donation ||
           request.event?.categoryData?.Target_Donation ||
           0
@@ -463,26 +548,9 @@ export default function EditEventModal({
             <Avatar
               className="bg-default-100 border-1 border-default"
               icon={
-                String(
-                  (request?.category &&
-                    (request.category.type || request.category.Type)) ||
-                    (request?.event &&
-                      (request.event.categoryType || request.event.Category)) ||
-                    "",
-                )
-                  .toLowerCase()
-                  .includes("blood") ? (
+                String(cat).toLowerCase().includes("blood") ? (
                   <Droplet />
-                ) : String(
-                    (request?.category &&
-                      (request.category.type || request.category.Type)) ||
-                      (request?.event &&
-                        (request.event.categoryType ||
-                          request.event.Category)) ||
-                      "",
-                  )
-                    .toLowerCase()
-                    .includes("advocacy") ? (
+                ) : String(cat).toLowerCase().includes("advocacy") ? (
                   <Megaphone />
                 ) : (
                   <Person />
@@ -556,12 +624,6 @@ export default function EditEventModal({
 
             {/* Category-specific fields */}
             {(() => {
-              const cat =
-                (request.category &&
-                  (request.category.type || request.category.Type)) ||
-                (request.event &&
-                  (request.event.categoryType || request.event.Category)) ||
-                "";
               const key = String(cat).toLowerCase();
 
               if (key.includes("training")) {
@@ -726,8 +788,12 @@ export default function EditEventModal({
                   size="sm"
                   type="text"
                   value={
-                    request.event?.Start_Date
-                      ? new Date(request.event.Start_Date).toLocaleDateString(
+                    (request.Start_Date || request.Date || request.event?.Start_Date)
+                      ? new Date(
+                          request.Start_Date || 
+                          request.Date || 
+                          request.event.Start_Date
+                        ).toLocaleDateString(
                           "en-US",
                           { month: "short", day: "numeric", year: "numeric" },
                         )

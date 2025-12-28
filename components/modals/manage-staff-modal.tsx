@@ -69,29 +69,61 @@ export default function ManageStaffModal({
         let rid = propRequestId || null;
 
         if (!rid && request) {
-          rid = request.Request_ID || request.RequestId || request._id || null;
-        }
-
-        if (!rid && eventId) {
-          const res = await fetch(
-            `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
-            { credentials: "include" },
-          );
-          const body = await res.json();
-
-          if (!res.ok)
-            throw new Error(body.message || "Failed to fetch event details");
-          const data = body.data || body.event || body;
-
-          rid =
-            data?.request?.Request_ID ||
-            data?.Request_ID ||
-            data?.requestId ||
-            data?.request?.RequestId ||
+          rid = 
+            request.Request_ID || 
+            request.RequestId || 
+            request.requestId ||
+            request._id || 
+            (request.request && (
+              request.request.Request_ID || 
+              request.request.RequestId || 
+              request.request.requestId ||
+              request.request._id
+            )) ||
             null;
         }
 
+        if (!rid && eventId) {
+          try {
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("unite_token") ||
+                  sessionStorage.getItem("unite_token")
+                : null;
+            const headers: any = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            const res = await fetchWithAuth(
+              `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
+              { method: "GET" }
+            );
+            const body = await res.json();
+
+            if (res.ok) {
+              const data = body.data?.event || body.data || body.event || body;
+              rid =
+                data?.request?.Request_ID ||
+                data?.request?.RequestId ||
+                data?.request?.requestId ||
+                data?.Request_ID ||
+                data?.RequestId ||
+                data?.requestId ||
+                null;
+            }
+          } catch (e) {
+            console.warn("Failed to fetch requestId from eventId:", e);
+          }
+        }
+
         setRequestId(rid || null);
+        
+        console.log("[ManageStaffModal] Resolved requestId:", {
+          rid,
+          propRequestId,
+          eventId,
+          hasRequest: !!request,
+          requestKeys: request ? Object.keys(request).slice(0, 10) : []
+        });
 
         if (rid) {
           const token =
@@ -110,8 +142,10 @@ export default function ManageStaffModal({
 
           if (!r.ok)
             throw new Error(rb.message || "Failed to fetch request details");
-          const reqData = rb.data || rb.request || rb;
-          const staff = reqData?.staff || [];
+          // New API format: { success, data: { request, staff } }
+          const reqData = rb.data?.request || rb.data || rb.request || rb;
+          // Staff can be in data.staff or request.staff
+          const staff = rb.data?.staff || reqData?.staff || [];
 
           if (mounted) {
             setStaffMembers(
@@ -155,20 +189,69 @@ export default function ManageStaffModal({
   };
 
   const save = async () => {
-    const rid =
-      requestId ||
-      (request && (request.Request_ID || request.RequestId || request._id)) ||
+    // Extract requestId from multiple possible sources
+    let rid = 
+      requestId || 
+      propRequestId ||
+      (request && (
+        request.Request_ID || 
+        request.RequestId || 
+        request.requestId ||
+        request._id ||
+        (request.request && (
+          request.request.Request_ID || 
+          request.request.RequestId || 
+          request.request.requestId ||
+          request.request._id
+        ))
+      )) ||
       null;
 
-    if (!rid) return setError("Request info not available");
+    // If still no requestId, try to fetch from eventId
+    if (!rid && eventId) {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("unite_token") ||
+              sessionStorage.getItem("unite_token")
+            : null;
+        const headers: any = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetchWithAuth(
+          `${API_BASE}/api/events/${encodeURIComponent(eventId)}`,
+          { method: "GET" }
+        );
+        const body = await res.json();
+
+        if (res.ok && body.data) {
+          const eventData = body.data.event || body.data || body;
+          rid = 
+            eventData?.request?.Request_ID ||
+            eventData?.request?.RequestId ||
+            eventData?.request?.requestId ||
+            eventData?.Request_ID ||
+            eventData?.requestId ||
+            null;
+        }
+      } catch (e) {
+        console.warn("Failed to fetch requestId from eventId:", e);
+      }
+    }
+
+    if (!rid) {
+      console.error("[ManageStaffModal] Request ID not found:", {
+        requestId,
+        propRequestId,
+        eventId,
+        hasRequest: !!request,
+        requestKeys: request ? Object.keys(request).slice(0, 10) : []
+      });
+      return setError("Request info not available");
+    }
     try {
       setSaving(true);
       setError(null);
-      const rawUser =
-        typeof window !== "undefined"
-          ? localStorage.getItem("unite_user")
-          : null;
-      const user = rawUser ? JSON.parse(rawUser as string) : null;
       const token =
         typeof window !== "undefined"
           ? localStorage.getItem("unite_token") ||
@@ -178,13 +261,21 @@ export default function ManageStaffModal({
 
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      // Get eventId from request or event object
+      const evtId =
+        eventId ||
+        (request &&
+          (request.Event_ID || 
+           request.eventId ||
+           (request.event && request.event.Event_ID))) ||
+        null;
+
+      if (!evtId) {
+        return setError("Event ID is required");
+      }
+
       const body: any = {
-        adminId: user?.id || user?.Admin_ID || null,
-        eventId:
-          eventId ||
-          (request &&
-            (request.Event_ID || (request.event && request.event.Event_ID))) ||
-          null,
+        eventId: evtId,
         staffMembers,
       };
 
@@ -209,7 +300,24 @@ export default function ManageStaffModal({
 
       const resp = await res.json();
 
-      if (!res.ok) throw new Error(resp.message || "Failed to assign staff");
+      if (!res.ok) {
+        // Handle new API error format
+        const errorMsg = resp.message || 
+                        (resp.errors && Array.isArray(resp.errors) ? resp.errors.join(", ") : null) ||
+                        "Failed to assign staff";
+        throw new Error(errorMsg);
+      }
+
+      // New API format: { success, data: { event, staff } }
+      // Refresh staff list from response if available
+      if (resp.data?.staff && Array.isArray(resp.data.staff)) {
+        setStaffMembers(
+          resp.data.staff.map((s: any) => ({
+            FullName: s.FullName || s.Staff_FullName || s.Staff_Fullname || "",
+            Role: s.Role || "",
+          }))
+        );
+      }
 
       if (onSaved) await onSaved();
       onClose();
