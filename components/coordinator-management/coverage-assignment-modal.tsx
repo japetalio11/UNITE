@@ -698,11 +698,13 @@ export default function CoverageAssignmentModal({
               </Button>
               <Button
                 onPress={handleConfirm}
-                isDisabled={selectedCount === 0}
+                isDisabled={selectedCount === 0 || loadingCoverageAreas}
                 className="flex-1 h-11 bg-black text-white font-medium text-sm hover:bg-gray-800"
                 radius="lg"
               >
-                {suggestedCoverageArea && !createNewCoverageArea
+                {loadingCoverageAreas
+                  ? "Checking..."
+                  : suggestedCoverageArea && !createNewCoverageArea
                   ? "Assign to Existing"
                   : "Create & Assign"}
               </Button>

@@ -129,7 +129,22 @@ export async function createStakeholder(
       data: response.data,
     };
   } catch (error: any) {
-    console.error('Failed to create stakeholder:', error);
+    // Don't log validation warnings to console if they're expected
+    // (e.g., capability warnings that don't prevent creation)
+    // Also don't log "Email already exists" or duplicate key errors - they will be shown in the modal
+    const isValidationWarning = error.status === 400 && 
+      (error.body?.message?.includes("capabilities") ||
+       error.body?.message?.includes("Email already exists") ||
+       error.body?.message?.includes("duplicate key") ||
+       error.body?.message?.includes("E11000") ||
+       error.message?.includes("Email already exists") ||
+       error.message?.includes("duplicate key") ||
+       error.message?.includes("E11000"));
+    
+    if (!isValidationWarning) {
+      console.error('Failed to create stakeholder:', error);
+    }
+    
     return {
       success: false,
       message: error.message || error.body?.message || 'Failed to create stakeholder',

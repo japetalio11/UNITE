@@ -48,8 +48,12 @@ export function useRoles(isOpen: boolean) {
         body: JSON.stringify({ resource, action }),
       });
       return response?.hasPermission === true;
-    } catch (error) {
-      console.error(`Error checking permission ${resource}.${action}:`, error);
+    } catch (error: any) {
+      // Don't log permission check errors - they're expected for users without permissions
+      // Only log unexpected errors (network issues, etc.)
+      if (error.status && error.status !== 403) {
+        console.error(`Error checking permission ${resource}.${action}:`, error);
+      }
       return false;
     }
   };
@@ -61,13 +65,26 @@ export function useRoles(isOpen: boolean) {
     try {
       setLoading(true);
       setError(null);
+      
+      // Check permission first
+      const hasPermission = await checkPermission("role", "read");
+      if (!hasPermission) {
+        setRoles([]);
+        setLoading(false);
+        return;
+      }
+      
       const response = await fetchJsonWithAuth("/api/roles");
       
       if (response.success) {
         setRoles(response.data || []);
       }
     } catch (error: any) {
-      console.error("Failed to load roles:", error);
+      // Only log non-permission errors to console
+      // Permission errors are expected for non-admin users
+      if (error.status !== 403 && error.body?.message !== "Permission denied: role.read") {
+        console.error("Failed to load roles:", error);
+      }
       setError(error.message || "Failed to load roles");
       setRoles([]);
     } finally {
@@ -82,13 +99,26 @@ export function useRoles(isOpen: boolean) {
     try {
       setPermissionsLoading(true);
       setError(null);
+      
+      // Check permission first
+      const hasPermission = await checkPermission("role", "read");
+      if (!hasPermission) {
+        setPermissions([]);
+        setPermissionsLoading(false);
+        return;
+      }
+      
       const response = await fetchJsonWithAuth("/api/permissions");
       
       if (response.success) {
         setPermissions(response.data || []);
       }
     } catch (error: any) {
-      console.error("Failed to load permissions:", error);
+      // Only log non-permission errors to console
+      // Permission errors are expected for non-admin users
+      if (error.status !== 403 && error.body?.message !== "Permission denied: role.read") {
+        console.error("Failed to load permissions:", error);
+      }
       setError(error.message || "Failed to load permissions");
       setPermissions([]);
     } finally {

@@ -791,7 +791,16 @@ export default function StakeholderManagement() {
     try {
       // Use stakeholderService to create stakeholder
       const { createStakeholder } = await import("@/services/stakeholderService");
-      await createStakeholder(data);
+      const response = await createStakeholder(data);
+      
+      // Check if creation was successful
+      if (!response.success) {
+        // Throw error to prevent modal from closing
+        const error: any = new Error(response.message || "Failed to create stakeholder");
+        error.status = 400; // Mark as 400 error for proper handling
+        error.body = { message: response.message };
+        throw error;
+      }
       
       setLoading(true);
       setError(null);
@@ -805,7 +814,24 @@ export default function StakeholderManagement() {
 
       setIsAddModalOpen(false);
     } catch (err: any) {
-      setModalError(err?.message || "Failed to create stakeholder");
+      // Extract error message
+      const errorMessage = err?.message || err?.body?.message || "Failed to create stakeholder";
+      
+      // Check if this is a validation warning (400 status) that might not prevent creation
+      // If the error mentions capabilities but stakeholder might still be created, show as warning
+      if (err?.status === 400 && errorMessage.includes("capabilities")) {
+        // This might be a warning - still show it but don't treat as fatal
+        setModalError(`Warning: ${errorMessage}. Please verify the stakeholder was created correctly.`);
+      } else if (err?.body?.retry || errorMessage.includes("try again") || errorMessage.includes("EMAIL_RECYCLED")) {
+        // Email was recycled from inactive user - user should retry
+        setModalError(errorMessage + " Click 'Add Stakeholder' again to retry.");
+      } else {
+        // For all other errors (including "Email already exists"), show error and keep modal open
+        setModalError(errorMessage);
+        // Don't close modal on error - let user see the error and fix it
+      }
+      // Re-throw error so modal knows not to close
+      throw err;
     } finally {
       setIsCreating(false);
     }
@@ -1376,17 +1402,6 @@ export default function StakeholderManagement() {
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-700 font-medium">Error loading stakeholders</p>
             <p className="text-xs text-red-600 mt-1">{error}</p>
-          </div>
-        )}
-        {!loading && !error && filteredData.length === 0 && (
-          <div className="mb-4 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800 font-medium">
-              {selectedTab === "pending" 
-                ? "No pending signup requests found"
-                : selectedTab === "approved"
-                  ? "No approved stakeholders found"
-                  : "No stakeholders found"}
-            </p>
           </div>
         )}
         <StakeholderTable

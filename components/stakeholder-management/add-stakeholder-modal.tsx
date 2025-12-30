@@ -6,8 +6,8 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@herou
 import { Button } from "@heroui/button"
 import { Input } from "@heroui/input"
 import { Select, SelectItem } from "@heroui/select"
+import { Spinner } from "@heroui/spinner"
 import { useStakeholderManagement } from "@/hooks/useStakeholderManagement"
-import { createStakeholder } from "@/services/stakeholderService"
 
 interface AddStakeholderModalProps {
   isOpen: boolean
@@ -46,6 +46,7 @@ export default function AddStakeholderModal({
   const [showPassword, setShowPassword] = useState(false)
   const [showRetypePassword, setShowRetypePassword] = useState(false)
   const [organizationInput, setOrganizationInput] = useState<string>("")
+  const [municipalityTouched, setMunicipalityTouched] = useState(false)
 
   // Set default role and organization for non-system-admins
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function AddStakeholderModal({
       setSelectedBarangay("")
       setSelectedOrganization("")
       setOrganizationInput("")
+      setMunicipalityTouched(false)
     }
   }, [isOpen])
 
@@ -102,6 +104,9 @@ export default function AddStakeholderModal({
     const password = (formData.get("password") || "").toString()
     const retypePassword = (formData.get("retypePassword") || "").toString()
     const organizationInstitution = (formData.get("organization") as string) || organizationInput || ""
+
+    // Mark municipality as touched when form is submitted
+    setMunicipalityTouched(true)
 
     // Validation
     if (password !== retypePassword) {
@@ -156,16 +161,17 @@ export default function AddStakeholderModal({
       pageContext: 'stakeholder-management', // Important: tells backend this is stakeholder creation
     }
 
+    // Call the parent's onSubmit handler which handles the API call
+    // This prevents duplicate API calls
+    // Note: onSubmit should throw on error to prevent modal from closing
     try {
-      const response = await createStakeholder(data)
-      if (response.success) {
-        onSubmit(response.data || data)
-        onClose()
-      } else {
-        alert(response.message || "Failed to create stakeholder")
-      }
+      await onSubmit(data)
+      // Only close modal if submission was successful (no error thrown)
+      onClose()
     } catch (error: any) {
-      alert(error.message || "Failed to create stakeholder")
+      // Error is handled by parent component and displayed via modalError prop
+      // Don't close modal on error - let user see the error and fix it
+      // The parent's handleModalSubmit will set modalError which is displayed in the modal
     }
   }
 
@@ -413,6 +419,8 @@ export default function AddStakeholderModal({
                   size="md"
                   variant="bordered"
                   isDisabled={hookLoading || municipalityOptions.length === 0}
+                  isInvalid={municipalityTouched && !selectedMunicipality}
+                  errorMessage={municipalityTouched && !selectedMunicipality ? "Please select a municipality" : undefined}
                   description={
                     hookLoading 
                       ? "Loading municipalities..." 
@@ -426,9 +434,13 @@ export default function AddStakeholderModal({
                   }
                   onSelectionChange={(keys: any) => {
                     const muniId = Array.from(keys)[0] as string
-                    setSelectedMunicipality(muniId)
+                    setSelectedMunicipality(muniId || "")
                     if (muniId) {
                       fetchBarangays(muniId)
+                      // Clear error state when valid selection is made
+                      if (municipalityTouched) {
+                        setMunicipalityTouched(false)
+                      }
                     }
                   }}
                 >
@@ -597,8 +609,9 @@ export default function AddStakeholderModal({
                 radius="md"
                 size="md"
                 type="submit"
+                startContent={isSubmitting ? <Spinner size="sm" color="white" /> : null}
               >
-                {isSubmitting ? "Adding..." : "Add Stakeholder"}
+                {isSubmitting ? "Adding Stakeholder..." : "Add Stakeholder"}
               </Button>
             </ModalFooter>
           </form>

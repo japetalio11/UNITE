@@ -79,6 +79,32 @@ export async function fetchJsonWithAuth(
     // For 401/403 errors, mark as authentication error for easier handling
     if (res.status === 401 || res.status === 403) {
       err.isAuthError = true;
+      // Don't log permission errors to console - they're expected for non-admin users
+      // Permission denied errors are handled gracefully by the calling code
+      const isPermissionError = msg && (
+        msg.toLowerCase().includes("permission denied") ||
+        msg.toLowerCase().includes("permission")
+      );
+      if (!isPermissionError) {
+        // Only log non-permission auth errors (like invalid token)
+        console.error(`Request failed (${res.status}):`, msg);
+      }
+    } else {
+      // Don't log validation warnings (400) for stakeholder creation if they mention capabilities
+      // Also don't log "Email already exists" or duplicate key errors - they will be shown in the modal
+      const isValidationWarning = res.status === 400 && 
+        msg && (
+          msg.toLowerCase().includes("capabilities") ||
+          msg.toLowerCase().includes("must include") ||
+          msg.toLowerCase().includes("email already exists") ||
+          msg.toLowerCase().includes("duplicate key") ||
+          msg.toLowerCase().includes("e11000")
+        );
+      
+      if (!isValidationWarning) {
+        // Log other errors normally
+        console.error(`Request failed (${res.status}):`, msg);
+      }
     }
     
     throw err;
