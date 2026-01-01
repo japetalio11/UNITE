@@ -1623,15 +1623,39 @@ export default function CampaignPage() {
           elapsed: `${refreshElapsed}ms`,
         });
         
-        // Verify the request was actually updated by checking the requests list
-        console.log("[CampaignPage] 🔍 Step 7b-verify: Verifying request was updated in list");
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Dispatch custom event to force EventCard components to check for updates
+        // Wait a bit for fetchRequests to fully update the state
+        await new Promise(resolve => setTimeout(resolve, 200));
         
-        // Force a second refresh to ensure UI is updated (sometimes React needs an extra cycle)
-        console.log("[CampaignPage] 🔄 Step 7b-verify: Force refreshing to ensure UI update");
-        invalidateCache(/event-requests/);
-        await fetchRequests();
-        console.log("[CampaignPage] ✅ Step 7b-verify COMPLETE: Force refresh completed");
+        console.log("[CampaignPage] 📢 Step 7b-event: Dispatching refresh event for request:", requestId);
+        try {
+          window.dispatchEvent(
+            new CustomEvent("unite:force-refresh-requests", { 
+              detail: { 
+                requestId,
+                expectedStatus: 'approved',
+                originalStatus: reqObj?.status || reqObj?.Status,
+              } 
+            })
+          );
+          console.log("[CampaignPage] ✅ Step 7b-event COMPLETE: Refresh event dispatched");
+          
+          // Dispatch a second event after a delay to ensure cards get the update
+          setTimeout(() => {
+            console.log("[CampaignPage] 📢 Step 7b-event-2: Dispatching second refresh event");
+            window.dispatchEvent(
+              new CustomEvent("unite:force-refresh-requests", { 
+                detail: { 
+                  requestId,
+                  expectedStatus: 'approved',
+                  originalStatus: reqObj?.status || reqObj?.Status,
+                } 
+              })
+            );
+          }, 300);
+        } catch (eventError: any) {
+          console.warn("[CampaignPage] ⚠️ Step 7b-event: Failed to dispatch event:", eventError?.message);
+        }
       } catch (refreshError: any) {
         console.error("[CampaignPage] ❌ Step 7b FAILED: fetchRequests() error", {
           error: refreshError,
@@ -1640,8 +1664,8 @@ export default function CampaignPage() {
         // Don't throw - we still want to return success even if refresh fails
       }
       
-      console.log("[CampaignPage] 🔄 Step 7c: Waiting 300ms for React state propagation");
-      await new Promise(resolve => setTimeout(resolve, 300));
+      console.log("[CampaignPage] 🔄 Step 7c: Waiting 500ms for React state propagation");
+      await new Promise(resolve => setTimeout(resolve, 500));
       console.log("[CampaignPage] ✅ Step 7c COMPLETE: Delay completed");
 
       const totalElapsed = Date.now() - startTime;
@@ -1909,7 +1933,7 @@ export default function CampaignPage() {
             new CustomEvent("unite:force-refresh-requests", { 
               detail: { 
                 requestId,
-                expectedStatus: 'approved',
+                expectedStatus: 'rejected',
                 originalStatus: reqObj?.status || reqObj?.Status,
               } 
             })
@@ -1923,7 +1947,7 @@ export default function CampaignPage() {
               new CustomEvent("unite:force-refresh-requests", { 
                 detail: { 
                   requestId,
-                  expectedStatus: 'approved',
+                  expectedStatus: 'rejected',
                   originalStatus: reqObj?.status || reqObj?.Status,
                 } 
               })

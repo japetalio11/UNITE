@@ -462,11 +462,15 @@ const EventCard: React.FC<EventCardProps> = ({
       
       // Check for status transitions that indicate success (e.g., review-rescheduled -> approved)
       const wasPending = normalizedCurrent.includes('pending') || normalizedCurrent.includes('review');
+      const wasReviewRescheduled = normalizedCurrent.includes('rescheduled') && normalizedCurrent.includes('review');
       const isNowApproved = normalizedNew === 'approved' || normalizedNew.includes('approv');
-      const statusTransitioned = wasPending && isNowApproved;
+      const statusTransitioned = (wasPending || wasReviewRescheduled) && isNowApproved;
       
       // Prevent downgrading status (e.g., approved -> review-rescheduled)
-      const wouldDowngrade = currentPriority > newPriority;
+      // BUT: Allow 'rejected' to override any status if it comes from the request prop (source of truth)
+      // This handles cases where an event handler incorrectly set the status and we need to correct it
+      const isRejectedStatus = normalizedNew === 'rejected' || normalizedNew.includes('reject');
+      const wouldDowngrade = currentPriority > newPriority && !isRejectedStatus; // Allow rejected to override
       
       // Also check if fullRequest has old status but request prop might have new status
       // This handles cases where the request prop updates but fullRequest hasn't
@@ -476,7 +480,7 @@ const EventCard: React.FC<EventCardProps> = ({
                           statusTransitioned ||
                           // Force update if fullRequest exists but request prop is different object
                           (fullRequest && request && JSON.stringify(fullRequest) !== JSON.stringify(request)))
-                          && !wouldDowngrade; // Don't update if it would downgrade status
+                          && !wouldDowngrade; // Don't update if it would downgrade status (unless it's rejected)
       
       if (shouldUpdate) {
         console.log("[EventCard] ✅ useEffect: Updating fullRequest with new request data", {
@@ -526,15 +530,27 @@ const EventCard: React.FC<EventCardProps> = ({
   useEffect(() => {
     const handleForceRefresh = (event: CustomEvent) => {
       const { requestId: eventRequestId, expectedStatus, originalStatus } = event.detail || {};
-      const currentRequestId = request?.Request_ID || request?.RequestId || request?._id;
+      
+      // Compute request ID using the same logic as resolvedRequestId, but inside the handler
+      // This ensures we get the ID even if the component structure varies
+      const currentResolvedRequest = fullRequest || request || (request && (request as any).event) || null;
+      const currentRequestId = currentResolvedRequest?.Request_ID ||
+                               currentResolvedRequest?.RequestId ||
+                               currentResolvedRequest?._id ||
+                               currentResolvedRequest?.requestId ||
+                               request?.Request_ID || request?.RequestId || request?._id || request?.requestId ||
+                               fullRequest?.Request_ID || fullRequest?.RequestId || fullRequest?._id ||
+                               null;
+      
       const currentStatus = fullRequest?.status || fullRequest?.Status || request?.status || request?.Status;
       const normalizedCurrentStatus = currentStatus ? String(currentStatus).toLowerCase().trim() : '';
       const normalizedOriginalStatus = originalStatus ? String(originalStatus).toLowerCase().trim() : '';
       const normalizedExpectedStatus = expectedStatus ? String(expectedStatus).toLowerCase().trim() : '';
       
-      // Match by ID if available, or by status if ID is not available
+      // CRITICAL FIX: Only match by ID, NOT by status
+      // Matching by status causes ALL requests with the same status to be updated,
+      // which is why accepting one rescheduled request made all rescheduled requests appear as approved
       const idMatches = eventRequestId && currentRequestId && String(eventRequestId) === String(currentRequestId);
-      const statusMatches = normalizedOriginalStatus && normalizedCurrentStatus === normalizedOriginalStatus;
       
       console.log("[EventCard] 📢 Received force refresh event", {
         eventRequestId,
@@ -546,17 +562,16 @@ const EventCard: React.FC<EventCardProps> = ({
         normalizedOriginalStatus,
         normalizedExpectedStatus,
         idMatches,
-        statusMatches,
-        shouldUpdate: idMatches || statusMatches,
+        shouldUpdate: idMatches,
       });
       
-      // If this event is for this card's request (by ID or by status match), force update
-      if (idMatches || statusMatches) {
-        console.log("[EventCard] ✅ Force refresh matches this card (ID or status), updating fullRequest", {
-          matchType: idMatches ? 'ID' : 'status',
-        });
+      // Only update if this event is specifically for THIS card's request ID
+      // Do NOT match by status - that causes the visual bug where all requests with the same status get updated
+      if (idMatches) {
+        console.log("[EventCard] ✅ Force refresh matches this card (ID match), updating fullRequest");
         
-        // If request prop already has the expected status, use it directly
+        // Prefer using the updated request from the parent (request prop) if it has the expected status
+        // Otherwise, update fullRequest with the expected status
         if (request) {
           const requestStatus = request?.status || request?.Status;
           const normalizedRequestStatus = requestStatus ? String(requestStatus).toLowerCase().trim() : '';
@@ -576,17 +591,19 @@ const EventCard: React.FC<EventCardProps> = ({
             setFullRequest(updatedRequest);
             console.log("[EventCard] ✅ Force refresh: fullRequest updated with expected status:", expectedStatus);
             
-            // Also try to update from request prop after a delay in case it gets updated
+            // Also try to update from request prop after a delay in case it gets updated from fetchRequests()
             setTimeout(() => {
-              if (request) {
-                const delayedStatus = request?.status || request?.Status;
+              // Re-read request prop in case it was updated by parent component
+              const updatedRequestProp = request;
+              if (updatedRequestProp) {
+                const delayedStatus = updatedRequestProp?.status || updatedRequestProp?.Status;
                 const normalizedDelayedStatus = delayedStatus ? String(delayedStatus).toLowerCase().trim() : '';
                 if (normalizedDelayedStatus === normalizedExpectedStatus) {
                   console.log("[EventCard] ✅ Delayed update: Request prop now has expected status, updating");
-                  setFullRequest(request);
+                  setFullRequest(updatedRequestProp);
                 }
               }
-            }, 200);
+            }, 500);
           }
         } else if (fullRequest) {
           // No request prop, but we have fullRequest - update it directly with expected status
@@ -603,6 +620,11 @@ const EventCard: React.FC<EventCardProps> = ({
           console.log("[EventCard] 🔄 No request prop or fullRequest, clearing to trigger refresh");
           setFullRequest(null);
         }
+      } else {
+        console.log("[EventCard] ⏭️ Force refresh event does not match this card (ID mismatch), ignoring", {
+          eventRequestId,
+          currentRequestId,
+        });
       }
     };
     
@@ -610,6 +632,9 @@ const EventCard: React.FC<EventCardProps> = ({
     return () => {
       window.removeEventListener("unite:force-refresh-requests", handleForceRefresh as EventListener);
     };
+    // Include request and fullRequest so handler has latest values
+    // Note: resolvedRequestId is computed inside the handler, so we don't need it in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request, fullRequest]);
 
   const resolvedRequest =
