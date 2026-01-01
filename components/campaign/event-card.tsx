@@ -864,7 +864,7 @@ const EventCard: React.FC<EventCardProps> = ({
         setFullRequest(responseRequest);
       }
       
-      // Dispatch refresh events AFTER state update
+      // Dispatch single refresh event AFTER state update
       if (typeof window !== "undefined") {
         try {
           window.dispatchEvent(new CustomEvent("unite:requests-changed", {
@@ -877,18 +877,8 @@ const EventCard: React.FC<EventCardProps> = ({
               cacheKeysToInvalidate
             }
           }));
-          
-          if (shouldRefresh) {
-            window.dispatchEvent(new CustomEvent("unite:force-refresh-requests", {
-              detail: { 
-                requestId: resolvedRequestId, 
-                reason: `${actionName}-action`, 
-                cacheKeysToInvalidate 
-              }
-            }));
-          }
         } catch (e) {
-          console.error(`[EventCard] Failed to dispatch events:`, e);
+          console.error(`[EventCard] Failed to dispatch event:`, e);
         }
       }
       
@@ -897,89 +887,7 @@ const EventCard: React.FC<EventCardProps> = ({
     } catch (error: any) {
       console.error(`[EventCard] ${actionName} action error:`, error);
       
-      // Check if this is a timeout error - backend might have succeeded
-      const isTimeoutError = error?.message?.includes("timeout");
-      
-      if (isTimeoutError) {
-        
-        // Try to refetch the request multiple times with delays (backend might still be processing)
-        const maxRetries = 3;
-        const retryDelay = 2000; // 2 seconds between retries
-        
-        for (let retry = 0; retry < maxRetries; retry++) {
-          try {
-            if (retry > 0) {
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-            }
-            
-            const updatedRequest = await svcFetchRequestDetails(resolvedRequestId, true);
-            
-            if (updatedRequest) {
-              // Check if the request status changed (indicating backend succeeded)
-              const currentStatus = fullRequest?.status || fullRequest?.Status;
-              const newStatus = updatedRequest?.status || updatedRequest?.Status;
-              
-              // Check for approved state or any state change for confirm/accept actions
-              const isApproved = newStatus === 'approved' || newStatus === 'APPROVED';
-              const statusChanged = newStatus !== currentStatus;
-              
-              if (statusChanged && (isApproved || actionName === 'confirm' || actionName === 'accept')) {
-                
-                // Update UI with the new status
-                setFullRequest(updatedRequest);
-                
-                // Clear permission cache and invalidate request cache
-                (async () => {
-                  try {
-                    const { clearPermissionCache } = await import("@/utils/eventActionPermissions");
-                    clearPermissionCache();
-                  } catch (permCacheError) {
-                    console.error(`[EventCard] Error clearing permission cache:`, permCacheError);
-                  }
-                  
-                  try {
-                    const { invalidateCache } = await import("@/utils/requestCache");
-                    invalidateCache(/event-requests/);
-                  } catch (cacheError) {
-                    console.error(`[EventCard] Error invalidating cache:`, cacheError);
-                  }
-                })();
-                
-                // Dispatch refresh events
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("unite:requests-changed", {
-                    detail: { 
-                      requestId: resolvedRequestId, 
-                      action: actionName, 
-                      forceRefresh: true,
-                      shouldRefresh: true
-                    }
-                  }));
-                  window.dispatchEvent(new CustomEvent("unite:force-refresh-requests", {
-                    detail: { 
-                      requestId: resolvedRequestId, 
-                      reason: `${actionName}-timeout-recovery` 
-                    }
-                  }));
-                }
-                
-                // Close modal
-                setViewOpen(false);
-                
-                // Don't show error - backend succeeded
-                return;
-              }
-            }
-          } catch (refetchError) {
-            console.error(`[EventCard] Error refetching after timeout (retry ${retry + 1}):`, refetchError);
-            // Continue to next retry
-          }
-        }
-        
-        console.warn(`[EventCard] Backend status check failed after ${maxRetries} retries for ${actionName}`);
-      }
-      
-      // Show error if it's not a recoverable timeout
+      // Show error message to user
       alert(`Failed to ${actionName} request: ${error?.message || "Unknown error"}`);
     } finally {
       loadingSetter(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import { Ticket, Calendar as CalIcon, PersonPlanetEarth, Persons, Bell, Gear } from "@gravity-ui/icons";
 import { Modal } from "@heroui/modal";
 import { Spinner } from "@heroui/spinner";
@@ -272,6 +272,9 @@ export default function CampaignPage() {
       if (advancedFilter.end)
         params.set("date_to", String(advancedFilter.end));
 
+      // Add fields=minimal for list view to reduce payload size
+      params.set("fields", "minimal");
+      
       const url = `${API_URL}/api/event-requests?${params.toString()}`;
       const fetchOptions: RequestInit = { 
         headers, 
@@ -392,6 +395,81 @@ export default function CampaignPage() {
       setIsLoadingRequests(false);
     }
   };
+
+  // Optimistically update a request in the local state before server confirmation
+  const optimisticallyUpdateRequest = useCallback((requestId: string, updateData: any) => {
+    setRequests((prevRequests) => {
+      return prevRequests.map((req) => {
+        // Check if this is the request we're updating
+        const reqId = req.Request_ID || req.RequestId || req.requestId || req._id;
+        if (String(reqId) !== String(requestId)) {
+          return req;
+        }
+
+        // Create an updated copy of the request
+        const updatedRequest = { ...req };
+
+        // Update direct request fields
+        if (updateData.Event_Title !== undefined) {
+          updatedRequest.Event_Title = updateData.Event_Title;
+        }
+        if (updateData.Location !== undefined) {
+          updatedRequest.Location = updateData.Location;
+        }
+        if (updateData.Email !== undefined) {
+          updatedRequest.Email = updateData.Email;
+        }
+        if (updateData.Phone_Number !== undefined) {
+          updatedRequest.Phone_Number = updateData.Phone_Number;
+        }
+        if (updateData.Event_Description !== undefined) {
+          updatedRequest.Event_Description = updateData.Event_Description;
+        }
+        if (updateData.Start_Date !== undefined) {
+          updatedRequest.Start_Date = updateData.Start_Date;
+        }
+        if (updateData.End_Date !== undefined) {
+          updatedRequest.End_Date = updateData.End_Date;
+        }
+        if (updateData.Date !== undefined) {
+          updatedRequest.Date = updateData.Date;
+        }
+
+        // Update nested event object if present
+        if (updatedRequest.event) {
+          updatedRequest.event = {
+            ...updatedRequest.event,
+            ...(updateData.Event_Title !== undefined && { Event_Title: updateData.Event_Title }),
+            ...(updateData.Location !== undefined && { Location: updateData.Location }),
+            ...(updateData.Email !== undefined && { Email: updateData.Email }),
+            ...(updateData.Phone_Number !== undefined && { Phone_Number: updateData.Phone_Number }),
+            ...(updateData.Event_Description !== undefined && { Event_Description: updateData.Event_Description }),
+            ...(updateData.Start_Date !== undefined && { Start_Date: updateData.Start_Date }),
+            ...(updateData.End_Date !== undefined && { End_Date: updateData.End_Date }),
+          };
+        }
+
+        // Update category-specific fields if present
+        if (updateData.TrainingType !== undefined) {
+          updatedRequest.TrainingType = updateData.TrainingType;
+        }
+        if (updateData.MaxParticipants !== undefined) {
+          updatedRequest.MaxParticipants = updateData.MaxParticipants;
+        }
+        if (updateData.Target_Donation !== undefined) {
+          updatedRequest.Target_Donation = updateData.Target_Donation;
+        }
+        if (updateData.TargetAudience !== undefined) {
+          updatedRequest.TargetAudience = updateData.TargetAudience;
+        }
+        if (updateData.ExpectedAudienceSize !== undefined) {
+          updatedRequest.ExpectedAudienceSize = updateData.ExpectedAudienceSize;
+        }
+
+        return updatedRequest;
+      });
+    });
+  }, []);
 
   // Helper function to get user authority level
   const getUserAuthority = (): number => {
@@ -541,15 +619,57 @@ export default function CampaignPage() {
     }
   }, [currentUser]);
 
+  // Memoize filter objects to prevent unnecessary re-renders
+  const quickFilterMemo = useMemo(() => quickFilter, [
+    quickFilter?.category,
+    quickFilter?.startDate,
+    quickFilter?.endDate,
+    quickFilter?.province,
+    quickFilter?.district,
+    quickFilter?.municipality,
+  ]);
+
+  const advancedFilterMemo = useMemo(() => advancedFilter, [
+    advancedFilter?.start,
+    advancedFilter?.end,
+    advancedFilter?.title,
+    advancedFilter?.requester,
+    advancedFilter?.municipality,
+    advancedFilter?.coordinator,
+    advancedFilter?.stakeholder,
+  ]);
+
+  // Track previous filter values to detect actual changes
+  const prevFiltersRef = useRef<{
+    quickFilter: typeof quickFilter;
+    advancedFilter: typeof advancedFilter;
+    searchQuery: string;
+    selectedTab: string;
+  }>({
+    quickFilter: null,
+    advancedFilter: {},
+    searchQuery: '',
+    selectedTab: 'all',
+  });
+
   // reset to first page whenever filters/search change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    searchQuery,
-    selectedTab,
-    JSON.stringify(quickFilter),
-    JSON.stringify(advancedFilter),
-  ]);
+    const filtersChanged = 
+      prevFiltersRef.current.searchQuery !== searchQuery ||
+      prevFiltersRef.current.selectedTab !== selectedTab ||
+      JSON.stringify(prevFiltersRef.current.quickFilter) !== JSON.stringify(quickFilterMemo) ||
+      JSON.stringify(prevFiltersRef.current.advancedFilter) !== JSON.stringify(advancedFilterMemo);
+
+    if (filtersChanged) {
+      setCurrentPage(1);
+      prevFiltersRef.current = {
+        quickFilter: quickFilterMemo,
+        advancedFilter: advancedFilterMemo,
+        searchQuery,
+        selectedTab,
+      };
+    }
+  }, [searchQuery, selectedTab, quickFilterMemo, advancedFilterMemo]);
 
   // Note: Counts are now included in fetchRequests response, so no separate fetch needed
 
@@ -567,8 +687,8 @@ export default function CampaignPage() {
     currentPage,
     selectedTab,
     searchQuery,
-    JSON.stringify(quickFilter),
-    JSON.stringify(advancedFilter),
+    quickFilterMemo,
+    advancedFilterMemo,
   ]);
 
   // Debounce timer ref for refresh operations
@@ -837,27 +957,31 @@ export default function CampaignPage() {
     },
   ];
 
-  // Handler for search functionality
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
+  // Handler for search functionality - memoized with useCallback
+  const handleSearch = useCallback((query: string) => {
+    startTransition(() => {
+      setSearchQuery(query);
+    });
     debug("Searching for:", query);
-  };
+  }, []);
 
-  // Handler for user profile click
-  const handleUserClick = () => {
+  // Handler for user profile click - memoized with useCallback
+  const handleUserClick = useCallback(() => {
     debug("User profile clicked");
-  };
+  }, []);
 
-  // Handler for tab changes
-  const handleTabChange = (tab: string) => {
-    setSelectedTab(tab);
+  // Handler for tab changes - memoized with useCallback
+  const handleTabChange = useCallback((tab: string) => {
+    startTransition(() => {
+      setSelectedTab(tab);
+    });
     debug("Tab changed to:", tab);
-  };
+  }, []);
 
-  // Handler for export action
-  const handleExport = () => {
+  // Handler for export action - memoized with useCallback
+  const handleExport = useCallback(() => {
     debug("Exporting data...");
-  };
+  }, []);
 
   // Handler for refresh requests
   const handleRefreshRequests = async () => {
@@ -891,22 +1015,26 @@ export default function CampaignPage() {
     }
   };
 
-  // Handler for quick filter
-  const handleQuickFilter = (filter: any) => {
-    setQuickFilter(filter);
-  };
+  // Handler for quick filter - memoized with useCallback
+  const handleQuickFilter = useCallback((filter: any) => {
+    startTransition(() => {
+      setQuickFilter(filter);
+    });
+  }, []);
 
-  // Handler for advanced filter (expects { start?, end?, title?, coordinator?, stakeholder? })
-  const handleAdvancedFilter = (filter?: {
+  // Handler for advanced filter - memoized with useCallback
+  const handleAdvancedFilter = useCallback((filter?: {
     start?: string;
     end?: string;
     title?: string;
     coordinator?: string;
     stakeholder?: string;
   }) => {
-    if (filter) setAdvancedFilter(filter);
-    else setAdvancedFilter({});
-  };
+    startTransition(() => {
+      if (filter) setAdvancedFilter(filter);
+      else setAdvancedFilter({});
+    });
+  }, []);
 
   // Handler for create event - maps modal data to backend payloads and posts
   const handleCreateEvent = async (eventType: string, data: any) => {
@@ -1246,119 +1374,25 @@ export default function CampaignPage() {
       // Note: Backend validator doesn't allow note for accept action, so we don't include it
 
       const url = `${API_URL}/api/event-requests/${requestId}/actions`;
-      const fetchStartTime = Date.now();
-      
-      // Add timeout to fetch - shorter timeout to trigger recovery faster
-      const timeoutMs = 10000; // 10 seconds (reduced from 30s to trigger recovery sooner)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Request timeout after ${timeoutMs}ms`));
-        }, timeoutMs);
-      });
-
-      const fetchPromise = fetch(url, {
+      const fetchOptions: RequestInit = {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+      };
+
+      // Use fetchWithRetry which has proper timeout (30s) and retry logic
+      const res = await fetchWithRetry(url, fetchOptions, {
+        maxRetries: 3,
+        timeout: 30000, // 30 seconds
       });
 
-      let res: Response | undefined;
-      let fetchTimedOut = false;
-      try {
-        res = await Promise.race([fetchPromise, timeoutPromise]);
-      } catch (fetchError: any) {
-        const fetchElapsed = Date.now() - fetchStartTime;
-        const isTimeout = fetchError?.message?.includes("timeout");
-        fetchTimedOut = isTimeout;
-        
-        // If timeout, check if backend actually succeeded before logging error
-        if (isTimeout) {
-          try {
-            // Poll the request status to see if it was updated
-            const maxRetries = 5;
-            const retryDelay = 2000; // 2 seconds between checks
-            
-            for (let retry = 0; retry < maxRetries; retry++) {
-              if (retry > 0) {
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-              }
-              
-              try {
-                const checkToken = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
-                const checkHeaders: any = { "Content-Type": "application/json" };
-                if (checkToken) checkHeaders["Authorization"] = `Bearer ${checkToken}`;
-                
-                const checkUrl = `${API_URL}/api/event-requests/${requestId}`;
-                
-                const checkRes = await fetch(checkUrl, {
-                  headers: checkHeaders,
-                  credentials: "include",
-                });
-                
-                if (checkRes.ok) {
-                  const checkBody = await checkRes.json();
-                  const updatedRequest = checkBody?.data?.request || checkBody?.data || checkBody?.request || checkBody;
-                  const updatedStatus = updatedRequest?.status || updatedRequest?.Status;
-                  const originalStatus = reqObj?.status || reqObj?.Status;
-                  
-                  // If status changed to approved, backend succeeded!
-                  if (updatedStatus === 'approved' || updatedStatus === 'APPROVED' || 
-                      (originalStatus !== updatedStatus && (updatedStatus?.includes('approv') || updatedStatus?.includes('Approv')))) {
-                    // Treat as success - continue to refresh
-                    fetchTimedOut = false;
-                    // Create a mock successful response
-                    res = {
-                      ok: true,
-                      status: 200,
-                      statusText: 'OK',
-                      json: async () => ({
-                        success: true,
-                        message: 'Request accepted successfully (recovered from timeout)',
-                        data: { request: updatedRequest }
-                      }),
-                    } as Response;
-                    break;
-                  }
-                }
-              } catch (checkError: any) {
-                // Continue to next retry
-              }
-            }
-            
-            if (fetchTimedOut) {
-              console.error("[CampaignPage] Fetch timeout and recovery failed:", fetchError?.message);
-              throw fetchError; // Re-throw original timeout error
-            }
-          } catch (recoveryError: any) {
-            console.error("[CampaignPage] Fetch timeout and recovery attempt failed:", {
-              fetchError: fetchError?.message,
-              recoveryError: recoveryError?.message,
-            });
-            throw fetchError; // Re-throw original timeout error
-          }
-        } else {
-          console.error("[CampaignPage] Fetch error:", fetchError?.message);
-          throw fetchError;
-        }
-      }
-
-      if (!res) {
-        throw new Error("No response received");
-      }
-
-      let resp: any;
-      try {
-        resp = await res.json();
-      } catch (parseError: any) {
-        console.error("[CampaignPage] JSON parse error:", parseError);
-        throw new Error(`Failed to parse response: ${parseError.message}`);
-      }
-
       if (!res.ok) {
+        const resp = await res.json().catch(() => ({}));
         const errorMsg = resp.message || resp.errors?.join(", ") || "Failed to accept request";
-        console.error("[CampaignPage] Response not OK:", errorMsg);
         throw new Error(errorMsg);
       }
+
+      const resp = await res.json();
 
       // Invalidate cache and refresh requests list
       invalidateCache(/event-requests/);
@@ -1369,45 +1403,21 @@ export default function CampaignPage() {
         clearPermissionCache(String(eventId));
       }
       
-      try {
-        await fetchRequests();
-        
-        // Dispatch custom event to force EventCard components to check for updates
-        // Wait a bit for fetchRequests to fully update the state
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        try {
-          window.dispatchEvent(
-            new CustomEvent("unite:force-refresh-requests", { 
-              detail: { 
-                requestId,
-                expectedStatus: 'approved',
-                originalStatus: reqObj?.status || reqObj?.Status,
-              } 
-            })
-          );
-          
-          // Dispatch a second event after a delay to ensure cards get the update
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent("unite:force-refresh-requests", { 
-                detail: { 
-                  requestId,
-                  expectedStatus: 'approved',
-                  originalStatus: reqObj?.status || reqObj?.Status,
-                } 
-              })
-            );
-          }, 300);
-        } catch (eventError: any) {
-          // Failed to dispatch event
-        }
-      } catch (refreshError: any) {
-        console.error("[CampaignPage] fetchRequests() error:", refreshError?.message);
-        // Don't throw - we still want to return success even if refresh fails
-      }
+      // Refresh requests list and dispatch event
+      await fetchRequests();
       
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Dispatch single refresh event
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("unite:requests-changed", { 
+            detail: { 
+              requestId,
+              action: "accept",
+              forceRefresh: true,
+            } 
+          })
+        );
+      }
 
       return resp;
     } catch (err: any) {
@@ -1449,168 +1459,52 @@ export default function CampaignPage() {
       // Note: Backend validator doesn't allow note for confirm action
 
       const url = `${API_URL}/api/event-requests/${requestId}/actions`;
-      const fetchStartTime = Date.now();
-      
-      // Add timeout to fetch - shorter timeout to trigger recovery faster
-      const timeoutMs = 10000; // 10 seconds (reduced from 30s to trigger recovery sooner)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Request timeout after ${timeoutMs}ms`));
-        }, timeoutMs);
-      });
-
-      const fetchPromise = fetch(url, {
+      const fetchOptions: RequestInit = {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+      };
+
+      // Use fetchWithRetry which has proper timeout (30s) and retry logic
+      const res = await fetchWithRetry(url, fetchOptions, {
+        maxRetries: 3,
+        timeout: 30000, // 30 seconds
       });
 
-      let res: Response | undefined;
-      let fetchTimedOut = false;
-      try {
-        res = await Promise.race([fetchPromise, timeoutPromise]);
-      } catch (fetchError: any) {
-        const fetchElapsed = Date.now() - fetchStartTime;
-        const isTimeout = fetchError?.message?.includes("timeout");
-        fetchTimedOut = isTimeout;
-        
-        // If timeout, check if backend actually succeeded before logging error
-        if (isTimeout) {
-          try {
-            // Poll the request status to see if it was updated
-            const maxRetries = 5;
-            const retryDelay = 2000; // 2 seconds between checks
-            
-            for (let retry = 0; retry < maxRetries; retry++) {
-              if (retry > 0) {
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-              }
-              
-              try {
-                const checkToken = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
-                const checkHeaders: any = { "Content-Type": "application/json" };
-                if (checkToken) checkHeaders["Authorization"] = `Bearer ${checkToken}`;
-                
-                const checkUrl = `${API_URL}/api/event-requests/${requestId}`;
-                
-                const checkRes = await fetch(checkUrl, {
-                  headers: checkHeaders,
-                  credentials: "include",
-                });
-                
-                if (checkRes.ok) {
-                  const checkBody = await checkRes.json();
-                  const updatedRequest = checkBody?.data?.request || checkBody?.data || checkBody?.request || checkBody;
-                  const updatedStatus = updatedRequest?.status || updatedRequest?.Status;
-                  const originalStatus = reqObj?.status || reqObj?.Status;
-                  
-                  // For confirm action: check if status changed from review-rescheduled to approved
-                  // or any status change that indicates success
-                  const isApproved = updatedStatus === 'approved' || updatedStatus === 'APPROVED';
-                  const wasReviewRescheduled = originalStatus === 'review-rescheduled' || originalStatus === 'REVIEW_RESCHEDULED' || 
-                                               (originalStatus?.includes('rescheduled') && originalStatus?.includes('review'));
-                  const statusChanged = originalStatus !== updatedStatus;
-                  
-                  // If status changed to approved, or changed from review-rescheduled to approved, backend succeeded!
-                  if (isApproved || 
-                      (wasReviewRescheduled && isApproved) ||
-                      (statusChanged && (updatedStatus?.includes('approv') || updatedStatus?.includes('Approv')))) {
-                    // Treat as success - continue to refresh
-                    fetchTimedOut = false;
-                    // Create a mock successful response
-                    res = {
-                      ok: true,
-                      status: 200,
-                      statusText: 'OK',
-                      json: async () => ({
-                        success: true,
-                        message: 'Request confirmed successfully (recovered from timeout)',
-                        data: { request: updatedRequest }
-                      }),
-                    } as Response;
-                    break;
-                  }
-                }
-              } catch (checkError: any) {
-                // Continue to next retry
-              }
-            }
-            
-            if (fetchTimedOut) {
-              console.error("[CampaignPage] Fetch timeout and recovery failed:", fetchError?.message);
-              throw fetchError; // Re-throw original timeout error
-            }
-          } catch (recoveryError: any) {
-            console.error("[CampaignPage] Fetch timeout and recovery attempt failed:", {
-              fetchError: fetchError?.message,
-              recoveryError: recoveryError?.message,
-            });
-            throw fetchError; // Re-throw original timeout error
-          }
-        } else {
-          console.error("[CampaignPage] Fetch error:", fetchError?.message);
-          throw fetchError;
-        }
-      }
-
-      if (!res) {
-        throw new Error("No response received");
-      }
-
-      let resp: any;
-      try {
-        resp = await res.json();
-      } catch (parseError: any) {
-        console.error("[CampaignPage] JSON parse error:", parseError);
-        throw new Error(`Failed to parse response: ${parseError.message}`);
-      }
-
       if (!res.ok) {
+        const resp = await res.json().catch(() => ({}));
         const errorMsg = resp.message || resp.errors?.join(", ") || "Failed to confirm request";
-        console.error("[CampaignPage] Response not OK:", errorMsg);
         throw new Error(errorMsg);
       }
 
-      // Invalidate cache and refresh requests list (immediate, synchronous)
+      const resp = await res.json();
+
+      // Invalidate cache and refresh requests list
       invalidateCache(/event-requests/);
       
-      // Clear permission cache for this request's event (immediate, synchronous)
+      // Clear permission cache for this request's event
       const eventId = reqObj?.Event_ID || reqObj?.eventId || reqObj?.event?.Event_ID || reqObj?.event?.EventId;
       if (eventId) {
         clearPermissionCache(String(eventId));
       } else {
-        // Clear all permission cache if eventId not available
         clearPermissionCache();
       }
       
-      try {
-        await fetchRequests();
-        
-        // Dispatch custom event to force EventCard components to check for updates
-        // Reduced delay for faster UI updates
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        try {
-          window.dispatchEvent(
-            new CustomEvent("unite:force-refresh-requests", { 
-              detail: { 
-                requestId,
-                expectedStatus: 'approved',
-                originalStatus: reqObj?.status || reqObj?.Status,
-                forceRefresh: true,
-              } 
-            })
-          );
-        } catch (eventError: any) {
-          // Failed to dispatch event
-        }
-      } catch (refreshError: any) {
-        console.error("[CampaignPage] fetchRequests() error:", refreshError?.message);
-        // Don't throw - we still want to return success even if refresh fails
-      }
+      // Refresh requests list and dispatch event
+      await fetchRequests();
       
-      // Reduced delay for faster state propagation
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Dispatch single refresh event
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("unite:requests-changed", { 
+            detail: { 
+              requestId,
+              action: "confirm",
+              forceRefresh: true,
+            } 
+          })
+        );
+      }
 
       return resp;
     } catch (err: any) {
@@ -1652,160 +1546,52 @@ export default function CampaignPage() {
       };
 
       const url = `${API_URL}/api/event-requests/${requestId}/actions`;
-      const fetchStartTime = Date.now();
-      
-      // Add timeout to fetch - shorter timeout to trigger recovery faster
-      const timeoutMs = 10000; // 10 seconds (reduced from 30s to trigger recovery sooner)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Request timeout after ${timeoutMs}ms`));
-        }, timeoutMs);
-      });
-
-      const fetchPromise = fetch(url, {
+      const fetchOptions: RequestInit = {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+      };
+
+      // Use fetchWithRetry which has proper timeout (30s) and retry logic
+      const res = await fetchWithRetry(url, fetchOptions, {
+        maxRetries: 3,
+        timeout: 30000, // 30 seconds
       });
 
-      let res: Response | undefined;
-      let fetchTimedOut = false;
-      try {
-        res = await Promise.race([fetchPromise, timeoutPromise]);
-      } catch (fetchError: any) {
-        const fetchElapsed = Date.now() - fetchStartTime;
-        const isTimeout = fetchError?.message?.includes("timeout");
-        fetchTimedOut = isTimeout;
-        
-        // If timeout, check if backend actually succeeded before logging error
-        if (isTimeout) {
-          try {
-            // Poll the request status to see if it was updated
-            const maxRetries = 5;
-            const retryDelay = 2000; // 2 seconds between checks
-            
-            for (let retry = 0; retry < maxRetries; retry++) {
-              if (retry > 0) {
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-              }
-              
-              try {
-                const checkToken = localStorage.getItem("unite_token") || sessionStorage.getItem("unite_token");
-                const checkHeaders: any = { "Content-Type": "application/json" };
-                if (checkToken) checkHeaders["Authorization"] = `Bearer ${checkToken}`;
-                
-                const checkUrl = `${API_URL}/api/event-requests/${requestId}`;
-                
-                const checkRes = await fetch(checkUrl, {
-                  headers: checkHeaders,
-                  credentials: "include",
-                });
-                
-                if (checkRes.ok) {
-                  const checkBody = await checkRes.json();
-                  const updatedRequest = checkBody?.data?.request || checkBody?.data || checkBody?.request || checkBody;
-                  const updatedStatus = updatedRequest?.status || updatedRequest?.Status;
-                  const originalStatus = reqObj?.status || reqObj?.Status;
-                  
-                  // If status changed to rejected, backend succeeded!
-                  if (updatedStatus === 'rejected' || updatedStatus === 'REJECTED' || 
-                      (originalStatus !== updatedStatus && (updatedStatus?.includes('reject') || updatedStatus?.includes('Reject')))) {
-                    // Treat as success - continue to refresh
-                    fetchTimedOut = false;
-                    // Create a mock successful response
-                    res = {
-                      ok: true,
-                      status: 200,
-                      statusText: 'OK',
-                      json: async () => ({
-                        success: true,
-                        message: 'Request rejected successfully (recovered from timeout)',
-                        data: { request: updatedRequest }
-                      }),
-                    } as Response;
-                    break;
-                  }
-                }
-              } catch (checkError: any) {
-                // Continue to next retry
-              }
-            }
-            
-            if (fetchTimedOut) {
-              console.error("[CampaignPage] Fetch timeout and recovery failed:", fetchError?.message);
-              throw fetchError; // Re-throw original timeout error
-            }
-          } catch (recoveryError: any) {
-            console.error("[CampaignPage] Fetch timeout and recovery attempt failed:", {
-              fetchError: fetchError?.message,
-              recoveryError: recoveryError?.message,
-            });
-            throw fetchError; // Re-throw original timeout error
-          }
-        } else {
-          console.error("[CampaignPage] Fetch error:", fetchError?.message);
-          throw fetchError;
-        }
-      }
-
-      if (!res) {
-        throw new Error("No response received");
-      }
-
-      let resp: any;
-      try {
-        resp = await res.json();
-      } catch (parseError: any) {
-        console.error("[CampaignPage] JSON parse error:", parseError);
-        throw new Error(`Failed to parse response: ${parseError.message}`);
-      }
-
       if (!res.ok) {
+        const resp = await res.json().catch(() => ({}));
         const errorMsg = resp.message || resp.errors?.join(", ") || "Failed to reject request";
-        console.error("[CampaignPage] Response not OK:", errorMsg);
         throw new Error(errorMsg);
       }
 
-      // Invalidate cache and refresh requests list (immediate, synchronous)
+      const resp = await res.json();
+
+      // Invalidate cache and refresh requests list
       invalidateCache(/event-requests/);
       
-      // Clear permission cache for this request's event (immediate, synchronous)
+      // Clear permission cache for this request's event
       const eventId = reqObj?.Event_ID || reqObj?.eventId || reqObj?.event?.Event_ID || reqObj?.event?.EventId;
       if (eventId) {
         clearPermissionCache(String(eventId));
       } else {
-        // Clear all permission cache if eventId not available
         clearPermissionCache();
       }
       
-      try {
-        await fetchRequests();
-        
-        // Dispatch custom event to force EventCard components to check for updates
-        // Reduced delay for faster UI updates
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        try {
-          window.dispatchEvent(
-            new CustomEvent("unite:force-refresh-requests", { 
-              detail: { 
-                requestId,
-                expectedStatus: 'rejected',
-                originalStatus: reqObj?.status || reqObj?.Status,
-                forceRefresh: true,
-              } 
-            })
-          );
-        } catch (eventError: any) {
-          // Failed to dispatch event
-        }
-      } catch (refreshError: any) {
-        console.error("[CampaignPage] fetchRequests() error:", refreshError?.message);
-        // Don't throw - we still want to return success even if refresh fails
-      }
+      // Refresh requests list and dispatch event
+      await fetchRequests();
       
-      // Reduced delay for faster state propagation
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Dispatch single refresh event
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("unite:requests-changed", { 
+            detail: { 
+              requestId,
+              action: "reject",
+              forceRefresh: true,
+            } 
+          })
+        );
+      }
 
       return resp;
     } catch (err: any) {
@@ -1925,15 +1711,20 @@ export default function CampaignPage() {
     return "Pending";
   };
 
-  const filteredRequests = requests;
+  // Memoize filtered requests (currently just requests, but ready for client-side filtering if needed)
+  const filteredRequests = useMemo(() => requests, [requests]);
 
   // Client-side pagination calculations
   // When server returns paged results, use server's total count; otherwise
   // base totals on the client-filtered list.
-  const totalRequests = isServerPaged
-    ? totalRequestsCount
-    : filteredRequests.length;
-  const totalPages = Math.max(1, Math.ceil(totalRequests / pageSize));
+  const totalRequests = useMemo(() => {
+    return isServerPaged ? totalRequestsCount : filteredRequests.length;
+  }, [isServerPaged, totalRequestsCount, filteredRequests.length]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(totalRequests / pageSize));
+  }, [totalRequests, pageSize]);
+
   const paginatedRequests = useMemo(() => {
     if (isServerPaged) return filteredRequests; // server provided a page (we still apply the client filter to be safe)
     const startIndex = (currentPage - 1) * pageSize;
@@ -2271,7 +2062,13 @@ export default function CampaignPage() {
           setEditModalOpen(false);
           setEditRequest(null);
         }}
-        onSaved={async () => {
+        onSaved={async (requestId?: string, updateData?: any) => {
+          // Optimistically update the local state immediately
+          if (requestId && updateData) {
+            optimisticallyUpdateRequest(requestId, updateData);
+          }
+          
+          // Invalidate cache and fetch fresh data from server
           invalidateCache(/event-requests/);
           await fetchRequests({ forceRefresh: true });
         }}

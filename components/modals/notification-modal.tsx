@@ -206,10 +206,12 @@ export default function NotificationModal({
       setNotifications((prev) => {
         const updated = prev.map((n) => ({ ...n, IsRead: true, isRead: true, is_read: true }));
         
-        // Dispatch unread count event (all marked as read = 0 unread)
-        window.dispatchEvent(
-          new CustomEvent("unite:notifications-read", { detail: { unread: 0 } }),
-        );
+        // Dispatch unread count event after render cycle completes (all marked as read = 0 unread)
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("unite:notifications-read", { detail: { unread: 0 } }),
+          );
+        }, 0);
         
         return updated;
       });
@@ -254,12 +256,14 @@ export default function NotificationModal({
           (x) => !(x.IsRead || x.isRead || x.is_read),
         ).length;
 
-        // Dispatch unread count event
-        window.dispatchEvent(
-          new CustomEvent("unite:notifications-read", {
-            detail: { unread: unreadCount },
-          }),
-        );
+        // Dispatch unread count event after render cycle completes
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("unite:notifications-read", {
+              detail: { unread: unreadCount },
+            }),
+          );
+        }, 0);
 
         return updated;
       });

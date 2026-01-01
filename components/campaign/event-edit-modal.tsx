@@ -17,7 +17,7 @@ interface EditEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   request: any | null;
-  onSaved?: () => void;
+  onSaved?: (requestId?: string, updateData?: any) => void | Promise<void>;
 }
 
 /**
@@ -418,9 +418,10 @@ export default function EditEventModal({
         });
 
         // Start parent refresh IMMEDIATELY so data is ready when loading animation ends
+        // Pass requestId and updateData for optimistic updates
         if (onSaved) {
           try {
-            const result = onSaved() as any;
+            const result = onSaved(requestId, updateData) as any;
             if (result && result instanceof Promise) {
               result.catch((err: any) => console.error("[EditEventModal] Error in onSaved:", err));
             }
@@ -461,7 +462,7 @@ export default function EditEventModal({
           }
           if (onSaved) {
             try {
-              const result = onSaved() as any;
+              const result = onSaved(requestId, updateData) as any;
               if (result && result instanceof Promise) {
                 result.catch((err: any) => console.error("[EditEventModal] Backup refresh error:", err));
               }
@@ -547,9 +548,10 @@ export default function EditEventModal({
         });
 
         // Start parent refresh IMMEDIATELY so data is ready when loading animation ends
+        // Pass requestId and updateData (body) for optimistic updates
         if (onSaved) {
           try {
-            const result = onSaved() as any;
+            const result = onSaved(requestId, body) as any;
             if (result && result instanceof Promise) {
               result.catch((err: any) => console.error("[EditEventModal] Error in onSaved (major changes):", err));
             }
@@ -590,7 +592,7 @@ export default function EditEventModal({
           }
           if (onSaved) {
             try {
-              const result = onSaved() as any;
+              const result = onSaved(requestId, body) as any;
               if (result && result instanceof Promise) {
                 result.catch((err: any) => console.error("[EditEventModal] Backup refresh error (major changes):", err));
               }
