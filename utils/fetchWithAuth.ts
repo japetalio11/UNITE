@@ -82,6 +82,11 @@ export async function fetchJsonWithAuth(
       // Don't log 401 errors when user is not authenticated (no token)
       // This is expected when accessing public pages without login
       // Only log if user had a token (indicating a real auth failure)
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("unite_token") ||
+            sessionStorage.getItem("unite_token")
+          : null;
       const hasToken = token ? true : false;
       
       if (hasToken) {
