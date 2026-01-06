@@ -1110,15 +1110,14 @@ export default function CalendarPage(props: any) {
       const headers: any = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // Use /api/me/events if authenticated, otherwise /api/events/all
-      const eventsUrl = token
-        ? `${API_BASE}/api/me/events?date_from=${encodeURIComponent(monthStart.toISOString())}&date_to=${encodeURIComponent(monthEnd.toISOString())}`
-        : `${API_BASE}/api/events/all?date_from=${encodeURIComponent(monthStart.toISOString())}&date_to=${encodeURIComponent(monthEnd.toISOString())}`;
+      // Always use the calendar-focused endpoint which returns all approved events
+      // (authenticated users still get the same approved events list; permissions
+      // for actions are fetched separately per-event)
+      const eventsUrl = `${API_BASE}/api/events/all?date_from=${encodeURIComponent(
+        monthStart.toISOString(),
+      )}&date_to=${encodeURIComponent(monthEnd.toISOString())}`;
 
-      const eventsResp = await fetch(eventsUrl, {
-        headers,
-        credentials: token ? undefined : "include",
-      });
+      const eventsResp = await fetch(eventsUrl, { headers, credentials: "include" });
       const eventsJson = await eventsResp.json();
 
       if (eventsResp.ok && eventsJson.success && Array.isArray(eventsJson.data)) {
