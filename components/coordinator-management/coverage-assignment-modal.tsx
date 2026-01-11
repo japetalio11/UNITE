@@ -12,9 +12,10 @@ import {
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Checkbox } from "@heroui/checkbox";
-import { useLocations } from "@/hooks/useLocations";
+import { useLocationsOptimized } from "@/hooks/useLocationsOptimized";
 import { listCoverageAreas, createCoverageArea } from "@/services/coordinatorService";
 import type { CoverageArea, Location } from "@/types/coordinator.types";
+import LocationTreeSelector from "./location-tree-selector";
 
 interface CoverageAssignmentModalProps {
   isOpen: boolean;
@@ -33,7 +34,16 @@ export default function CoverageAssignmentModal({
   initialCoverageAreaIds = [],
   hideBarangays = false,
 }: CoverageAssignmentModalProps) {
-  const { flat: locations, loading: locationsLoading } = useLocations(isOpen);
+  // Use OPTIMIZED location hook for faster loading
+  const { 
+    provinces, 
+    tree, 
+    flat: locations, 
+    loading: locationsLoading,
+    expandNode,
+    collapseNode,
+  } = useLocationsOptimized(isOpen);
+  
   const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(
     new Set(initialLocationIds)
   );
@@ -43,6 +53,29 @@ export default function CoverageAssignmentModal({
   const [suggestedCoverageArea, setSuggestedCoverageArea] = useState<CoverageArea | null>(null);
   const [createNewCoverageArea, setCreateNewCoverageArea] = useState(false);
   const [newCoverageAreaName, setNewCoverageAreaName] = useState("");
+  const [isExpandingProvinces, setIsExpandingProvinces] = useState(false);
+
+  // Auto-expand all provinces on initial load to show full tree (province → district → municipality)
+  // CRITICAL: Only expand provinces that have NEVER been loaded (!hasChildren)
+  // Do NOT re-expand provinces the user intentionally collapsed
+  useEffect(() => {
+    if (isOpen && provinces.length > 0 && !isExpandingProvinces && tree.length === provinces.length) {
+      // Only auto-expand provinces that have NO children loaded yet
+      // This prevents re-expanding collapsed provinces
+      const notYetLoadedProvinces = tree.filter(p => !p.hasChildren);
+      
+      if (notYetLoadedProvinces.length > 0) {
+        setIsExpandingProvinces(true);
+        
+        // Expand all provinces in parallel - this loads the full tree with all descendants expanded
+        Promise.all(
+          notYetLoadedProvinces.map(province => expandNode(province._id, 'full'))
+        ).finally(() => {
+          setIsExpandingProvinces(false);
+        });
+      }
+    }
+  }, [isOpen, provinces, tree, expandNode, isExpandingProvinces]);
 
   // Build hierarchical structure: Districts with nested municipalities
   const hierarchicalLocations = useMemo(() => {
@@ -512,176 +545,24 @@ export default function CoverageAssignmentModal({
                 </div>
               )}
 
-              {/* Location Selection - Hierarchical Structure */}
-              <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                {/* Loading State */}
-                {locationsLoading ? (
-                  <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                    <div className="relative">
-                      <div className="w-12 h-12 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin"></div>
-                    </div>
-                    <p className="text-sm text-gray-600">Loading locations...</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Show Districts with nested Municipalities */}
-                    {filteredHierarchicalLocations.districts.length > 0 && (
-                  <div className="space-y-3">
-                    {filteredHierarchicalLocations.districts.map((district) => {
-                      const districtSelected = selectedLocationIds.has(district._id);
-                      const allMunicipalitiesSelected = district.children.length > 0 && 
-                        district.children.every((mun) => selectedLocationIds.has(mun._id));
-                      const someMunicipalitiesSelected = district.children.some((mun) => 
-                        selectedLocationIds.has(mun._id)
-                      );
-
-                      return (
-                        <div key={district._id} className="space-y-1 border border-gray-200 rounded-lg p-3 bg-gray-50">
-                          {/* District */}
-                          <div className="flex items-center gap-2 py-1">
-                            <Checkbox
-                              isSelected={districtSelected}
-                              onValueChange={() => handleToggleLocation(district._id)}
-                              size="sm"
-                            >
-                              <span className="text-sm font-semibold text-gray-900">
-                                {district.name}
-                              </span>
-                            </Checkbox>
-                          </div>
-
-                          {/* Municipalities nested under district */}
-                          {district.children.length > 0 && (
-                            <div className="pl-6 space-y-1 border-l-2 border-gray-300 ml-2">
-                              {district.children.map((municipality) => (
-                                <div
-                                  key={municipality._id}
-                                  className="flex items-center gap-2 py-0.5"
-                                >
-                                  <Checkbox
-                                    isSelected={selectedLocationIds.has(municipality._id)}
-                                    onValueChange={() => handleToggleLocation(municipality._id)}
-                                    size="sm"
-                                  >
-                                    <span className="text-sm text-gray-700">
-                                      {municipality.name}
-                                    </span>
-                                  </Checkbox>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+              {/* Location Selection - OPTIMIZED Tree View */}
+              <div className="space-y-4 max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg p-3">
+                {isExpandingProvinces && (
+                  <div className="text-center py-4 text-sm text-gray-600">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mb-2"></div>
+                    <p>Loading location tree...</p>
                   </div>
                 )}
-
-                {/* Show Provinces with nested Districts and Municipalities */}
-                {filteredHierarchicalLocations.provinces.length > 0 && (
-                  <div className="space-y-3">
-                    {filteredHierarchicalLocations.provinces.map((province) => {
-                      const provinceSelected = isProvinceFullySelected(province);
-                      const provincePartial = isProvincePartiallySelected(province);
-                      
-                      return (
-                        <div key={province._id} className="space-y-2 border border-gray-200 rounded-lg p-3 bg-white">
-                        {/* Province Header with Checkbox */}
-                        <div className="flex items-center gap-2 border-b border-gray-300 pb-2">
-                          <Checkbox
-                            isSelected={provinceSelected}
-                            isIndeterminate={provincePartial}
-                            onValueChange={() => handleToggleProvince(province)}
-                            size="sm"
-                          >
-                            <span className="text-sm font-bold text-gray-900">
-                              {province.name}
-                            </span>
-                          </Checkbox>
-                        </div>
-
-                        {/* Districts under Province */}
-                        {province.children.map((district) => {
-                          const districtSelected = selectedLocationIds.has(district._id);
-                          
-                          return (
-                            <div key={district._id} className="space-y-1 pl-2">
-                              {/* District */}
-                              <div className="flex items-center gap-2 py-1">
-                                <Checkbox
-                                  isSelected={districtSelected}
-                                  onValueChange={() => handleToggleLocation(district._id)}
-                                  size="sm"
-                                >
-                                  <span className="text-sm font-semibold text-gray-900">
-                                    {district.name}
-                                  </span>
-                                </Checkbox>
-                              </div>
-
-                              {/* Municipalities nested under district */}
-                              {district.children.length > 0 && (
-                                <div className="pl-6 space-y-1 border-l-2 border-gray-300 ml-2">
-                                  {district.children.map((municipality) => (
-                                    <div
-                                      key={municipality._id}
-                                      className="flex items-center gap-2 py-0.5"
-                                    >
-                                      <Checkbox
-                                        isSelected={selectedLocationIds.has(municipality._id)}
-                                        onValueChange={() => handleToggleLocation(municipality._id)}
-                                        size="sm"
-                                      >
-                                        <span className="text-sm text-gray-700">
-                                          {municipality.name}
-                                        </span>
-                                      </Checkbox>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Standalone locations (not part of hierarchy) */}
-                {filteredHierarchicalLocations.standaloneLocations.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                      <h3 className="text-sm font-semibold text-gray-700">Other Locations</h3>
-                    </div>
-                    <div className="space-y-1 pl-2">
-                      {filteredHierarchicalLocations.standaloneLocations.map((location) => (
-                        <div
-                          key={location._id}
-                          className="flex items-center gap-2 py-1 hover:bg-gray-50 rounded px-2"
-                        >
-                          <Checkbox
-                            isSelected={selectedLocationIds.has(location._id)}
-                            onValueChange={() => handleToggleLocation(location._id)}
-                            size="sm"
-                          >
-                            <span className="text-sm text-gray-700">
-                              {location.name}
-                              {location.code && (
-                                <span className="text-xs text-gray-400 ml-1">
-                                  ({location.code})
-                                </span>
-                              )}
-                            </span>
-                          </Checkbox>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                  </>
-                )}
+                <LocationTreeSelector
+                  tree={tree}
+                  selectedIds={selectedLocationIds}
+                  onSelectionChange={setSelectedLocationIds}
+                  onExpandNode={(nodeId) => expandNode(nodeId, 'full')}
+                  onCollapseNode={collapseNode}
+                  searchQuery={searchQuery}
+                  hideBarangays={hideBarangays}
+                  loading={locationsLoading && !isExpandingProvinces}
+                />
               </div>
 
               {/* Coverage Area Suggestion */}
